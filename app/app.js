@@ -1,9 +1,10 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
 const path = require('path');
 const fs = require('fs')
-const { createTrayWindow, setupTray, setupTrayMenu } = require('./tray.js');
+const { setupTray, createTrayWindow } = require('./tray.js');
 
-let mainWindow;
+let overlayWindow;
+let trayWindow;
 
 
 function getScreenshotFromSource(source, areaRect) {
@@ -30,9 +31,9 @@ function findCorrectScreen(sources, targetDisplay) {
 }
 
 
-async function saveScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
-  if (mainWindow) {
-    mainWindow.close();
+async function captureScreenshot(areaRect, activeScreen) {
+  if (overlayWindow) {
+    overlayWindow.close();
   }
 
   const fullsize = activeScreen.bounds;
@@ -42,17 +43,31 @@ async function saveScreenshot(_event, areaRect, activeScreen = screen.getPrimary
   });
 
   const displaySource = findCorrectScreen(sources, activeScreen);
-  
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
 
+  return screenshot;
+}
+
+async function saveScreenshot(screenshot) {
   const { source, buffer } = screenshot;
-  const filename = './.screenshots/' + source.name + '.' + new Date().toISOString().replace(/\:/g, '') + '.jpg';
+  const filename = (
+    './.screenshots/' +
+    source.name +
+    '.' +
+    new Date().toISOString().replace(/\:/g, '') +
+    '.jpg'
+  );
   fs.writeFileSync(filename, buffer);
   console.log('Saved screenshot to file \'' + filename + '\'');
 }
 
+async function quickScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
+  const screenshot = await captureScreenshot(areaRect, activeScreen);
+  await saveScreenshot(screenshot);
+}
 
-const createWindow = () => {
+
+const createOverlayWindow = () => {
   const win = new BrowserWindow({
     title: "ManuScrape Overlay",
     // Remove the default frame around the window
@@ -65,7 +80,6 @@ const createWindow = () => {
     // (It will live in the system tray!)
     skipTaskbar: true,
     hasShadow: false,
-    // Don't show the window until the user is in a call.
     show: true,
     resizable: false,
     webPreferences: {
@@ -82,7 +96,7 @@ const createWindow = () => {
 
 
 app.whenReady().then(() => {
-  ipcMain.on('save-screenshot', saveScreenshot)
+  ipcMain.on('quick-screenshot', quickScreenshot)
 
   globalShortcut.register('Alt+Q', () => {
     console.log('Quitting ManuScrape...');
@@ -91,21 +105,20 @@ app.whenReady().then(() => {
 
 
   globalShortcut.register('Alt+N', () => {
-    console.log('Creating new screenshot...');
-    mainwindow = createWindow();
+    console.log('Opening screenshot overlay...');
+    overlayWindow = createOverlayWindow();
   })
-  const trayWindow = createTrayWindow()
+  trayWindow = createTrayWindow();
 
-  trayWindow.on("blur", () => {
-    trayWindow.hide();
-  });
-  trayWindow.on("show", () => {
-    trayWindow.focus();
-  });
+  // trayWindow.on("blur", () => {
+  //   trayWindow.hide();
+  // });
+  // trayWindow.on("show", () => {
+  //   trayWindow.focus();
+  // });
 
 
-  setupTray(trayWindow);
-  setupTrayMenu();
+  setupTray();
 
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()

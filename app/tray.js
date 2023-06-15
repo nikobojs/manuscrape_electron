@@ -1,21 +1,17 @@
-const { app, BrowserWindow, Tray, MenuItem, Menu } = require('electron');
+const { app, Tray, BrowserWindow, MenuItem, Menu } = require('electron');
 const path = require('path');
 
+let trayWindow;
+
 function createTrayWindow() {
-  // Create the window that opens on app start
-  // and tray click
   trayWindow = new BrowserWindow({
-    title: "Daily",
-    //webPreferences: {
-    //  preload: path.join(__dirname, "preloadTray.js"),
-    //},
-    width: 290,
-    height: 300,
+    title: "ManuScrape",
+    width: 0,
+    height: 0,
     show: false,
     frame: false,
     autoHideMenuBar: true,
     setVisibleOnAllWorkspaces: true,
-    transparent: true,
     skipTaskbar: true,
     hasShadow: false,
   });
@@ -24,7 +20,7 @@ function createTrayWindow() {
 }
 
 
-function setupTrayMenu() {
+function _generateContextMenu() {
   const menuItems = [];
   const itemMarkArea = new MenuItem({
     label: "Marker omraade",
@@ -46,11 +42,11 @@ function setupTrayMenu() {
   menuItems.push(itemExit);
 
   const contextMenu = Menu.buildFromTemplate(menuItems);
-  tray.contextMenu = contextMenu;
+  return contextMenu;
 }
 
 // setupTray creates the system tray where our application will live.
-function setupTray(trayWindow) {
+function setupTray() {
   if (app.dock) {
     app.dock.hide();
   }
@@ -58,24 +54,24 @@ function setupTray(trayWindow) {
   tray = new Tray(path.join(__dirname, "../assets/tray.png"));
 
   tray.setToolTip("ManuScrape");
+  tray.setContextMenu(_generateContextMenu());
   tray.setIgnoreDoubleClickEvents(true);
-  tray.on("click", function (e) {
-    if (trayWindow.isVisible()) {
-      trayWindow.hide();
-      return;
-    }
-    trayWindow.show();
-  });
-  tray.on("right-click", () => {
-    tray.popUpContextMenu(tray.contextMenu);
+
+  tray.on("click", () => {
+    tray.popUpContextMenu();
+    console.log('left click')
   });
 
-  setupTrayMenu(false);
+  tray.on("right-click", () => {
+    tray.popUpContextMenu();
+    console.log('right click')
+  });
+
+  return tray;
 }
 
 
 module.exports = {
-  createTrayWindow,
   setupTray,
-  setupTrayMenu,
+  createTrayWindow,
 };
