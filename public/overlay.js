@@ -6,16 +6,15 @@ function setup() {
 }
 
 
-let square = [0,0,0,0];
+// x, y, w, h
+let area = [0,0,0,0];
 let dragging = false;
 
 
 function draw() {
   if (dragging) {
     clear();
-    console.log('dragging square!')
-    console.log(square)
-    rect(...square);
+    rect(...area);
   }
 }
 
@@ -23,23 +22,41 @@ function draw() {
 function mousePressed() {
   console.log('mouse pressed event:')
   console.log(mouseX, mouseY)
-  square[0] = mouseX;
-  square[1] = mouseY;
-  square[2] = 0;
-  square[3] = 0;
+  area[0] = mouseX;
+  area[1] = mouseY;
+  area[2] = 0;
+  area[3] = 0;
   dragging = true;
 }
 
 function mouseDragged() {
-   square[2] = (mouseX - square[0]);
-   square[3] = (mouseY - square[1]);
+   area[2] = (mouseX - area[0]);
+   area[3] = (mouseY - area[1]);
 }
 
 function mouseReleased() {
   console.log('mouse released event:')
   console.log(mouseX, mouseY)
   dragging = false;
-  window.electronAPI.saveScreenshot(square);
+
+  if (area[2] < 0) {
+     area[2] = Math.abs(area[2])
+     area[0] -= area[2]
+  }
+
+  if (area[3] < 0) {
+    area[3] = Math.abs(area[3])
+    area[1] -= area[3]
+  }
+
+  const rect = {
+    x: area[0],
+    y: area[1],
+    width: area[2],
+    height: area[3],
+  }
+
+  window.electronAPI.saveScreenshot(rect);
 }
 
 function windowResized() {

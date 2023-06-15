@@ -1,69 +1,54 @@
-const { app, BrowserWindow, Tray, MenuItem, Menu, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
 const path = require('path');
 const fs = require('fs')
+const { createTrayWindow, setupTray, setupTrayMenu } = require('./tray.js');
+
 let mainWindow;
 
-function saveScreenshot(event, square, activeScreen = screen.getPrimaryDisplay()) {
+
+function getScreenshotFromSource(source, areaRect) {
+  const image = source.thumbnail.crop(areaRect);
+  const size = image.getSize();
+  const buffer = image.toJPEG(100);
+  const sizeKb = Math.floor(buffer.byteLength / 1024);
+
+  const screenshot = {
+    image,
+    size,
+    sizeKb,
+    buffer,
+    source
+  };
+
+  console.log('Captured screenshot: len=' + sizeKb + 'kb, size='+size.width+'x'+size.height);
+
+  return screenshot;
+}
+
+function findCorrectScreen(sources, targetDisplay) {
+  return sources.find((s) => s.display_id == targetDisplay.id)
+}
+
+
+async function saveScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
   if (mainWindow) {
     mainWindow.close();
   }
 
   const fullsize = activeScreen.bounds;
 
-  if (square[2] < 0) {
-     square[2] = Math.abs(square[2])
-     square[0] -= square[2]
-  }
-
-  if (square[3] < 0) {
-    square[3] = Math.abs(square[3])
-    square[1] -= square[3]
-  }
-
-
-  const squareRect = {
-    x: square[0],
-    y: square[1],
-    width: square[2],
-    height: square[3],
-  }
-
-  desktopCapturer.getSources({
+  const sources = await desktopCapturer.getSources({
     types: ['screen'], thumbnailSize: fullsize
-  }).then(sources => {
-    const screenshots = [];
-    for (let s in sources) {
-      const source = sources[s];
-      if (source.display_id != activeScreen.id) {
-        continue;
-      }
-      const image = source.thumbnail.crop(squareRect);
-      const size = image.getSize();
-      const buffer = image.toJPEG(100);
-
-      screenshots.push({
-        image,
-        size,
-        buffer,
-        source
-      });
-
-      const kilobytes = Math.floor(buffer.byteLength / 1024);
-
-      console.log('Captured screenshot: len=' + kilobytes + 'kb, size='+size.width+'x'+size.height);
-    }
-
-    return Promise.resolve(screenshots);
-  }).then((screenshots) => {
-    for (let screenshot of screenshots) {
-      const { source, buffer } = screenshot;
-      const filename = './.screenshots/' + source.name + '.' + new Date().toISOString().replace(/\:/g, '') + '.jpg';
-      fs.writeFileSync(filename, buffer);
-      console.log('Saved screenshot to file \'' + filename + '\'');
-    }
   });
 
+  const displaySource = findCorrectScreen(sources, activeScreen);
+  
+  const screenshot = getScreenshotFromSource(displaySource, areaRect);
 
+  const { source, buffer } = screenshot;
+  const filename = './.screenshots/' + source.name + '.' + new Date().toISOString().replace(/\:/g, '') + '.jpg';
+  fs.writeFileSync(filename, buffer);
+  console.log('Saved screenshot to file \'' + filename + '\'');
 }
 
 
@@ -82,6 +67,7 @@ const createWindow = () => {
     hasShadow: false,
     // Don't show the window until the user is in a call.
     show: true,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, '../preloads/saveScreenshotIpc.js')
     }
@@ -92,83 +78,7 @@ const createWindow = () => {
   win.loadFile('public/overlay.html');
 
   return win;
-
 }
-
-
-
-function createTrayWindow() {
-  // Create the window that opens on app start
-  // and tray click
-  trayWindow = new BrowserWindow({
-    title: "Daily",
-    //webPreferences: {
-    //  preload: path.join(__dirname, "preloadTray.js"),
-    //},
-    width: 290,
-    height: 300,
-    show: false,
-    frame: false,
-    autoHideMenuBar: true,
-    setVisibleOnAllWorkspaces: true,
-    transparent: true,
-    skipTaskbar: true,
-    hasShadow: false,
-  });
-  trayWindow.loadFile("public/tray.html");
-  return trayWindow;
-}
-
-
-function setupTrayMenu() {
-  const menuItems = [];
-  const itemMarkArea = new MenuItem({
-    label: "Marker omraade",
-    type: "normal",
-    click() {
-      createWindow();
-    },
-  });
-
-  const itemExit = new MenuItem({
-    label: "Quit",
-    type: "normal",
-    click() {
-      app.quit();
-    },
-  });
-
-  menuItems.push(itemMarkArea);
-  menuItems.push(itemExit);
-
-  const contextMenu = Menu.buildFromTemplate(menuItems);
-  tray.contextMenu = contextMenu;
-}
-
-// setupTray creates the system tray where our application will live.
-function setupTray(trayWindow) {
-  if (app.dock) {
-    app.dock.hide();
-  }
-
-  tray = new Tray(path.join(__dirname, "../assets/tray.png"));
-
-  tray.setToolTip("ManuScrape");
-  tray.setIgnoreDoubleClickEvents(true);
-  tray.on("click", function (e) {
-    if (trayWindow.isVisible()) {
-      trayWindow.hide();
-      return;
-    }
-    trayWindow.show();
-  });
-  tray.on("right-click", () => {
-    tray.popUpContextMenu(tray.contextMenu);
-  });
-
-  setupTrayMenu(false);
-}
-
 
 
 app.whenReady().then(() => {
@@ -200,5 +110,4 @@ app.whenReady().then(() => {
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
   });
-
-})
+});
