@@ -15,7 +15,7 @@ function createTrayWindow() {
     skipTaskbar: true,
     hasShadow: false,
   });
-  trayWindow.loadFile("public/tray.html");
+  trayWindow.loadFile('renderers/trayWindow.html');
   return trayWindow;
 }
 

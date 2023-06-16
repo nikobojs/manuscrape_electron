@@ -83,13 +83,13 @@ const createOverlayWindow = () => {
     show: true,
     resizable: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preloads/saveScreenshotIpc.js')
+      preload: path.join(__dirname, '../preloads/overlay.js')
     }
   })
-  mainWindow = win;
-  win.webContents.openDevTools();
 
-  win.loadFile('public/overlay.html');
+  // win.webContents.openDevTools();
+
+  win.loadFile('renderers/overlayWindow.html');
 
   return win;
 }

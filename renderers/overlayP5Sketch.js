@@ -20,7 +20,7 @@ function draw() {
 
 
 function mousePressed() {
-  console.log('mouse pressed event:')
+  console.log('mouse pressed event:', window.electronAPI.node)
   console.log(mouseX, mouseY)
   area[0] = mouseX;
   area[1] = mouseY;
