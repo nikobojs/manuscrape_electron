@@ -1,10 +1,13 @@
-const { app, Tray, BrowserWindow, MenuItem, Menu } = require('electron');
-const path = require('path');
-const { createOverlayWindow } = require('./overlay');
+import { app, Tray, BrowserWindow, MenuItem, Menu } from 'electron';
+import * as path from 'path';
+import { createOverlayWindow } from './overlay';
+import { ipcMain } from 'electron/main';
+import { quickScreenshot, scrollScreenshot } from './screenshots';
+
 
 let trayWindow;
 
-function createTrayWindow() {
+export function createTrayWindow() {
   trayWindow = new BrowserWindow({
     title: "ManuScrape",
     width: 0,
@@ -12,7 +15,7 @@ function createTrayWindow() {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    setVisibleOnAllWorkspaces: true,
+    darkTheme: true,
     skipTaskbar: true,
     hasShadow: false,
   });
@@ -22,12 +25,13 @@ function createTrayWindow() {
 
 
 function _generateContextMenu() {
-  const menuItems = [];
+  const menuItems = [] as MenuItem[];
   const itemQuickScreenshot = new MenuItem({
     label: "Tag screenshot",
     type: "normal",
     click() {
-      createOverlayWindow('renderers/quickScreenshotWindow.html');
+      ipcMain.once('area-marked', quickScreenshot)
+      createOverlayWindow();
     },
   });
 
@@ -35,7 +39,8 @@ function _generateContextMenu() {
     label: "Tag scroll screenshot",
     type: "normal",
     click() {
-      createOverlayWindow('renderers/scrollScreenshotWindow.html');
+      ipcMain.once('area-marked', scrollScreenshot)
+      createOverlayWindow();
     },
   });
 
@@ -56,12 +61,12 @@ function _generateContextMenu() {
 }
 
 // setupTray creates the system tray where our application will live.
-function setupTray() {
+export function setupTray() {
   if (app.dock) {
     app.dock.hide();
   }
 
-  tray = new Tray(path.join(__dirname, "../assets/tray.png"));
+  const tray = new Tray(path.join(__dirname, "../../assets/tray.png"));
 
   tray.setToolTip("ManuScrape");
   tray.setContextMenu(_generateContextMenu());
@@ -79,9 +84,3 @@ function setupTray() {
 
   return tray;
 }
-
-
-module.exports = {
-  setupTray,
-  createTrayWindow,
-};

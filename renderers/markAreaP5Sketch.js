@@ -56,7 +56,7 @@ function mouseReleased() {
     height: area[3],
   }
 
-  window.electronAPI.quickScreenshot(rect);
+  window.electronAPI.areaMarked(rect);
   window.close();
 }
 

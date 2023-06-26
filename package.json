@@ -2,13 +2,13 @@
   "name": "manuscrape_electron",
   "version": "0.1.0",
   "description": "A system tray app foor capturing scrolling screenshotscd",
-  "main": "app/app.js",
+  "main": "dist/app/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "debug": "electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
-    "start": "electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
-    "package": "electron-forge package",
-    "make": "electron-forge make -- --webrtc-max-cpu-consumption-percentage=100"
+    "debug": "tsc && electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
+    "start": "tsc && electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
+    "package": "tsc && electron-forge package",
+    "make": "tsc && electron-forge make -- --webrtc-max-cpu-consumption-percentage=100"
   },
   "author": "Københavns Universitet",
   "license": "MIT",
@@ -19,7 +19,8 @@
     "@electron-forge/maker-squirrel": "^6.2.1",
     "@electron-forge/maker-zip": "^6.2.1",
     "@electron-forge/plugin-auto-unpack-natives": "^6.2.1",
-    "electron": "25.1.1"
+    "electron": "25.1.1",
+    "typescript": "^5.1.3"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.0"

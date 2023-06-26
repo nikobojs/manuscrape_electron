@@ -1,15 +1,9 @@
-const { app, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
-const fs = require('fs')
-const crypto = require('crypto');
-const { setupTray, createTrayWindow } = require('./tray.js');
-const { createOverlayWindow } = require('./overlay.js');
 
-let trayWindow;
+import { desktopCapturer, screen } from 'electron';
+import * as fs from 'fs'
+import crypto from 'crypto';
 
-app.commandLine.appendSwitch('webrtc-max-cpu-consumption-percentage', '100')
-
-
-function getScreenshotFromSource(source, areaRect) {
+function getScreenshotFromSource(source: Electron.DesktopCapturerSource, areaRect: any) {
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
   const buffer = image.toJPEG(100);
@@ -28,12 +22,19 @@ function getScreenshotFromSource(source, areaRect) {
   return screenshot;
 }
 
-function findCorrectScreen(sources, targetDisplay) {
-  return sources.find((s) => s.display_id == targetDisplay.id)
+function findCapturerSourceByDisplay(
+  sources: Electron.DesktopCapturerSource[],
+  targetDisplay: Electron.Display
+): Electron.DesktopCapturerSource {
+  const screen = sources.find((s) => s.display_id == targetDisplay.id.toString());
+  if (!screen) {
+    throw new Error('Screen was not found')
+  }
+  return screen;
 }
 
 
-async function captureScreenshot(areaRect, activeScreen) {
+async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) {
   const fullsize = activeScreen.bounds;
 
   // TODO: research performance issue
@@ -45,12 +46,12 @@ async function captureScreenshot(areaRect, activeScreen) {
   });
 
 
-  const displaySource = findCorrectScreen(sources, activeScreen);
+  const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
   return screenshot;
 }
 
-async function saveScreenshot(filename, buffer) {
+async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView) {
   const filepath = (
     './.screenshots/' +
     filename +
@@ -62,18 +63,19 @@ async function saveScreenshot(filename, buffer) {
   console.log('Saved screenshot to file \'' + filepath + '\'');
 }
 
-async function quickScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
+
+export async function quickScreenshot(_event: any, areaRect: any, activeScreen = screen.getPrimaryDisplay()) {
   const screenshot = await captureScreenshot(areaRect, activeScreen);
   await saveScreenshot(screenshot.source.name, screenshot.buffer);
 }
 
-function sleepAsync(ms) {
+function sleepAsync(ms: number | undefined) {
   return new Promise((ok) => setTimeout(ok, ms));
 }
 
-async function scrollScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
+export async function scrollScreenshot(_event: any, areaRect: any, activeScreen = screen.getPrimaryDisplay()) {
   console.log('scroll screenshot begin!')
-  const md5sums = [];
+  const md5sums = [] as string[];
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 3;
   const minimumCaptureDelay = 150;
@@ -116,31 +118,3 @@ async function scrollScreenshot(_event, areaRect, activeScreen = screen.getPrima
 
   console.log('DONE');
 }
-
-
-
-app.whenReady().then(() => {
-  // TODO NIKO: convert into one
-  ipcMain.on('quick-screenshot', quickScreenshot)
-  ipcMain.on('scroll-screenshot', scrollScreenshot)
-
-  globalShortcut.register('Alt+Q', () => {
-    console.log('Quitting ManuScrape...');
-    app.exit(0)
-  })
-
-
-  globalShortcut.register('Alt+N', createOverlayWindow)
-  trayWindow = createTrayWindow();
-
-  setupTray();
-
-  app.on('window-all-closed', function () {
-    if (process.platform !== 'darwin') app.quit()
-  });
-
-  app.on('will-quit', () => {
-    globalShortcut.unregisterAll();
-    console.log('bye');
-  })
-});

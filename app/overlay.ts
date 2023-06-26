@@ -1,8 +1,8 @@
 
-const { BrowserWindow } = require('electron');
-const path = require('path');
+import { BrowserWindow } from 'electron';
+import * as path from 'path';
 
-const createOverlayWindow = (renderer) => {
+export const createOverlayWindow = () => {
   console.log('Opening screenshot overlay...');
   const win = new BrowserWindow({
     title: "ManuScrape Overlay",
@@ -17,6 +17,10 @@ const createOverlayWindow = (renderer) => {
     skipTaskbar: true,
     hasShadow: false,
     show: true,
+    minimizable: false,
+    alwaysOnTop: true,
+    closable: false,
+    movable: false,
     resizable: false,
     webPreferences: {
       preload: path.join(__dirname, '../preloads/overlay.js'),
@@ -25,13 +29,10 @@ const createOverlayWindow = (renderer) => {
     },
   })
 
-  // win.webContents.openDevTools();
-
-  win.loadFile(renderer);
+  win.loadFile('renderers/markAreaWindow.html');
+  win.maximize();
+  win.setFullScreen(true);
+  win.focus();
 
   return win;
-}
-
-module.exports = {
-  createOverlayWindow,
 }
