@@ -7,4 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quickScreenshot: (...args) => {
     ipcRenderer.send('quick-screenshot', ...args);
   },
+  scrollScreenshot: (...args) => {
+    ipcRenderer.send('scroll-screenshot', ...args);
+  },
 })

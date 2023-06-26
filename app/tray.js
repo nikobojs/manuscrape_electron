@@ -1,5 +1,6 @@
 const { app, Tray, BrowserWindow, MenuItem, Menu } = require('electron');
 const path = require('path');
+const { createOverlayWindow } = require('./overlay');
 
 let trayWindow;
 
@@ -22,11 +23,19 @@ function createTrayWindow() {
 
 function _generateContextMenu() {
   const menuItems = [];
-  const itemMarkArea = new MenuItem({
-    label: "Marker omraade",
+  const itemQuickScreenshot = new MenuItem({
+    label: "Tag screenshot",
     type: "normal",
     click() {
-      createWindow();
+      createOverlayWindow('renderers/quickScreenshotWindow.html');
+    },
+  });
+
+  const itemScrollScreenshot = new MenuItem({
+    label: "Tag scroll screenshot",
+    type: "normal",
+    click() {
+      createOverlayWindow('renderers/scrollScreenshotWindow.html');
     },
   });
 
@@ -38,7 +47,8 @@ function _generateContextMenu() {
     },
   });
 
-  menuItems.push(itemMarkArea);
+  menuItems.push(itemQuickScreenshot);
+  menuItems.push(itemScrollScreenshot);
   menuItems.push(itemExit);
 
   const contextMenu = Menu.buildFromTemplate(menuItems);

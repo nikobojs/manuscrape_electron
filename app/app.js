@@ -1,10 +1,12 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
-const path = require('path');
+const { app, globalShortcut, ipcMain, desktopCapturer, screen } = require('electron');
 const fs = require('fs')
+const crypto = require('crypto');
 const { setupTray, createTrayWindow } = require('./tray.js');
+const { createOverlayWindow } = require('./overlay.js');
 
-let overlayWindow;
 let trayWindow;
+
+app.commandLine.appendSwitch('webrtc-max-cpu-consumption-percentage', '100')
 
 
 function getScreenshotFromSource(source, areaRect) {
@@ -32,71 +34,95 @@ function findCorrectScreen(sources, targetDisplay) {
 
 
 async function captureScreenshot(areaRect, activeScreen) {
-  if (overlayWindow) {
-    overlayWindow.close();
-  }
-
   const fullsize = activeScreen.bounds;
 
+  // TODO: research performance issue
+  console.log('capturing screenshot...')
   const sources = await desktopCapturer.getSources({
-    types: ['screen'], thumbnailSize: fullsize
+    types: ['screen'],
+    thumbnailSize: fullsize,
+    fetchWindowIcons: false,
   });
+
 
   const displaySource = findCorrectScreen(sources, activeScreen);
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
-
   return screenshot;
 }
 
-async function saveScreenshot(screenshot) {
-  const { source, buffer } = screenshot;
-  const filename = (
+async function saveScreenshot(filename, buffer) {
+  const filepath = (
     './.screenshots/' +
-    source.name +
+    filename +
     '.' +
     new Date().toISOString().replace(/\:/g, '') +
     '.jpg'
   );
-  fs.writeFileSync(filename, buffer);
-  console.log('Saved screenshot to file \'' + filename + '\'');
+  fs.writeFileSync(filepath, buffer);
+  console.log('Saved screenshot to file \'' + filepath + '\'');
 }
 
 async function quickScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
   const screenshot = await captureScreenshot(areaRect, activeScreen);
-  await saveScreenshot(screenshot);
+  await saveScreenshot(screenshot.source.name, screenshot.buffer);
 }
 
+function sleepAsync(ms) {
+  return new Promise((ok) => setTimeout(ok, ms));
+}
 
-const createOverlayWindow = () => {
-  const win = new BrowserWindow({
-    title: "ManuScrape Overlay",
-    // Remove the default frame around the window
-    frame: false,
-    fullscreen: true,
-    // Hide Electron’s default menu
-    autoHideMenuBar: true,
-    transparent: true,
-    // Do not display our app in the task bar
-    // (It will live in the system tray!)
-    skipTaskbar: true,
-    hasShadow: false,
-    show: true,
-    resizable: false,
-    webPreferences: {
-      preload: path.join(__dirname, '../preloads/overlay.js')
+async function scrollScreenshot(_event, areaRect, activeScreen = screen.getPrimaryDisplay()) {
+  console.log('scroll screenshot begin!')
+  const md5sums = [];
+  const maxScreenshots = 512;
+  const maxRepeatedScreenshots = 3;
+  const minimumCaptureDelay = 150;
+  let repeatedScreenshots = 0;
+
+  for (let i = 0; i < maxScreenshots; i++) {
+    const beforeCapture = new Date().getTime();
+
+    const { source, buffer } = await captureScreenshot(areaRect, activeScreen);
+
+    const afterCapture = new Date().getTime();
+    const captureTookMs = beforeCapture - afterCapture;
+    const delay = Math.max(0, captureTookMs + minimumCaptureDelay);
+
+    const before = new Date().getTime();
+
+    // TODO: use image hash that can measure similarity (hammering)
+    const hash = crypto
+      .createHash('md5')
+      .update(buffer)
+      .digest("base64");
+      const after = new Date().getTime();
+    console.log('hash took', after - before, 'ms')
+      
+    if (repeatedScreenshots > maxRepeatedScreenshots) {
+      console.log('stopped because of screenshot movement timeout error!')
+      break;
+    } else if (!md5sums.includes(hash)) {
+      repeatedScreenshots = 0;
+      md5sums.push(hash);
+      await saveScreenshot(source.name, buffer);
+    } else {
+      repeatedScreenshots++;
     }
-  })
 
-  // win.webContents.openDevTools();
+    await sleepAsync(delay);
 
-  win.loadFile('renderers/overlayWindow.html');
+  }
 
-  return win;
+
+  console.log('DONE');
 }
+
 
 
 app.whenReady().then(() => {
+  // TODO NIKO: convert into one
   ipcMain.on('quick-screenshot', quickScreenshot)
+  ipcMain.on('scroll-screenshot', scrollScreenshot)
 
   globalShortcut.register('Alt+Q', () => {
     console.log('Quitting ManuScrape...');
@@ -104,23 +130,17 @@ app.whenReady().then(() => {
   })
 
 
-  globalShortcut.register('Alt+N', () => {
-    console.log('Opening screenshot overlay...');
-    overlayWindow = createOverlayWindow();
-  })
+  globalShortcut.register('Alt+N', createOverlayWindow)
   trayWindow = createTrayWindow();
-
-  // trayWindow.on("blur", () => {
-  //   trayWindow.hide();
-  // });
-  // trayWindow.on("show", () => {
-  //   trayWindow.focus();
-  // });
-
 
   setupTray();
 
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
   });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    console.log('bye');
+  })
 });

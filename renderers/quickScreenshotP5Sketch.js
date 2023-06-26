@@ -57,6 +57,7 @@ function mouseReleased() {
   }
 
   window.electronAPI.quickScreenshot(rect);
+  window.close();
 }
 
 function windowResized() {

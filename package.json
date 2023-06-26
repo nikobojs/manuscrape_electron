@@ -5,11 +5,12 @@
   "main": "app/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron-forge start",
+    "debug": "electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
+    "start": "electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make -- --webrtc-max-cpu-consumption-percentage=100"
   },
-  "author": "",
+  "author": "Københavns Universitet",
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "^6.2.1",
