@@ -19,7 +19,7 @@ export function createTrayWindow() {
     skipTaskbar: true,
     hasShadow: false,
   });
-  trayWindow.loadFile('renderers/trayWindow.html');
+  trayWindow.loadFile('windows/tray.html');
   return trayWindow;
 }
 
@@ -30,6 +30,7 @@ function _generateContextMenu() {
     label: "Tag screenshot",
     type: "normal",
     click() {
+      console.log('create overlay!')
       ipcMain.once('area-marked', quickScreenshot)
       createOverlayWindow();
     },
