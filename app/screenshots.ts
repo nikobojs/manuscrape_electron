@@ -79,8 +79,8 @@ export async function scrollScreenshot(_event: any, areaRect: any, activeScreen 
   console.log('scroll screenshot begin!')
   const md5sums = [] as string[];
   const maxScreenshots = 512;
-  const maxRepeatedScreenshots = 3;
-  const minimumCaptureDelay = 150;
+  const maxRepeatedScreenshots = 4;
+  const minimumCaptureDelay = 500;
   let repeatedScreenshots = 0;
 
   for (let i = 0; i < maxScreenshots; i++) {
