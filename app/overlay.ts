@@ -26,7 +26,6 @@ export const createOverlayWindow = () => {
       preload: path.join(__dirname, '../preloads/overlay.js'),
       backgroundThrottling: false,
       webgl: true,
-      devTools: true
     },
   })
 

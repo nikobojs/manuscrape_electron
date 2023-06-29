@@ -66,5 +66,3 @@ const sketch = (p: p5) => {
   }
 
 }
-
-new p5(sketch);
