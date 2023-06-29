@@ -1,5 +1,5 @@
 
-import { desktopCapturer, screen } from 'electron';
+import { desktopCapturer, screen, app } from 'electron';
 import * as fs from 'fs'
 import crypto from 'crypto';
 
@@ -52,8 +52,10 @@ async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) 
 }
 
 async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView) {
+  const basepath = app.getPath('temp');
   const filepath = (
-    './.screenshots/' +
+    basepath +
+    '/' +
     filename +
     '.' +
     new Date().toISOString().replace(/\:/g, '') +
