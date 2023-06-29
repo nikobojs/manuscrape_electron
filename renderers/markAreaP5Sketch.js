@@ -1,10 +1,8 @@
-import p5 from 'p5';
-
 // x, y, w, h
 let area = [0,0,0,0];
 let dragging = false;
 
-const sketch = (p: p5) => {
+const sketch = (p) => {
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight)
@@ -66,3 +64,5 @@ const sketch = (p: p5) => {
   }
 
 }
+
+new p5(sketch);
