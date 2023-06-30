@@ -37,7 +37,6 @@ function findCapturerSourceByDisplay(
 
 async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) {
   const fullsize = activeScreen.bounds;
-  console.log({ fullsize })
 
   // TODO: research performance issue
   console.log('capturing screenshot...!')
@@ -53,7 +52,6 @@ async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) 
     const screenshot = getScreenshotFromSource(displaySource, areaRect);
     return screenshot;
   } catch(e) {
-    console.log('CAUGHT EXCEPTION:')
     console.error(e)
     throw e;
   }
@@ -84,7 +82,6 @@ function sleepAsync(ms: number | undefined) {
 }
 
 export async function scrollScreenshot(_event: any, areaRect: any, activeScreen = screen.getPrimaryDisplay()) {
-  console.log('scroll screenshot begin!')
   const md5sums = [] as string[];
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 4;
@@ -100,15 +97,11 @@ export async function scrollScreenshot(_event: any, areaRect: any, activeScreen 
     const captureTookMs = beforeCapture - afterCapture;
     const delay = Math.max(0, captureTookMs + minimumCaptureDelay);
 
-    const before = new Date().getTime();
-
     // TODO: use image hash that can measure similarity (hammering)
     const hash = crypto
       .createHash('md5')
       .update(buffer)
       .digest("base64");
-      const after = new Date().getTime();
-    console.log('hash took', after - before, 'ms')
       
     if (repeatedScreenshots > maxRepeatedScreenshots) {
       console.log('stopped because of screenshot movement timeout error!')
