@@ -1,5 +1,5 @@
 
-import { desktopCapturer, screen, app } from 'electron';
+import { desktopCapturer, screen, app, ipcMain } from 'electron';
 import * as fs from 'fs'
 import crypto from 'crypto';
 import path from 'path';
@@ -37,22 +37,29 @@ function findCapturerSourceByDisplay(
 
 async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) {
   const fullsize = activeScreen.bounds;
+  console.log({ fullsize })
 
   // TODO: research performance issue
-  console.log('capturing screenshot...')
-  const sources = await desktopCapturer.getSources({
-    types: ['screen'],
-    thumbnailSize: fullsize,
-    fetchWindowIcons: false,
-  });
+  console.log('capturing screenshot...!')
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: fullsize,
+      fetchWindowIcons: false,
+    });
 
 
-  const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
-  const screenshot = getScreenshotFromSource(displaySource, areaRect);
-  return screenshot;
+    const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
+    const screenshot = getScreenshotFromSource(displaySource, areaRect);
+    return screenshot;
+  } catch(e) {
+    console.log('CAUGHT EXCEPTION:')
+    console.error(e)
+    throw e;
+  }
 }
 
-async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView) {
+async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView): Promise<string> {
   const basepath = app.getPath('temp');
   const filepath = path.join(
     basepath,
@@ -63,6 +70,7 @@ async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBuf
   );
   fs.writeFileSync(filepath, buffer);
   console.log('Saved screenshot to file \'' + filepath + '\'');
+  return filepath;
 }
 
 
@@ -116,7 +124,4 @@ export async function scrollScreenshot(_event: any, areaRect: any, activeScreen 
     await sleepAsync(delay);
 
   }
-
-
-  console.log('DONE');
 }
