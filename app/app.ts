@@ -1,5 +1,8 @@
 import { app, globalShortcut } from 'electron';
-import { setupTray, createTrayWindow } from './tray';
+import { createTrayWindow, setupTray } from './tray';
+
+// required to keep the app running
+let trayWindow;
 
 app.whenReady().then(() => {
   globalShortcut.register('Alt+Q', () => {
@@ -7,15 +10,20 @@ app.whenReady().then(() => {
     app.exit(0)
   })
 
-  createTrayWindow();
-  setupTray();
-
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
   });
 
-  app.on('will-quit', () => {
+  app.on('will-quit', (e) => {
     globalShortcut.unregisterAll();
-    console.log('bye');
+    console.log('bye', e);
   })
+
+  setupTray();
+  trayWindow = createTrayWindow();
+});
+
+process.on('unhandledRejection', function (err) {
+   console.error(err);
+   process.exit(1);
 });

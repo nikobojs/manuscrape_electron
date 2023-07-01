@@ -2,8 +2,7 @@
 import { BrowserWindow } from 'electron';
 import * as path from 'path';
 
-export const createOverlayWindow = () => {
-  console.log('Opening screenshot overlay...');
+export const createOverlayWindow = (activeDisplay: Electron.Display) => {
   const win = new BrowserWindow({
     title: "ManuScrape Overlay",
     // Remove the default frame around the window
@@ -27,7 +26,7 @@ export const createOverlayWindow = () => {
   })
 
   win.loadFile('windows/markArea.html');
-
+  win.setBounds(activeDisplay.workArea)
   win.maximize();
   win.setFullScreen(true);
   win.show();

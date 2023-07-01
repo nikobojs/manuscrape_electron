@@ -1,16 +1,28 @@
 
-import { desktopCapturer, screen, app, ipcMain } from 'electron';
+import { desktopCapturer, app } from 'electron';
 import * as fs from 'fs'
 import crypto from 'crypto';
 import path from 'path';
 
-function getScreenshotFromSource(source: Electron.DesktopCapturerSource, areaRect: any) {
+interface IScreenshot {
+  image: Electron.NativeImage;
+  size: Electron.Size;
+  sizeKb: number;
+  buffer: Buffer;
+  source: Electron.DesktopCapturerSource;
+}
+
+function getScreenshotFromSource(
+  source:
+  Electron.DesktopCapturerSource,
+  areaRect: any
+): IScreenshot {
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
   const buffer = image.toJPEG(100);
   const sizeKb = Math.floor(buffer.byteLength / 1024);
 
-  const screenshot = {
+  const screenshot: IScreenshot = {
     image,
     size,
     sizeKb,
@@ -35,26 +47,21 @@ function findCapturerSourceByDisplay(
 }
 
 
-async function captureScreenshot(areaRect: any, activeScreen: Electron.Display) {
+async function captureScreenshot(
+  areaRect: any,
+  activeScreen: Electron.Display
+): Promise<IScreenshot> {
   const fullsize = activeScreen.bounds;
 
-  // TODO: research performance issue
-  console.log('capturing screenshot...!')
-  try {
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: fullsize,
-      fetchWindowIcons: false,
-    });
+  const sources = await desktopCapturer.getSources({
+    types: ['screen'],
+    thumbnailSize: fullsize,
+    fetchWindowIcons: false,
+  });
 
-
-    const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
-    const screenshot = getScreenshotFromSource(displaySource, areaRect);
-    return screenshot;
-  } catch(e) {
-    console.error(e)
-    throw e;
-  }
+  const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
+  const screenshot = getScreenshotFromSource(displaySource, areaRect);
+  return screenshot;
 }
 
 async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView): Promise<string> {
@@ -72,7 +79,11 @@ async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBuf
 }
 
 
-export async function quickScreenshot(_event: any, areaRect: any, activeScreen = screen.getPrimaryDisplay()) {
+// TODO: fix typing
+export async function quickScreenshot(
+  areaRect: any,
+  activeScreen: Electron.Display
+): Promise<void> {
   const screenshot = await captureScreenshot(areaRect, activeScreen);
   await saveScreenshot(screenshot.source.name, screenshot.buffer);
 }
@@ -81,7 +92,11 @@ function sleepAsync(ms: number | undefined) {
   return new Promise((ok) => setTimeout(ok, ms));
 }
 
-export async function scrollScreenshot(_event: any, areaRect: any, activeScreen = screen.getPrimaryDisplay()) {
+// TODO: fix typing
+export async function scrollScreenshot(
+  areaRect: any,
+  activeScreen: Electron.Display
+): Promise<void> {
   const md5sums = [] as string[];
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 4;
@@ -104,7 +119,7 @@ export async function scrollScreenshot(_event: any, areaRect: any, activeScreen 
       .digest("base64");
       
     if (repeatedScreenshots > maxRepeatedScreenshots) {
-      console.log('stopped because of screenshot movement timeout error!')
+      console.log('Scrolling screenshot stopped recording')
       break;
     } else if (!md5sums.includes(hash)) {
       repeatedScreenshots = 0;
