@@ -5,7 +5,7 @@
   "main": "dist/app/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "debug": "tsc && electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
+    "debug": "tsc && ELECTRON_ENABLE_LOGGING=true electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
     "start": "tsc && electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
     "package": "tsc && electron-forge package",
     "make": "tsc && electron-forge make -- --webrtc-max-cpu-consumption-percentage=100"
