@@ -8,20 +8,17 @@ export const createOverlayWindow = () => {
     title: "ManuScrape Overlay",
     // Remove the default frame around the window
     frame: false,
-    fullscreen: true,
     // Hide Electron’s default menu
     autoHideMenuBar: true,
     transparent: true,
     // Do not display our app in the task bar
-    // (It will live in the system tray!)
     skipTaskbar: true,
     hasShadow: false,
-    show: true,
+    show: false,
     minimizable: false,
     alwaysOnTop: true,
     closable: false,
     movable: false,
-    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, '../preloads/overlay.js'),
       backgroundThrottling: false,
@@ -30,8 +27,10 @@ export const createOverlayWindow = () => {
   })
 
   win.loadFile('windows/markArea.html');
+
   win.maximize();
   win.setFullScreen(true);
+  win.show();
   win.focus();
 
   return win;
