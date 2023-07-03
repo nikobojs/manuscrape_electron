@@ -1,25 +1,28 @@
-import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut } from 'electron';
+import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, nativeImage } from 'electron';
 import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createTrayWindow } from './helpers/browserWindows';
+import { nativeTheme } from 'electron/main';
+import { trayIcon, createIcon } from './helpers/icons';
+
 
 export class ManuScrapeController {
   private app: Electron.App;
-  private window: Electron.BrowserWindow;
+  private trayWindow: Electron.BrowserWindow;
+  private overlayWindow: Electron.BrowserWindow | undefined;
   private allDisplays: Array<Electron.Display>
   private tray: Tray | undefined;
   private activeDisplayIndex: number;
+  private isMarkingArea: boolean;
 
   constructor(app: Electron.App) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
-
-    // get initial tray icon
-    const image = path.join(__dirname, "../../assets/tray.png");
+    this.isMarkingArea = false;
 
     // setup tray app
-    this.tray = new Tray(image);
+    this.tray = new Tray(trayIcon);
     this.tray.setToolTip("ManuScrape");
     this.tray.setIgnoreDoubleClickEvents(true);
 
@@ -30,7 +33,7 @@ export class ManuScrapeController {
     // create hidden window
     // NOTE: this is required to avoid the tray app getting garbage collected
     const trayWindow = createTrayWindow();
-    this.window = trayWindow
+    this.trayWindow = trayWindow;
 
     // setup initial context menu based on current state
     this.refreshContextMenu();
@@ -40,7 +43,8 @@ export class ManuScrapeController {
   }
 
 
-  openMenu(): void {
+  // open context menu
+  public openMenu(): void {
     if (this.tray) {
       this.tray.popUpContextMenu();
     } else {
@@ -49,46 +53,81 @@ export class ManuScrapeController {
   }
 
 
-  chooseScreen(displayIndex: number): void {
+  // choose display where the overlay will appear
+  public useDisplay(displayIndex: number): void {
     this.activeDisplayIndex = displayIndex;
     this.refreshContextMenu();
   }
 
 
-  getActiveDisplay(): Electron.Display {
+  // helper function that returns the active display
+  public getActiveDisplay(): Electron.Display {
     const activeDisplay = this.allDisplays[this.activeDisplayIndex];
     return activeDisplay;
   }
 
 
-  createQuickScreenshot(): void {
+  // create new quick screenshot
+  public createQuickScreenshot(): void {
     const activeDisplay = this.getActiveDisplay();
     ipcMain.once(
-      'area-marked',
-      (_event, area) => quickScreenshot(
-        area,
-        activeDisplay,
-        this.activeDisplayIndex
-      )
+      'area-marked', // TODO: use enum
+      async (_event, area) => {
+        this.onMarkAreaDone();
+        await quickScreenshot(
+          area,
+          activeDisplay,
+          this.activeDisplayIndex
+        )
+      }
     );
-    createOverlayWindow(activeDisplay);
+
+    this.openMarkAreaOverlay();
   }
 
 
-  createScrollScreenshot(): void {
-    const activeDisplay = this.getActiveDisplay();
+  // create new scroll screenshot
+  public createScrollScreenshot(): void {
     ipcMain.once(
-      'area-marked',
-      (_event, area) => scrollScreenshot(
-        area,
-        activeDisplay,
-        this.activeDisplayIndex
-      )
+      'area-marked', // TODO: use enum
+      async (_event, area) => {
+        this.onMarkAreaDone();
+        await scrollScreenshot(
+          area,
+          this.getActiveDisplay(),
+          this.activeDisplayIndex
+        )
+      }
     );
-    createOverlayWindow(activeDisplay);
+
+    this.openMarkAreaOverlay();
   }
 
 
+  // function that will always be called after an area has been marked
+  private onMarkAreaDone() {
+    this.isMarkingArea = false;
+    this.refreshContextMenu();
+  }
+
+
+  // open markArea overlay. IPC listeners should have be added beforehand
+  private openMarkAreaOverlay() {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      console.log(this.overlayWindow)
+      throw new Error('Overlay window is already active');
+    }
+    this.isMarkingArea = true;
+    this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
+    this.refreshContextMenu();
+    globalShortcut.register('Alt+C', () => this.cancelOverlay());
+  }
+
+
+  // add hardcoded global shortcuts
+  // NOTE: should only be called once
+  // NOTE: this should always match the MenuItem accelerators
+  // TODO: refactor
   private setupShortcuts(): void {
     globalShortcut.register('Alt+Q', () => {
       console.log('Quitting ManuScrape...');
@@ -99,6 +138,18 @@ export class ManuScrapeController {
   }
 
 
+  // try to reset state by removing listeners and closing overlay
+  public cancelOverlay() {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      ipcMain.removeAllListeners();
+      this.onMarkAreaDone();
+      globalShortcut.unregister('Alt+C')
+      this.overlayWindow.destroy();
+    }
+  }
+
+
+  // refresh the context menu ui based on state of current ManuController instance
   private refreshContextMenu(): void {
     if (!this.tray) {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
@@ -107,25 +158,47 @@ export class ManuScrapeController {
     // declare empty menu item array
     const menuItems = [] as MenuItem[];
 
-    // quick screenshot menu item
-    const itemQuickScreenshot = new MenuItem({
-      label: "Nyt screenshot",
-      type: "normal",
-      click: () => this.createQuickScreenshot(),
-      accelerator: 'Alt+N'
-    });
+    if (this.isMarkingArea) {
+      menuItems.push(new MenuItem({
+        role: 'help',
+        label: 'Overlay is currently open',
+        enabled: false,
+      }))
+      menuItems.push(new MenuItem({
+        type: 'normal',
+        label: 'Cancel action',
+        click: () => {
+          this.cancelOverlay();
+        },
+        accelerator: 'Alt+C',
+      }))
+    } else {
+      menuItems.push(new MenuItem({
+        label: "Take screenshot",
+        type: "normal",
+        click: () => this.createQuickScreenshot(),
+        accelerator: 'Alt+N',
+        icon: createIcon,
+      }));
 
-    // scroll screenshot menu item
-    const itemScrollScreenshot = new MenuItem({
-      label: "Nyt scroll screenshot",
-      type: "normal",
-      click: () => this.createScrollScreenshot(),
-      accelerator: 'Alt+S'
-    });
+      menuItems.push(new MenuItem({
+        label: "Take scrollshot",
+        type: "normal",
+        click: () => this.createScrollScreenshot(),
+        accelerator: 'Alt+S',
+        icon: createIcon,
+      }));
+    }
+
+    // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
+    menuItems.push(new MenuItem({
+      type: 'separator',      
+    }));
 
     // create new empty screens submenu
     const screenMenu = new MenuItem({
-      label: "Aktiv skærm",
+      label: "Choose monitor",
+      sublabel: this.getActiveDisplay().label,
       submenu: [],
       type: 'submenu',
       accelerator: 'Alt+Q'
@@ -144,7 +217,8 @@ export class ManuScrapeController {
         id: display.id.toString(),
         type: 'radio',
         checked: this.activeDisplayIndex == i,
-        click: () => this.chooseScreen(i),
+        enabled: !this.isMarkingArea,
+        click: () => this.useDisplay(i),
       })
 
       // add screen to submenu
@@ -154,12 +228,11 @@ export class ManuScrapeController {
     // exit context menu item
     const itemExit = new MenuItem({
       label: "Quit",
+      enabled: !this.isMarkingArea,
       role: "quit",
     });
 
     // add all menu items
-    menuItems.push(itemQuickScreenshot);
-    menuItems.push(itemScrollScreenshot);
     menuItems.push(screenMenu);
     menuItems.push(itemExit);
 
