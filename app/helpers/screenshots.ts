@@ -1,16 +1,9 @@
-
 import { desktopCapturer, app } from 'electron';
 import * as fs from 'fs'
 import crypto from 'crypto';
 import path from 'path';
+import { sleepAsync } from './utils';
 
-interface IScreenshot {
-  image: Electron.NativeImage;
-  size: Electron.Size;
-  sizeKb: number;
-  buffer: Buffer;
-  source: Electron.DesktopCapturerSource;
-}
 
 function getScreenshotFromSource(
   source:
@@ -37,19 +30,24 @@ function getScreenshotFromSource(
 
 function findCapturerSourceByDisplay(
   sources: Electron.DesktopCapturerSource[],
-  targetDisplay: Electron.Display
+  targetDisplay: Electron.Display,
+  targetDisplayIndex: number,
 ): Electron.DesktopCapturerSource {
-  const screen = sources.find((s) => s.display_id == targetDisplay.id.toString());
-  if (!screen) {
+  let screen = sources.find((s) => s.display_id == targetDisplay.id.toString());
+  if (screen) {
+    return screen;
+  } else if (!screen && sources.length - 1 >= targetDisplayIndex) {
+    return sources[targetDisplayIndex];
+  } else {
     throw new Error('Screen was not found')
   }
-  return screen;
 }
 
 
 async function captureScreenshot(
   areaRect: any,
-  activeScreen: Electron.Display
+  activeScreen: Electron.Display,
+  activeDisplayIndex: number,
 ): Promise<IScreenshot> {
   const fullsize = activeScreen.bounds;
 
@@ -59,12 +57,13 @@ async function captureScreenshot(
     fetchWindowIcons: false,
   });
 
-  const displaySource = findCapturerSourceByDisplay(sources, activeScreen);
+  const displaySource = findCapturerSourceByDisplay(sources, activeScreen, activeDisplayIndex);
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
   return screenshot;
 }
 
-async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView): Promise<string> {
+
+export async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView): Promise<string> {
   const basepath = app.getPath('temp');
   const filepath = path.join(
     basepath,
@@ -82,20 +81,19 @@ async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBuf
 // TODO: fix typing
 export async function quickScreenshot(
   areaRect: any,
-  activeScreen: Electron.Display
+  activeDisplay: Electron.Display,
+  activeDisplayIndex: number,
 ): Promise<void> {
-  const screenshot = await captureScreenshot(areaRect, activeScreen);
+  const screenshot = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
   await saveScreenshot(screenshot.source.name, screenshot.buffer);
 }
 
-function sleepAsync(ms: number | undefined) {
-  return new Promise((ok) => setTimeout(ok, ms));
-}
 
 // TODO: fix typing
 export async function scrollScreenshot(
   areaRect: any,
-  activeScreen: Electron.Display
+  activeDisplay: Electron.Display,
+  activeDisplayIndex: number,
 ): Promise<void> {
   const md5sums = [] as string[];
   const maxScreenshots = 512;
@@ -106,7 +104,7 @@ export async function scrollScreenshot(
   for (let i = 0; i < maxScreenshots; i++) {
     const beforeCapture = new Date().getTime();
 
-    const { source, buffer } = await captureScreenshot(areaRect, activeScreen);
+    const { source, buffer } = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
 
     const afterCapture = new Date().getTime();
     const captureTookMs = beforeCapture - afterCapture;

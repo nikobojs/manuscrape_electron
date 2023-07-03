@@ -6,4 +6,12 @@ declare global {
   interface Window {
     electronAPI: IElectronAPI
   }
+
+  interface IScreenshot {
+    image: Electron.NativeImage;
+    size: Electron.Size;
+    sizeKb: number;
+    buffer: Buffer;
+    source: Electron.DesktopCapturerSource;
+  }
 }

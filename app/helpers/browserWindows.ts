@@ -1,16 +1,33 @@
-
 import { BrowserWindow } from 'electron';
-import * as path from 'path';
+import path from 'path';
+
+
+export function createTrayWindow() {
+  const trayWindow = new BrowserWindow({
+    title: "ManuScrape",
+    width: 0,
+    height: 0,
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    darkTheme: true,
+    skipTaskbar: true,
+    hasShadow: false,
+  });
+  trayWindow.loadFile('windows/tray.html');
+  return trayWindow;
+}
+
 
 export const createOverlayWindow = (activeDisplay: Electron.Display) => {
   const win = new BrowserWindow({
     title: "ManuScrape Overlay",
-    // Remove the default frame around the window
+    // remove the default frame around the window
     frame: false,
-    // Hide Electron’s default menu
+    // hide Electron’s default menu
     autoHideMenuBar: true,
     transparent: true,
-    // Do not display our app in the task bar
+    // do not display our app in the task bar
     skipTaskbar: true,
     hasShadow: false,
     show: false,
@@ -19,7 +36,7 @@ export const createOverlayWindow = (activeDisplay: Electron.Display) => {
     closable: false,
     movable: false,
     webPreferences: {
-      preload: path.join(__dirname, '../preloads/overlay.js'),
+      preload: path.join(__dirname, '../../preloads/overlay.js'),
       backgroundThrottling: false,
       webgl: true,
     },
