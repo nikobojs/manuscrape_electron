@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, shell } from 'electron';
 import path from 'path';
 
 
@@ -36,7 +36,7 @@ export const createOverlayWindow = (activeDisplay: Electron.Display) => {
     closable: false,
     movable: false,
     webPreferences: {
-      preload: path.join(__dirname, '../../preloads/overlay.js'),
+      preload: path.join(__dirname, '../preload.js'),
       backgroundThrottling: false,
       webgl: true,
     },
@@ -48,6 +48,32 @@ export const createOverlayWindow = (activeDisplay: Electron.Display) => {
   win.setFullScreen(true);
   win.show();
   win.focus();
+
+  return win;
+}
+
+
+export const createSignInWindow = () => {
+  console.log('CREATING SIGN IN WINDOW WUHUUU!')
+  const win = new BrowserWindow({
+    title: "ManuScrape - Sign in",
+    autoHideMenuBar: true,
+    minimizable: false,
+    closable: true,
+    movable: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload.js'),
+    }
+  })
+
+  
+  win.loadFile('windows/signIn.html');
+
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+  });
 
   return win;
 }

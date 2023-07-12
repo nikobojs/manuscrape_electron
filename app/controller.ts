@@ -1,19 +1,20 @@
 import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, nativeImage } from 'electron';
 import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createTrayWindow } from './helpers/browserWindows';
-import { nativeTheme } from 'electron/main';
+import { createOverlayWindow, createTrayWindow, createSignInWindow } from './helpers/browserWindows';
 import { trayIcon, createIcon } from './helpers/icons';
 
 
 export class ManuScrapeController {
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow;
+  private signInWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private allDisplays: Array<Electron.Display>
   private tray: Tray | undefined;
   private activeDisplayIndex: number;
   private isMarkingArea: boolean;
+  private loginToken: string | undefined;
 
   constructor(app: Electron.App) {
     this.app = app;
@@ -104,6 +105,17 @@ export class ManuScrapeController {
   }
 
 
+  // try to reset state by removing listeners and closing overlay
+  public cancelOverlay() {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      ipcMain.removeAllListeners();
+      this.onMarkAreaDone();
+      globalShortcut.unregister('Alt+C')
+      this.overlayWindow.destroy();
+    }
+  }
+
+
   // function that will always be called after an area has been marked
   private onMarkAreaDone() {
     this.isMarkingArea = false;
@@ -114,13 +126,30 @@ export class ManuScrapeController {
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      console.log(this.overlayWindow)
       throw new Error('Overlay window is already active');
     }
     this.isMarkingArea = true;
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
     this.refreshContextMenu();
     globalShortcut.register('Alt+C', () => this.cancelOverlay());
+  }
+
+  // open markArea overlay. IPC listeners should have be added beforehand
+  private openSignInWindow() {
+    if (this.signInWindow && !this.signInWindow.isDestroyed()) {
+      this.signInWindow.focus();
+    } else {
+      // create new sign in window
+      // TODO: pass sensitive token data
+      ipcMain.once(
+        'sign-in', // TODO: use enum
+        async (_event, data) => {
+          console.log('USER TRY SIGN IN!', data)
+          // TODO: log in and send response status back to client, which can close itself
+        }
+      );
+      this.signInWindow = createSignInWindow();
+    }
   }
 
 
@@ -138,14 +167,9 @@ export class ManuScrapeController {
   }
 
 
-  // try to reset state by removing listeners and closing overlay
-  public cancelOverlay() {
-    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      ipcMain.removeAllListeners();
-      this.onMarkAreaDone();
-      globalShortcut.unregister('Alt+C')
-      this.overlayWindow.destroy();
-    }
+  // is logged in helper
+  private isLoggedIn(): boolean {
+    return !!this.loginToken;
   }
 
 
@@ -157,8 +181,15 @@ export class ManuScrapeController {
 
     // declare empty menu item array
     const menuItems = [] as MenuItem[];
-
-    if (this.isMarkingArea) {
+    if (!this.isLoggedIn()) {
+      menuItems.push(new MenuItem({
+        type: 'normal',
+        label: 'Sign in to ManuScrape',
+        click: () => {
+          this.openSignInWindow();
+        }
+      }))
+    } else if (this.isMarkingArea) {
       menuItems.push(new MenuItem({
         role: 'help',
         label: 'Overlay is currently open',

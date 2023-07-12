@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'"
+    />
+    <meta
+        http-equiv="X-Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'"
+    />
+    <link rel="stylesheet" href="../assets/css.css">
+    <title>Sign in</title>
+    <style>
+        form {
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+            width: 100%;
+        }
+        label {
+            font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            margin-bottom: 5px;
+        }
+        label, input {
+            font-size: 18px;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        input {
+            padding: 10px 7px;
+        }
+        h2 {
+            margin-bottom: 60px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Sign in to ManuScrape</h2>
+    <form onsubmit="login(event)">
+        <label for="input-email">* Enter email:</label>
+        <input id ="input-email" placeholder="Email" type="email" required />
+        <br />
+        <label for="input-password">* Enter password:</label>
+        <input id="input-password" placeholder="Password" type="password" required />
+        <br />
+        <label for="input-host">Server domain or IP:</label>
+        <input id="input-host" placeholder="Default: manuscrape.dk" type="text" />
+
+        <br />
+        <br />
+
+        <input type="submit" id="input-submit" value="Sign in" />
+    </form>
+
+    <script>
+        function login(event) {
+            console.log('HELLO!', event)
+            event.preventDefault();
+            document.querySelector('#input-submit').disabled = true;
+            document.querySelector('#input-submit').value = 'Signing in...'
+            const email = document.querySelector('#input-email').value;
+            const password = document.querySelector('#input-password').value;
+            const host = document.querySelector('#input-host').value || 'manuscrape.dk';
+            window.electronAPI.signIn({ email, password, host });
+
+        }
+    </script>
+</body>
+</html>

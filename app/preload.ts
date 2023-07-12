@@ -1,3 +1,4 @@
+
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -6,5 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   electron: () => process.versions.electron,
   areaMarked: (...args: any) => {
     ipcRenderer.send('area-marked', ...args);
+  },
+  signIn: (...args: any) => {
+    ipcRenderer.send('sign-in', ...args);
   },
 })

@@ -2,7 +2,7 @@
   "name": "manuscrape_electron",
   "version": "0.1.0",
   "description": "A system tray app foor capturing scrolling screenshotscd",
-  "main": "dist/app/app.js",
+  "main": "dist/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "debug": "tsc && ELECTRON_ENABLE_LOGGING=true electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
