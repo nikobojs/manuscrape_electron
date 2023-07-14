@@ -1,9 +1,15 @@
-import { app, globalShortcut } from 'electron';
+import { app, globalShortcut, safeStorage } from 'electron';
 import { ManuScrapeController } from './controller';
 
 let controller;
 
 app.whenReady().then(() => {
+  const encryptionAvailable = safeStorage.isEncryptionAvailable();
+
+  if (!encryptionAvailable) {
+    throw new Error('Your machine does not support safe login.')
+  }
+
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit()
   });

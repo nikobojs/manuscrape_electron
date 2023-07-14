@@ -1,8 +1,11 @@
-import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, nativeImage } from 'electron';
+import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, dialog } from 'electron';
 import path from 'path';
+import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createTrayWindow, createSignInWindow } from './helpers/browserWindows';
-import { trayIcon, createIcon } from './helpers/icons';
+import { trayIcon, logoutIcon, addIcon, loginIcon } from './helpers/icons';
+import fs from 'node:fs';
+import { fetchUser, logout, tryLogin } from './helpers/api';
 
 
 export class ManuScrapeController {
@@ -15,12 +18,16 @@ export class ManuScrapeController {
   private activeDisplayIndex: number;
   private isMarkingArea: boolean;
   private loginToken: string | undefined;
+  private user: IUser | undefined;
+  private apiHost: string | undefined;
+  private tokenPath: string;
 
   constructor(app: Electron.App) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
+    this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
 
     // setup tray app
     this.tray = new Tray(trayIcon);
@@ -36,11 +43,14 @@ export class ManuScrapeController {
     const trayWindow = createTrayWindow();
     this.trayWindow = trayWindow;
 
-    // setup initial context menu based on current state
-    this.refreshContextMenu();
+    // log in with token file if it exists
+    this.loginWithTokenFile().then(() => {
+      // setup initial context menu based on current state
+      this.refreshContextMenu();
 
-    // setup shortcuts
-    this.setupShortcuts();
+      // setup shortcuts
+      this.setupShortcuts();
+    });
   }
 
 
@@ -123,6 +133,62 @@ export class ManuScrapeController {
   }
 
 
+  // function that tries to log in with the token file
+  private async loginWithTokenFile(): Promise<void> {
+    // read the file contents into variable `content`
+    let content;
+    try {
+      content = this.readTokenFile();
+    } catch(e: any) {
+      if (e?.name !== 'Error' || !e?.message?.startsWith?.('ENOENT')) {
+        // if error is not file-not-found, throw up
+        throw e;
+      } else {
+        // file not found. Return early
+        return;
+      }
+    }
+
+
+    if (!content || !content.includes('|||') || content.split('|||').length !== 2) {
+      // ignore if token is invalid.
+      // user will need to login which will overwrite the token
+      return;
+    }
+
+    const splitted = content.split('|||');
+
+    const host = splitted[0];
+    const token = splitted[1];
+
+    // try fetch user with token
+    try {
+      const user = await fetchUser(host, token);
+      this.user = user;
+      this.loginToken = token;
+      this.apiHost = host;
+    } catch(e) {
+      console.error(e);
+      // TODO: report error
+      // ignore expired/bad token
+    }
+  }
+
+  private saveTokenFile(token: string, host: string): void {
+    const encryptedToken = safeStorage.encryptString(host + '|||' + token);
+    fs.writeFileSync(this.tokenPath, encryptedToken)
+  }
+
+  private readTokenFile(): string {
+    const encrypted = fs.readFileSync(this.tokenPath);
+    const token = safeStorage.decryptString(encrypted);
+    return token;
+  }
+
+  private deleteTokenFile(): void {
+    fs.unlinkSync(this.tokenPath);
+  }
+
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
@@ -134,6 +200,94 @@ export class ManuScrapeController {
     globalShortcut.register('Alt+C', () => this.cancelOverlay());
   }
 
+  private async loginHandler(
+    event: Electron.IpcMainEvent,
+    {email, password, host}: ISignInBody,
+  ): Promise<void> {
+    // wait a little bit, for UX purpose
+    await new Promise((ok) => setTimeout(ok, 200));
+
+    // if no scheme is set, default to https
+    const hasProtocol = /^.+\:\/\//.test(host);
+    if (!hasProtocol) {
+      host = 'https://' + host;
+    }
+
+    // try parse host string
+    try {
+      const parsedUrl = new URL(host);
+
+      // only allow http and https
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return event.reply(
+          'sign-in-error',
+          'The host input field must begin with http:// or https://'
+        ) // TODO: use enum
+      }
+    } catch(_e) {
+      return event.reply(
+        'sign-in-error',
+        'Invalid host input value'
+      ) // TODO: use enum
+    }
+
+
+    // call api and get login token
+    let token: string | undefined;
+    try {
+      const json = await tryLogin(host, email, password);
+      token = json.token;
+    } catch(e: any) {
+      // there was some kind of error. lets parse it
+      let msg = e?.message || 'Unknown error'
+
+      // covers basic errors for bad hosts
+      // TODO: improve error handling for more error cases
+      if (e?.cause) {
+        if (['EAI_AGAIN', 'ENOTFOUND'].includes(e.cause?.code)) {
+          msg = 'The host is invalid or not available'
+        } else if (e.cause?.code == 'ERR_SSL_WRONG_VERSION_NUMBER') {
+          msg = 'This kind of URL is invalid. Please specify the protocol.'
+        }
+      }
+
+      // return `msg` to client, so error can be rendered
+      return event.reply(
+        'sign-in-error',
+        msg,
+      ) // TODO: use enum
+    }
+
+    // if we still dont have a token, we have to blame the api
+    if (!token) {
+      return event.reply(
+        'sign-in-error',
+        'The server did not return the token.'
+      ) // TODO: use enum
+    }
+
+    // try fetch user with token
+    // NOTE: this confirms that the token works
+    const user = await fetchUser(host, token);
+
+    // save/overwrite an encrypted text file with the token
+    this.saveTokenFile(token, host);
+
+    // update instance state to reflect login
+    this.loginToken = token;
+    this.apiHost = host;
+    this.user = user;
+
+    // tell client login was successful
+    event.reply('sign-in-ok'); // TODO: use enum
+
+    // remove all sign-in listeners, so this wont be executed multiple times
+    ipcMain.removeAllListeners('sign-in');
+
+    // refresh context menu, now that we are logged in
+    this.refreshContextMenu();
+  }
+
   // open markArea overlay. IPC listeners should have be added beforehand
   private openSignInWindow() {
     if (this.signInWindow && !this.signInWindow.isDestroyed()) {
@@ -141,12 +295,9 @@ export class ManuScrapeController {
     } else {
       // create new sign in window
       // TODO: pass sensitive token data
-      ipcMain.once(
+      ipcMain.on(
         'sign-in', // TODO: use enum
-        async (_event, data) => {
-          console.log('USER TRY SIGN IN!', data)
-          // TODO: log in and send response status back to client, which can close itself
-        }
+        (event, body) => this.loginHandler(event, body),
       );
       this.signInWindow = createSignInWindow();
     }
@@ -173,6 +324,31 @@ export class ManuScrapeController {
   }
 
 
+  // log out function
+  private logOut() {
+    dialog.showMessageBox(this.trayWindow, {
+      buttons: ['No', 'Yes'],
+      message: 'Are you sure you want to log out?',
+    }).then(async (res) => {
+      if (res.response == 1) {
+        await this.resetAuth();
+      }
+    });
+  }
+
+
+  private async resetAuth() {
+    if (this.apiHost && this.loginToken) {
+      await logout(this.apiHost, this.loginToken);
+    }
+    this.apiHost = undefined;
+    this.loginToken = undefined;
+    this.user = undefined;
+    this.deleteTokenFile();
+    await this.refreshContextMenu();
+  }
+
+
   // refresh the context menu ui based on state of current ManuController instance
   private refreshContextMenu(): void {
     if (!this.tray) {
@@ -184,10 +360,11 @@ export class ManuScrapeController {
     if (!this.isLoggedIn()) {
       menuItems.push(new MenuItem({
         type: 'normal',
-        label: 'Sign in to ManuScrape',
+        label: 'Sign in',
         click: () => {
           this.openSignInWindow();
-        }
+        },
+        icon: loginIcon,
       }))
     } else if (this.isMarkingArea) {
       menuItems.push(new MenuItem({
@@ -209,7 +386,7 @@ export class ManuScrapeController {
         type: "normal",
         click: () => this.createQuickScreenshot(),
         accelerator: 'Alt+N',
-        icon: createIcon,
+        icon: addIcon,
       }));
 
       menuItems.push(new MenuItem({
@@ -217,7 +394,14 @@ export class ManuScrapeController {
         type: "normal",
         click: () => this.createScrollScreenshot(),
         accelerator: 'Alt+S',
-        icon: createIcon,
+        icon: addIcon,
+      }));
+
+      menuItems.push(new MenuItem({
+        label: "Log out",
+        type: "normal",
+        click: () => this.logOut(),
+        icon: logoutIcon,
       }));
     }
 

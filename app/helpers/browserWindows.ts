@@ -54,7 +54,6 @@ export const createOverlayWindow = (activeDisplay: Electron.Display) => {
 
 
 export const createSignInWindow = () => {
-  console.log('CREATING SIGN IN WINDOW WUHUUU!')
   const win = new BrowserWindow({
     title: "ManuScrape - Sign in",
     autoHideMenuBar: true,
