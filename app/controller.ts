@@ -3,7 +3,7 @@ import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createTrayWindow, createSignInWindow } from './helpers/browserWindows';
-import { trayIcon, logoutIcon, addIcon, loginIcon } from './helpers/icons';
+import { trayIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
 import fs from 'node:fs';
 import { fetchUser, logout, tryLogin } from './helpers/api';
 
@@ -416,7 +416,7 @@ export class ManuScrapeController {
       sublabel: this.getActiveDisplay().label,
       submenu: [],
       type: 'submenu',
-      accelerator: 'Alt+Q'
+      icon: monitorIcon,
     });
 
     // update screens available
@@ -445,6 +445,7 @@ export class ManuScrapeController {
       label: "Quit",
       enabled: !this.isMarkingArea,
       role: "quit",
+      icon: quitIcon,
     });
 
     // add all menu items
