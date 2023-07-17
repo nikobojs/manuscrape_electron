@@ -1,8 +1,13 @@
 module.exports = {
   packagerConfig: {
     asar: true,
+    extraResource: ['./python/dist/chatjoiner'],
+    ignore: [
+      /python\//
+    ]
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+  },
   makers: [
     {
       name: '@electron-forge/maker-squirrel',

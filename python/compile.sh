@@ -1,0 +1,1 @@
+pyinstaller -F -n chatjoiner src/main.py

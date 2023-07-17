@@ -1,4 +1,9 @@
 import { app, globalShortcut, safeStorage } from 'electron';
+
+// run this as early in the main process as possible
+// https://www.electronforge.io/config/makers/squirrel.windows
+if (require('electron-squirrel-startup')) app.quit();
+
 import { ManuScrapeController } from './controller';
 
 let controller;
