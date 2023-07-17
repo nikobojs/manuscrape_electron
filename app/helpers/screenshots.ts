@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import crypto from 'crypto';
 import path from 'path';
 import { sleepAsync } from './utils';
+import { joinImagesVertically } from './pythonBridge';
 
 
 function getScreenshotFromSource(
@@ -62,9 +63,25 @@ async function captureScreenshot(
   return screenshot;
 }
 
+function getTempPath(): string {
+  return path.join(app.getPath('temp'), 'manuscrape');
+}
 
-export async function saveScreenshot(filename: string, buffer: string | NodeJS.ArrayBufferView): Promise<string> {
-  const basepath = app.getPath('temp');
+
+export async function saveScreenshot(
+  filename: string,
+  buffer: string | NodeJS.ArrayBufferView,
+  directory?: string | undefined,
+): Promise<string> {
+
+  let basepath = getTempPath();
+
+  if (directory) {
+    basepath = path.join(basepath, directory);
+    fs.mkdirSync(basepath, { recursive: true });
+    console.log('CREATED DIR', basepath);
+  }
+
   const filepath = path.join(
     basepath,
     filename +
@@ -100,11 +117,16 @@ export async function scrollScreenshot(
   const maxRepeatedScreenshots = 4;
   const minimumCaptureDelay = 500;
   let repeatedScreenshots = 0;
+  const scrollShotId = new Date().getTime();
+  const dirname = scrollShotId.toString();
+  const resultImageDir = path.join(app.getPath('userData'), dirname, 'output');
+  const resultImagePath = path.join(resultImageDir, 'result.png');
 
   for (let i = 0; i < maxScreenshots; i++) {
     const beforeCapture = new Date().getTime();
 
     const { source, buffer } = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
+    console.log('capturing screenshot');
 
     const afterCapture = new Date().getTime();
     const captureTookMs = beforeCapture - afterCapture;
@@ -122,12 +144,19 @@ export async function scrollScreenshot(
     } else if (!md5sums.includes(hash)) {
       repeatedScreenshots = 0;
       md5sums.push(hash);
-      await saveScreenshot(source.name, buffer);
+      console.log('saving screenshot');
+      await saveScreenshot(source.name, buffer, dirname);
     } else {
       repeatedScreenshots++;
     }
 
     await sleepAsync(delay);
-
   }
+
+  fs.mkdirSync(resultImageDir, { recursive: true });
+
+  await joinImagesVertically(
+    path.join(getTempPath(), dirname),
+    resultImagePath,
+  );
 }

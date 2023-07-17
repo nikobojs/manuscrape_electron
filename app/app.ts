@@ -5,6 +5,7 @@ import { app, globalShortcut, safeStorage } from 'electron';
 if (require('electron-squirrel-startup')) app.quit();
 
 import { ManuScrapeController } from './controller';
+import { ensurePythonAvail } from './helpers/pythonBridge';
 
 let controller;
 
@@ -23,6 +24,13 @@ app.whenReady().then(() => {
     globalShortcut.unregisterAll();
     console.log('bye', e);
   })
+
+  console.log('platform:', process.platform)
+
+  // ensure compiled python executable is available
+  // NOTE: this is required for both development and production environments
+  // NOTE: to compile the python part of the app, read the docs ;)
+  ensurePythonAvail();
 
   controller = new ManuScrapeController(app);
 });

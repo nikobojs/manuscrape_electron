@@ -1,7 +1,7 @@
 module.exports = {
   packagerConfig: {
     asar: true,
-    extraResource: ['./python/dist/chatjoiner'],
+    extraResource: ['./python/dist/chatjoiner.exe'],
     ignore: [
       /python\//
     ]
