@@ -29,21 +29,23 @@ Once image matching has concluded we know the indices of where each image should
 
 ## Installation
 
-The following snippets creates a virtual environment and installs the appropriate packages, after which the code can be run.
+The following snippets creates a virtual environment and installs the appropriate packages, after which the code can be compiled, and later bundled into the electron application.
+
+```cd manuscrape_electron/python```
 
 ```python3 -m venv env```
 
 ```source env/bin/activate```
 
-```pip install -r requirements.txt```
+```pip3 install -r requirements.txt```
 
 ## Usage
 
 The following command will run the code on the images in the folder ```<path_to_images>``` and save the result in ```<output_name>.jpg```. The ```--test``` flag will run the code on the test images in the ```test_images``` folder.
 
-```python chatjoin.py <path_to_images> <output_name>.jpg```
+```python main.py <path_to_images> <output_name>.jpg```
 
-```python chatjoin.py <path_to_images> <output_name>.jpg --test --logging_mode debug```
+```python main.py <path_to_images> <output_name>.jpg --test --logging_mode debug```
 
 ## Requirements
 
