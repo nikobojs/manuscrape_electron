@@ -1,11 +1,12 @@
-import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, dialog } from 'electron';
+import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, dialog, BrowserWindow } from 'electron';
 import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createTrayWindow, createSignInWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createSignInWindow } from './helpers/browserWindows';
 import { trayIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
 import fs from 'node:fs';
 import { fetchUser, logout, tryLogin } from './helpers/api';
+import { ensureEncryptionAvail } from './helpers/utils';
 
 
 export class ManuScrapeController {
@@ -22,7 +23,7 @@ export class ManuScrapeController {
   private apiHost: string | undefined;
   private tokenPath: string;
 
-  constructor(app: Electron.App) {
+  constructor(app: Electron.App, trayWindow: BrowserWindow) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
@@ -38,9 +39,8 @@ export class ManuScrapeController {
     this.tray.on("click", () => this.openMenu);
     this.tray.on("right-click", () => this.openMenu);
 
-    // create hidden window
+    // save hidden tray window to state
     // NOTE: this is required to avoid the tray app getting garbage collected
-    const trayWindow = createTrayWindow();
     this.trayWindow = trayWindow;
 
     // log in with token file if it exists
