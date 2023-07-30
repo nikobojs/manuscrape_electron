@@ -20,7 +20,6 @@ const sketch = (p) => {
   }
 
   p.mousePressed = () => {
-    console.log(p.mouseX, p.mouseY)
     area[0] = p.mouseX;
     area[1] = p.mouseY;
     area[2] = 0;
@@ -34,8 +33,6 @@ const sketch = (p) => {
   }
 
   p.mouseReleased = () => {
-    console.log('mouse released event:')
-    console.log(p.mouseX, p.mouseY)
     dragging = false;
 
     if (area[2] < 0) {
