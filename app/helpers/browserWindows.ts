@@ -53,6 +53,31 @@ export const createOverlayWindow = (activeDisplay: Electron.Display) => {
 }
 
 
+export const createNuxtAppWindow = (host: string, onClose: () => void ) => {
+  const win = new BrowserWindow({
+    title: "ManuScrape",
+    autoHideMenuBar: true,
+    minimizable: false,
+    closable: true,
+    movable: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload.js'),
+    },
+  })
+
+  win.loadURL(host);
+
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+  });
+
+  win.once('close', () => onClose());
+
+  return win;
+}
+
 export const createSignInWindow = () => {
   const win = new BrowserWindow({
     title: "ManuScrape - Sign in",
@@ -63,7 +88,7 @@ export const createSignInWindow = () => {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
-    }
+    },
   })
 
   

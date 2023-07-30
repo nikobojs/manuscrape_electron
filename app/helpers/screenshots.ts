@@ -79,7 +79,6 @@ export async function saveScreenshot(
   if (directory) {
     basepath = path.join(basepath, directory);
     fs.mkdirSync(basepath, { recursive: true });
-    console.log('CREATED DIR', basepath);
   }
 
   const filepath = path.join(

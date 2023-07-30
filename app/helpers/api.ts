@@ -8,6 +8,7 @@ export async function fetchUser(
             'Content-Type': 'application/javascript',
             'Authentication': token,
         },
+        credentials: 'include'
     })
 
     const json = await res.json();
@@ -32,6 +33,7 @@ export async function tryLogin(
         headers: {
           'Content-Type': 'application/javascript',
         },
+        credentials: 'include'
     })
 
     const json = await res.json();
@@ -54,5 +56,20 @@ export async function logout(
         headers: {
             'Authentication': token,
         },
+    });
+}
+
+
+export async function renewCookie(
+    host: string,
+    token: string
+): Promise<Response> {
+    return fetch(host + '/api/token_auth', {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+            'Authentication': token,
+        },
+        body: JSON.stringify({ token }),
     });
 }
