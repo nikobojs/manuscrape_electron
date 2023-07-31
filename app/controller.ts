@@ -24,6 +24,7 @@ export class ManuScrapeController {
   private tokenPath: string;
   private hostPath: string;
 
+
   constructor(app: Electron.App, trayWindow: BrowserWindow) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
@@ -45,56 +46,18 @@ export class ManuScrapeController {
     // NOTE: this is required to avoid the tray app getting garbage collected
     this.trayWindow = trayWindow;
 
-    // log in with token file if it exists
-    // TODO: NIKOOO VERY MESSY NEEDS CLEANUP
-    if (this.tokenFileExists()) {
-      console.log('token file exists');
-      this.loginWithTokenFile().then(async (credentials) => {
-        if (credentials?.host && credentials?.token) {
-          console.log('refetching user in loginWIthTokenFile callback!')
-          await this.renewCookieFromToken(
-            credentials.host,
-            credentials.token
-          );
-          await this.refreshUser(
-            credentials.host,
-            credentials.token
-          )
-        }
-      }).catch(
-        (err) => {console.log('err1', err)}
-      ).finally(() => {
-        console.log('connstructor refreshing context menu! should be last')
-        this.refreshContextMenu();
-        this.setupShortcuts();
-      });
-    } else if (this.hostPathExists()) {
-        console.log('host file exists');
-        this.readTokenFromCookie().then(async (token) => {
-            const host = this.readHostFile()
-            console.log('refreshing user based on host', host, token)
-            await this.refreshUser(host, token);
-        }).catch((err) => {
-          console.log('err:', err)
-          // cookie does not exist
-        }).finally(() => {
-          console.log('connstructor refreshing context menu! should be last')
-          this.refreshContextMenu();
-          this.setupShortcuts();
-        })
-    } else {
-      console.log('connstructor refreshing context menu! should be last')
+    // try signing
+    this.initialAuth().finally(() => {
+      // update context menu and setup shortcuts
       this.refreshContextMenu();
       this.setupShortcuts();
-    }
+    });
   }
 
 
   // open context menu
   public openMenu(): void {
-    console.log('Open menu!')
     if (this.tray) {
-      console.log('opening menu now! popuContextMenu()')
       this.tray.popUpContextMenu();
     } else {
       throw new Error('Unable to open context menu, when tray app is not running');
@@ -153,6 +116,50 @@ export class ManuScrapeController {
   }
 
 
+  // function that tries to authorize using files and cookies
+  private async initialAuth() {
+    const hasAuthCookie = await this.authCookieExists();
+    const tokenExists = this.tokenFileExists();
+    const hostExists = this.hostFileExists();
+
+    // define initial host and token values to be used for authorization
+    let host, token;
+
+    try {
+      // if host and token files exists, try authorizing with them
+      if (tokenExists && hostExists) {
+        console.info('signing in with token and host files');
+        const files = this.readSessionFiles();
+        host = files.host;
+        token = files.token;
+
+      // if host file exists and cookie exists, extract token from cookie
+      // TODO: fix pattern
+      } else if (hostExists && hasAuthCookie) {
+        console.info('signing in with cookie and saved host file');
+        token = await this.readTokenFromCookie();
+        host = this.readHostFile()
+      }
+    } catch(err: any) {
+      // TODO: report errors?
+      // TODO: test for specific errors
+      console.warn('Ignoring error when authorizing intially:');
+      console.warn(err)
+
+      // TODO: report specific errors to user (os notifications?)
+      if (/fetch\ failed/i.test(err?.message)) {
+        console.error('Unable to connect to host');
+      }
+    } finally {
+      // use retrieved 'host' and 'token' to renew cookie and fetch user
+      if (host && token) {
+        await this.renewCookieFromToken(host, token).catch(() => {});
+        await this.refreshUser(host, token);
+      }
+    }
+  }
+
+
   // try to reset state by removing listeners and closing overlay
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
@@ -170,30 +177,54 @@ export class ManuScrapeController {
     this.refreshContextMenu();
   }
 
+
+  // BEGIN file operations and helpers
   private tokenFileExists(): boolean {
     return fs.existsSync(this.tokenPath);
   }
-
-  private hostPathExists(): boolean {
+  private hostFileExists(): boolean {
     return fs.existsSync(this.hostPath);
   }
-
   private readHostFile(): string {
     const encrypted = fs.readFileSync(this.hostPath);
     const host = safeStorage.decryptString(encrypted);
     return host;
   }
-
   private saveHostFile(host: string) {
     const encryptedHost = safeStorage.encryptString(host);
     fs.writeFileSync(this.hostPath, encryptedHost)
   }
+  private saveTokenFile(token: string): void {
+    const encryptedToken = safeStorage.encryptString(token);
+    fs.writeFileSync(this.tokenPath, encryptedToken)
+  }
+  private readTokenFile(): string {
+    const encrypted = fs.readFileSync(this.tokenPath);
+    const token = safeStorage.decryptString(encrypted);
+    return token;
+  }
+  private deleteTokenFile(): void {
+    fs.unlinkSync(this.tokenPath);
+  }
+  private deleteHostFile(): void {
+    fs.unlinkSync(this.hostPath);
+  }
+  // END file operations and helpers
 
+
+  // Some small cookie helpers
   private async readAuthCookies(): Promise<Electron.Cookie[]> {
     const cookies = await session.defaultSession.cookies.get({ name: 'authcookie' })
     return cookies;
   }
+  private async authCookieExists(): Promise<boolean> {
+    const cookies = await this.readAuthCookies();
+    return cookies.length > 0;
+  }
 
+
+  // async function that returns token from first auth cookie
+  // and throws if none found
   private async readTokenFromCookie(): Promise<string> {
     const cookies = await this.readAuthCookies();
     if (cookies.length > 0) {
@@ -203,21 +234,25 @@ export class ManuScrapeController {
     }
   }
 
+
+  // renew cookie from host and token
+  // - calls endpoint that returns a cookie based on a token
+  // - sets session cookie and saves it on client machine
   private async renewCookieFromToken(host: string, token: string): Promise<void> {
-    console.log('renewing cookie', { host, token })
     const res = await renewCookie(host, token);
+    if (res.status !== 200) {
+      throw new Error('Server returned status ' + res.status + ' when renewing cookie');
+    }
     const newCookie = this.parseAuthCookie(host, res);
     session.defaultSession.cookies.set(newCookie);
-    console.log('new cookie is')
-    console.log('done setting new cookie')
   }
 
 
+  // read auth cookie from response object and throw if its bad
   private parseAuthCookie(host: string, res: Response): Electron.CookiesSetDetails {
     const cookieVal = res.headers.get('Set-Cookie');
     if (!cookieVal) {
-      console.log('NO COOKIE VALUE')
-      throw new Error('Api did not return auth cookie');
+      throw new Error('The response headers does not include \'Set-Cookie\'');
     }
     const parsed = cookie.parse(cookieVal);
     const hostUrl = new URL(host);
@@ -235,16 +270,13 @@ export class ManuScrapeController {
     return newCookie;
   }
 
+
   // function that tries to log in with the token file
-  private async loginWithTokenFile(): Promise<undefined | { token: string, host: string }> {
+  private readSessionFiles(): { token?: string, host?: string } {
     let token;
     let host;
 
-    // read the file contents
-    try {
-      token = this.readTokenFile();
-      host = this.readHostFile();
-    } catch(e: any) {
+    const onError = (e: any) => {
       if (e?.name !== 'Error' || !e?.message?.startsWith?.('ENOENT')) {
         console.warn('files not found')
         // if error is not file-not-found, throw up
@@ -256,22 +288,34 @@ export class ManuScrapeController {
       }
     }
 
+    // read the file contents
+    try {
+      token = this.readTokenFile();
+    } catch(e: any) {
+      onError(e);
+    }
+    try {
+      host = this.readHostFile();
+    } catch(e: any) {
+      onError(e);
+    }
+
     return { token, host };
-    // return this.refreshUser(host, token);
   }
 
+
+  // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
-    console.log('REFRESHING USER!!!', host)
+
     // try fetch user with token
     try {
       const user = await fetchUser(host, token);
       this.user = user;
-      console.log('this.user.email is now', this.user.email)
       this.loginToken = token;
       this.apiHost = host;
       this.saveHostFile(host);
       this.saveTokenFile(token);
-      // await this.renewCookieFromToken(host, token);
+    console.info('refreshed user', { host, email: user?.email });
     } catch(e) {
       console.error(e);
       // TODO: report error
@@ -279,24 +323,21 @@ export class ManuScrapeController {
     }
   }
 
-  private saveTokenFile(token: string): void {
-    const encryptedToken = safeStorage.encryptString(token);
-    fs.writeFileSync(this.tokenPath, encryptedToken)
+
+  // reset auth session and update UI accordingly
+  private async resetAuth() {
+    if (this.apiHost && this.loginToken) {
+      await logout(this.apiHost, this.loginToken);
+      await session.defaultSession.cookies.remove(this.apiHost, 'authtoken');
+    }
+    this.apiHost = undefined;
+    this.loginToken = undefined;
+    this.user = undefined;
+    this.deleteTokenFile();
+    this.deleteHostFile();
+    await this.refreshContextMenu();
   }
 
-  private readTokenFile(): string {
-    const encrypted = fs.readFileSync(this.tokenPath);
-    const token = safeStorage.decryptString(encrypted);
-    return token;
-  }
-
-  private deleteTokenFile(): void {
-    fs.unlinkSync(this.tokenPath);
-  }
-
-  private deleteHostFile(): void {
-    fs.unlinkSync(this.hostPath);
-  }
 
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
@@ -308,6 +349,7 @@ export class ManuScrapeController {
     this.refreshContextMenu();
     globalShortcut.register('Alt+C', () => this.cancelOverlay());
   }
+
 
   private async loginHandler(
     event: Electron.IpcMainEvent,
@@ -375,9 +417,13 @@ export class ManuScrapeController {
       ) // TODO: use enum
     }
 
+    // update cookie so browser window is logged in by default
+    // TODO: this might not be needed
+    await this.renewCookieFromToken(host, token);
+
     // try fetch user with token
     // NOTE: this confirms that the token works, and saves credentials in safeStorage
-    await this.refreshUser(host, token)
+    await this.refreshUser(host, token);
 
     // tell client login was successful
     event.reply('sign-in-ok'); // TODO: use enum
@@ -388,6 +434,7 @@ export class ManuScrapeController {
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
   }
+
 
   // open markArea overlay. IPC listeners should have be added beforehand
   private openSignInWindow() {
@@ -404,6 +451,9 @@ export class ManuScrapeController {
     }
   }
 
+
+  // opens webapp (hopefully authorized always!)
+  // TODO: refactor
   private async openNuxtAppWindow() {
     if (!this.apiHost) {
       throw new Error('Api host not set when opening external browser window')
@@ -435,11 +485,12 @@ export class ManuScrapeController {
   // TODO: refactor
   private setupShortcuts(): void {
     globalShortcut.register('Alt+Q', () => {
-      console.log('Quitting ManuScrape...');
+      console.info('caught exit shortcut. will exit now');
       this.app.exit(0)
     })
     globalShortcut.register('Alt+N', () => this.createQuickScreenshot())
     globalShortcut.register('Alt+S', () => this.createScrollScreenshot())
+    console.info('set up keyboard shortcuts')
   }
 
 
@@ -462,23 +513,8 @@ export class ManuScrapeController {
   }
 
 
-  private async resetAuth() {
-    if (this.apiHost && this.loginToken) {
-      await logout(this.apiHost, this.loginToken);
-      await session.defaultSession.cookies.remove(this.apiHost, 'authtoken');
-    }
-    this.apiHost = undefined;
-    this.loginToken = undefined;
-    this.user = undefined;
-    this.deleteTokenFile();
-    this.deleteHostFile();
-    await this.refreshContextMenu();
-  }
-
-
   // refresh the context menu ui based on state of current ManuController instance
   private refreshContextMenu(): void {
-    console.log('REFRESHING CONTEXT MENU!', { isLoggedIn: this.isLoggedIn() })
     if (!this.tray) {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
     }
@@ -586,10 +622,9 @@ export class ManuScrapeController {
     menuItems.push(screenMenu);
     menuItems.push(itemExit);
 
-    console.log(menuItems.length, 'menu items')
-
     // overwrite tray app context menu with generated one
     const contextMenu = Menu.buildFromTemplate(menuItems);
     this.tray.setContextMenu(contextMenu);
+    console.info('context menu refreshed', { isLoggedIn: this.isLoggedIn() })
   }
 }
