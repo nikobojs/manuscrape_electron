@@ -1,9 +1,9 @@
-import { screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow } from 'electron';
+import { shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow } from 'electron';
 import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createSignInWindow, createNuxtAppWindow } from './helpers/browserWindows';
-import { trayIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
+import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
 import fs from 'node:fs';
 import { fetchUser, logout, tryLogin, renewCookie } from './helpers/api';
 import * as cookie from 'cookie';
@@ -23,6 +23,7 @@ export class ManuScrapeController {
   private apiHost: string | undefined;
   private tokenPath: string;
   private hostPath: string;
+  private activeProjectId: number | undefined;
 
 
   constructor(app: Electron.App, trayWindow: BrowserWindow) {
@@ -242,9 +243,10 @@ export class ManuScrapeController {
     const res = await renewCookie(host, token);
     if (res.status !== 200) {
       throw new Error('Server returned status ' + res.status + ' when renewing cookie');
+    } else {
+      const newCookie = this.parseAuthCookie(host, res);
+      session.defaultSession.cookies.set(newCookie);
     }
-    const newCookie = this.parseAuthCookie(host, res);
-    session.defaultSession.cookies.set(newCookie);
   }
 
 
@@ -474,6 +476,9 @@ export class ManuScrapeController {
       if (invalidationCookie) {
         console.info('sign out using browser window')
         await this.resetAuth();
+      } else if (this.isLoggedIn() && this.loginToken) {
+        await this.refreshUser(this.apiHost, this.loginToken);
+        this.refreshContextMenu();
       }
     });
   }
@@ -512,8 +517,14 @@ export class ManuScrapeController {
     });
   }
 
+  private chooseProject(id: number) {
+    this.activeProjectId = id;
+    this.refreshContextMenu();
+  }
+
 
   // refresh the context menu ui based on state of current ManuController instance
+  // TODO: refactor function and improve readability
   private refreshContextMenu(): void {
     if (!this.tray) {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
@@ -544,21 +555,120 @@ export class ManuScrapeController {
         },
         accelerator: 'Alt+C',
       }))
-    } else {
+    } else if(this.isLoggedIn() && this.user) {
+      if (this.user.projects.length == 0) {
+        menuItems.push(new MenuItem({
+          label: "Create first project",
+          type: "normal",
+          click: () => this.openNuxtAppWindow(),
+          icon: addIcon,
+        }));
+      } else {
+        menuItems.push(new MenuItem({
+          label: "Take screenshot",
+          type: "normal",
+          click: () => this.createQuickScreenshot(),
+          accelerator: 'Alt+N',
+          icon: addIcon,
+        }));
+
+        menuItems.push(new MenuItem({
+          label: "Take scrollshot",
+          type: "normal",
+          click: () => this.createScrollScreenshot(),
+          accelerator: 'Alt+S',
+          icon: addIcon,
+        }));
+      }
+
+    }
+
+
+    // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
+    menuItems.push(new MenuItem({
+      type: 'separator',      
+    }));
+
+    if (this.isLoggedIn() && this.user) {
+
+      // create new empty screens submenu
+      const screenMenu = new MenuItem({
+        label: "Choose monitor",
+        sublabel: this.getActiveDisplay().label,
+        submenu: [],
+        type: 'submenu',
+        icon: monitorIcon,
+      });
+
+      // update screens available
+      this.allDisplays = screen.getAllDisplays();
+
+      // add all screens to submenu
+      for (let i = 0; i < this.allDisplays.length; i++) {
+        const display = this.allDisplays[i];
+
+        // create screen submenu item
+        const screenMenuItem = new MenuItem({
+          label: display.label,
+          id: display.id.toString(),
+          type: 'radio',
+          checked: this.activeDisplayIndex == i,
+          enabled: !this.isMarkingArea,
+          click: () => this.useDisplay(i),
+        })
+
+        // add screen to submenu
+        screenMenu.submenu?.insert(i, screenMenuItem)
+      }
+
+      // TODO: refactor function and improve readability
+      if (this.user.projects.length > 0) {
+        // add projects to menuItems
+        const projectMenu = new MenuItem({
+          label: "Choose project",
+          submenu: [],
+          type: 'submenu',
+        })
+
+        if (this.user.projects.length > 0) {
+          for (let i = 0; i < this.user.projects.length; i++) {
+            const project = this.user.projects[i];
+            projectMenu.submenu?.insert(i, new MenuItem({
+              id: project.id.toString(),
+              label: project.name,
+              type: 'radio',
+              checked: this.activeProjectId == project.id,
+              click: () => this.chooseProject(project.id),
+            }));
+          }
+        }
+
+        if (this.activeProjectId == undefined) {
+          console.log('no active project id! choosing first')
+          this.chooseProject(this.user.projects[0].id);
+          const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
+            item.id === this.activeProjectId?.toString()
+          )
+          if (chosenMenuItem) {
+            chosenMenuItem.checked = true;
+          }
+        }
+        menuItems.push(projectMenu);
+      }
+
+      // add menu to menuItems
+      menuItems.push(screenMenu);
+
+      // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
       menuItems.push(new MenuItem({
-        label: "Take screenshot",
-        type: "normal",
-        click: () => this.createQuickScreenshot(),
-        accelerator: 'Alt+N',
-        icon: addIcon,
+        type: 'separator',      
       }));
 
       menuItems.push(new MenuItem({
-        label: "Take scrollshot",
+        label: "Log out",
         type: "normal",
-        click: () => this.createScrollScreenshot(),
-        accelerator: 'Alt+S',
-        icon: addIcon,
+        click: () => this.logOut(),
+        icon: logoutIcon,
       }));
 
       menuItems.push(new MenuItem({
@@ -568,46 +678,12 @@ export class ManuScrapeController {
       }));
 
       menuItems.push(new MenuItem({
-        label: "Log out",
+        label: "Report issue",
         type: "normal",
-        click: () => this.logOut(),
-        icon: logoutIcon,
+        click: () => shell.openExternal('https://github.com/nikobojs/manuscrape_electron/issues'),
+        icon: bugReportIcon,
       }));
-    }
 
-    // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
-    menuItems.push(new MenuItem({
-      type: 'separator',      
-    }));
-
-    // create new empty screens submenu
-    const screenMenu = new MenuItem({
-      label: "Choose monitor",
-      sublabel: this.getActiveDisplay().label,
-      submenu: [],
-      type: 'submenu',
-      icon: monitorIcon,
-    });
-
-    // update screens available
-    this.allDisplays = screen.getAllDisplays();
-
-    // add all screens to submenu
-    for (let i = 0; i < this.allDisplays.length; i++) {
-      const display = this.allDisplays[i];
-
-      // create screen submenu item
-      const screenMenuItem = new MenuItem({
-        label: display.label,
-        id: display.id.toString(),
-        type: 'radio',
-        checked: this.activeDisplayIndex == i,
-        enabled: !this.isMarkingArea,
-        click: () => this.useDisplay(i),
-      })
-
-      // add screen to submenu
-      screenMenu.submenu?.insert(i, screenMenuItem)
     }
 
     // exit context menu item
@@ -619,7 +695,6 @@ export class ManuScrapeController {
     });
 
     // add all menu items
-    menuItems.push(screenMenu);
     menuItems.push(itemExit);
 
     // overwrite tray app context menu with generated one
