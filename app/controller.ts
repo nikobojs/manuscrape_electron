@@ -1,4 +1,4 @@
-import { shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow } from 'electron';
+import { Notification, shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow } from 'electron';
 import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
@@ -128,18 +128,20 @@ export class ManuScrapeController {
 
     try {
       // if host and token files exists, try authorizing with them
+      if (hostExists) {
+        this.apiHost = this.readHostFile();
+        host = this.apiHost;
+      }
+
+      // sign in with token if host and token files exist
       if (tokenExists && hostExists) {
         console.info('signing in with token and host files');
-        const files = this.readSessionFiles();
-        host = files.host;
-        token = files.token;
-
+        token = this.readTokenFile();
       // if host file exists and cookie exists, extract token from cookie
       // TODO: fix pattern
-      } else if (hostExists && hasAuthCookie) {
+      } else if (hasAuthCookie && hostExists) {
         console.info('signing in with cookie and saved host file');
         token = await this.readTokenFromCookie();
-        host = this.readHostFile()
       }
     } catch(err: any) {
       // TODO: report errors?
@@ -222,6 +224,12 @@ export class ManuScrapeController {
     const cookies = await this.readAuthCookies();
     return cookies.length > 0;
   }
+  private async removeAuthCookies(): Promise<void> {
+    const cookiesExist = await this.authCookieExists();
+    if (cookiesExist && this.apiHost) {
+      await session.defaultSession.cookies.remove(this.apiHost, 'authcookie');
+    }
+  }
 
 
   // async function that returns token from first auth cookie
@@ -273,39 +281,6 @@ export class ManuScrapeController {
   }
 
 
-  // function that tries to log in with the token file
-  private readSessionFiles(): { token?: string, host?: string } {
-    let token;
-    let host;
-
-    const onError = (e: any) => {
-      if (e?.name !== 'Error' || !e?.message?.startsWith?.('ENOENT')) {
-        console.warn('files not found')
-        // if error is not file-not-found, throw up
-        throw e;
-      } else {
-        // file not found. Return early
-        console.warn('file not found')
-        return;
-      }
-    }
-
-    // read the file contents
-    try {
-      token = this.readTokenFile();
-    } catch(e: any) {
-      onError(e);
-    }
-    try {
-      host = this.readHostFile();
-    } catch(e: any) {
-      onError(e);
-    }
-
-    return { token, host };
-  }
-
-
   // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
 
@@ -317,6 +292,10 @@ export class ManuScrapeController {
       this.apiHost = host;
       this.saveHostFile(host);
       this.saveTokenFile(token);
+      new Notification({
+        title: 'ManuScrape',
+        body: 'Signed in with ' + user?.email + '.',
+      }).show();
     console.info('refreshed user', { host, email: user?.email });
     } catch(e) {
       console.error(e);
@@ -330,13 +309,14 @@ export class ManuScrapeController {
   private async resetAuth() {
     if (this.apiHost && this.loginToken) {
       await logout(this.apiHost, this.loginToken);
-      await session.defaultSession.cookies.remove(this.apiHost, 'authtoken');
+      const cookies = await this.readAuthCookies();
+      if (cookies.length > 0) {
+        await this.removeAuthCookies();
+      }
     }
-    this.apiHost = undefined;
     this.loginToken = undefined;
     this.user = undefined;
     this.deleteTokenFile();
-    this.deleteHostFile();
     await this.refreshContextMenu();
   }
 
@@ -449,6 +429,9 @@ export class ManuScrapeController {
         'sign-in', // TODO: use enum
         (event, body) => this.loginHandler(event, body),
       );
+      ipcMain.once('ask-for-default-host-value', (event) => {
+        event.reply('default-host-value', this?.apiHost || '')
+      })
       this.signInWindow = createSignInWindow();
     }
   }
@@ -644,7 +627,6 @@ export class ManuScrapeController {
         }
 
         if (this.activeProjectId == undefined) {
-          console.log('no active project id! choosing first')
           this.chooseProject(this.user.projects[0].id);
           const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
             item.id === this.activeProjectId?.toString()

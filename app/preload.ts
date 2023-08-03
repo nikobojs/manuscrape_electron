@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer, ipcMain, type IpcRendererEvent } from "electron";
 
 contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
@@ -11,5 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('sign-in-ok', callback)
     ipcRenderer.once('sign-in-error', callbackError)
     ipcRenderer.send('sign-in', signInBody);
+  },
+  defaultHostValue: (callback: HostValueCallback) => {
+    console.log('setting callback and asking for default host!')
+    ipcRenderer.once('default-host-value', callback);
+    ipcRenderer.once('ask-for-default-host-value', callback);
+    ipcRenderer.send('ask-for-default-host-value');
   },
 })

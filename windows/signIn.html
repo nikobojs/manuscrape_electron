@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
     />
     <meta
         http-equiv="X-Content-Security-Policy"
         content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'"
     />
-    <link rel="stylesheet" href="../assets/css.css">
+    <link rel="stylesheet" href="../assets/css.css" type="text/css">
     <title>Sign in</title>
     <style>
         form {
@@ -19,6 +19,7 @@
             flex-direction: column;
             max-width: 400px;
             width: 100%;
+            align-items: flex-start;
         }
         label, span, input {
             font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
@@ -29,21 +30,23 @@
         label, input {
             font-size: 18px;
         }
-        html, body {
+        .container {
             margin: 0;
             padding: 0;
             height: 100%;
             width: 100%;
             display: flex;
             justify-content: center;
-            align-items: center;
             flex-direction: column;
+            max-width: 400px;
+            margin: 0 auto;
         }
         input {
-            padding: 10px 7px;
+            padding: 8px 7px;
+            border-radius: 3px;
         }
         h2 {
-            margin-bottom: 60px;
+            margin-bottom: 40px;
         }
         .error-message {
             color: red;
@@ -53,26 +56,34 @@
     </style>
 </head>
 <body>
-    <h2>Sign in to ManuScrape</h2>
-    <form onsubmit="login(event)">
-        <label for="input-email">* Enter email:</label>
-        <input id ="input-email" placeholder="Email" type="email" required />
-        <br />
-        <label for="input-password">* Enter password:</label>
-        <input id="input-password" placeholder="Password" type="password" required />
-        <br />
-        <label for="input-host">Server domain or IP:</label>
-        <input id="input-host" placeholder="Default: manuscrape.dk" type="text" />
+    <div class="container">
+        <h2>Sign in to ManuScrape</h2>
+        <form onsubmit="login(event)">
+            <label for="input-email">* Enter email:</label>
+            <input id ="input-email" placeholder="Email" type="email" required />
+            <br />
+            <label for="input-password">* Enter password:</label>
+            <input id="input-password" placeholder="Password" type="password" required />
+            <br />
+            <label for="input-host">Server domain or IP:</label>
+            <input id="input-host" placeholder="Default: manuscrape.dk" type="text" />
 
-        <br />
-        <br />
+            <br />
 
-        <span class="error-message" id="error-message"></span>
+            <span class="error-message" id="error-message"></span>
 
-        <input type="submit" id="input-submit" value="Sign in" />
-    </form>
+            <input type="submit" id="input-submit" value="Sign in" />
+        </form>
+    </div>
 
     <script>
+        let hostPlaceholder = '';
+        window.electronAPI.defaultHostValue((_event, host) => {
+            if (host) {
+                document.querySelector('#input-host').value = host;
+            }
+        });
+
         function login(event) {
             event.preventDefault();
             const errorElem = document.querySelector('#error-message');
@@ -90,8 +101,9 @@
                 document.querySelector('#input-submit').disabled = false;
                 document.querySelector('#input-submit').value = 'Sign in'
             });
-            
         }
+
+        document.querySelector('#input-email').focus();
     </script>
 </body>
 </html>
