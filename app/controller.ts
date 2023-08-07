@@ -283,19 +283,26 @@ export class ManuScrapeController {
 
   // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
+    // whether same credentials are already defined in instance properties    
+    let freshLogin = host === this.apiHost && token === this.loginToken;
 
     // try fetch user with token
     try {
+      // always refresh user and save to instance
       const user = await fetchUser(host, token);
       this.user = user;
-      this.loginToken = token;
-      this.apiHost = host;
-      this.saveHostFile(host);
-      this.saveTokenFile(token);
-      new Notification({
-        title: 'ManuScrape',
-        body: 'Signed in with ' + user?.email + '.',
-      }).show();
+
+      // if token or host is new, save credentials and notify
+      if (freshLogin) {
+        this.loginToken = token;
+        this.apiHost = host;
+        this.saveHostFile(host);
+        this.saveTokenFile(token);
+        new Notification({
+          title: 'ManuScrape',
+          body: 'Signed in with ' + user?.email + '.',
+        }).show();
+      }
     console.info('refreshed user', { host, email: user?.email });
     } catch(e) {
       console.error(e);
