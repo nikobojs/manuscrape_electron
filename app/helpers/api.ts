@@ -73,3 +73,26 @@ export async function renewCookie(
         body: JSON.stringify({ token }),
     });
 }
+
+
+export async function addObservationDraft(
+    host: string,
+    token: string,
+    projectId: number,
+): Promise<{ id: number }> {
+    const res = await fetch(host + `/api/projects/${projectId}/observation_drafts`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: {
+            'Authentication': token,
+        },
+    });
+
+    const json = await res.json();
+    if (typeof json['id'] !== 'number') {
+        console.error('Create observation response:', { json })
+        throw new Error('Api did not respond as expected when adding observation draft');
+    } else {
+        return { id: json['id'] };
+    }
+}

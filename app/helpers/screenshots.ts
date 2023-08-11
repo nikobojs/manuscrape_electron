@@ -64,7 +64,11 @@ async function captureScreenshot(
 }
 
 function getTempPath(): string {
-  return path.join(app.getPath('temp'), 'manuscrape');
+  const fullPath = path.join(app.getPath('temp'), 'manuscrape');
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath);
+  }
+  return fullPath;
 }
 
 

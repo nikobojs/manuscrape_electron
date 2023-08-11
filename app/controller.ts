@@ -1,19 +1,22 @@
-import { Notification, shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow } from 'electron';
+import { Notification, shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow, IpcMainEvent } from 'electron';
 import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createSignInWindow, createNuxtAppWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createSignInWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
 import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
 import fs from 'node:fs';
-import { fetchUser, logout, tryLogin, renewCookie } from './helpers/api';
+import { fetchUser, logout, tryLogin, renewCookie, addObservationDraft } from './helpers/api';
 import * as cookie from 'cookie';
+import { yesOrNo } from './helpers/utils';
 
 
 export class ManuScrapeController {
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow;
   private signInWindow: Electron.BrowserWindow | undefined;
+  private nuxtWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
+  private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
   private allDisplays: Array<Electron.Display>
   private tray: Tray | undefined;
   private activeDisplayIndex: number;
@@ -81,19 +84,66 @@ export class ManuScrapeController {
 
 
   // create new quick screenshot
-  public createQuickScreenshot(): void {
-    const activeDisplay = this.getActiveDisplay();
-    ipcMain.once(
-      'area-marked', // TODO: use enum
-      async (_event, area) => {
-        this.onMarkAreaDone();
-        await quickScreenshot(
-          area,
-          activeDisplay,
-          this.activeDisplayIndex
-        )
+  public async createQuickScreenshot(): Promise<void> {
+    // ensure there is not already an observation being made
+    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    if (!confirmed) {
+      return;
+    }
+
+    const listener = async (event: IpcMainEvent, area: any) => {
+      const activeDisplay = this.getActiveDisplay();
+      this.onMarkAreaDone();
+      await quickScreenshot(
+        area,
+        activeDisplay,
+        this.activeDisplayIndex
+      )
+
+      // make typescript linters happy
+      if (!this.activeProjectId) {
+        console.error('no project id')
+        throw new Error('activeProjectId is not set')
+      } else if (!this.apiHost) {
+        console.error('no api host')
+        throw new Error('apiHost is not set')
+      } else if (!this.loginToken) {
+        console.error('no login token')
+        throw new Error('loginToken not attached to controller instance');
       }
-    );
+
+      // add draft and use returned id to create observation
+      const res = await addObservationDraft(
+        this.apiHost,
+        this.loginToken,
+        this.activeProjectId
+      );
+      const observationDraftId = res.id;
+
+      // create add observation window using draft id
+      const win = createAddObservationWindow(
+        this.apiHost,
+        this.activeProjectId,
+        observationDraftId,
+        () => this.onExternalWindowClose()
+      )
+
+      // add observation-created listener
+      ipcMain.once('observation-created', (res) => {
+        if (this.nuxtWindow) {
+          this.nuxtWindow.close();
+        }
+        new Notification({
+          title: 'ManuScrape',
+          body: 'Draft created successfully',
+        }).show();
+        this.refreshContextMenu();
+      });
+
+      this.nuxtWindow = win;
+    };
+
+    this.setOnAreaMarkedListener(listener);
 
     this.openMarkAreaOverlay();
   }
@@ -114,6 +164,23 @@ export class ManuScrapeController {
     );
 
     this.openMarkAreaOverlay();
+  }
+
+
+  // ensure not more than one app window
+  private async confirmCloseNuxtWindowIfAny(): Promise<boolean> {
+    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
+      this.nuxtWindow.focus();
+      const confirmed = await yesOrNo('Are you sure you want to close the existing window?');
+      // const confirmed = confirm('Are you sure you want to close the existing window?');
+      if (confirmed) {
+        this.cancelNuxtWindow()
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      return confirmed;
+    } else {
+      return true;
+    }
   }
 
 
@@ -166,10 +233,23 @@ export class ManuScrapeController {
   // try to reset state by removing listeners and closing overlay
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
-      ipcMain.removeAllListeners();
-      this.onMarkAreaDone();
+      ipcMain.removeAllListeners('area-marked');
       globalShortcut.unregister('Alt+C')
+      this.onMarkAreaDone();
       this.overlayWindow.destroy();
+    }
+  }
+
+
+  // try to reset state by removing listeners and closing overlay
+  public cancelNuxtWindow() {
+    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
+      ipcMain.removeAllListeners('area-marked');
+      ipcMain.removeAllListeners('observation-created');
+      ipcMain.removeAllListeners('project-created');
+      globalShortcut.unregister('Alt+C')
+      this.onMarkAreaDone();
+      this.nuxtWindow.close();
     }
   }
 
@@ -284,7 +364,7 @@ export class ManuScrapeController {
   // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
     // whether same credentials are already defined in instance properties    
-    let freshLogin = host === this.apiHost && token === this.loginToken;
+    let freshLogin = host !== this.apiHost || token !== this.loginToken;
 
     // try fetch user with token
     try {
@@ -446,31 +526,29 @@ export class ManuScrapeController {
 
   // opens webapp (hopefully authorized always!)
   // TODO: refactor
-  private async openNuxtAppWindow() {
+  private async openCreateProjectWindow(): Promise<void> {
     if (!this.apiHost) {
       throw new Error('Api host not set when opening external browser window')
     }
 
-    createNuxtAppWindow(this.apiHost, async () => {
-      const cookies = await this.readAuthCookies();
-      if (!this.apiHost) {
-        throw new Error('Api host not set when opening external browser window')
-      }
-      const hostUrl = new URL(this.apiHost);
-      const invalidationCookie = cookies.find((cookie) => 
-        cookie.domain == hostUrl.hostname &&
-        cookie.name === 'authcookie' &&
-        cookie.value === ''
-      );
+    if (this.nuxtWindow) {
+      this.nuxtWindow.focus();
+      return;
+    }
 
-      if (invalidationCookie) {
-        console.info('sign out using browser window')
-        await this.resetAuth();
-      } else if (this.isLoggedIn() && this.loginToken) {
-        await this.refreshUser(this.apiHost, this.loginToken);
+    ipcMain.once('project-created', (res) => {
+      if (this.nuxtWindow) {
+        this.nuxtWindow.close();
+        new Notification({
+          title: 'ManuScrape',
+          body: 'Project created successfully',
+        }).show();
         this.refreshContextMenu();
       }
     });
+
+    const win = createAddProjectWindow(this.apiHost, () => this.onExternalWindowClose());
+    this.nuxtWindow = win;
   }
 
 
@@ -513,6 +591,42 @@ export class ManuScrapeController {
   }
 
 
+  // overwrites area-marked listener if it is already defined
+  private setOnAreaMarkedListener(
+    listener: (event: IpcMainEvent, ...args: any[]) => Promise<void>,
+  ) {
+    if (this.onAreaMarkedListener) {
+      ipcMain.removeListener('area-marked', this.onAreaMarkedListener);
+    }
+
+    this.onAreaMarkedListener = listener;
+    ipcMain.addListener('area-marked', listener)
+  }
+
+
+  // ensure auth state and contextmenu is ok and synced when nuxt window closes
+  private async onExternalWindowClose() {
+    const cookies = await this.readAuthCookies();
+    if (!this.apiHost) {
+      throw new Error('Api host not set when opening external browser window')
+    }
+    const hostUrl = new URL(this.apiHost);
+    const invalidationCookie = cookies.find((cookie) => 
+      cookie.domain == hostUrl.hostname &&
+      cookie.name === 'authcookie' &&
+      cookie.value === ''
+    );
+
+    if (invalidationCookie) {
+      console.info('sign out using browser window')
+      await this.resetAuth();
+    } else if (this.isLoggedIn() && this.loginToken) {
+      await this.refreshUser(this.apiHost, this.loginToken);
+      this.refreshContextMenu();
+    }
+  }
+
+
   // refresh the context menu ui based on state of current ManuController instance
   // TODO: refactor function and improve readability
   private refreshContextMenu(): void {
@@ -550,7 +664,9 @@ export class ManuScrapeController {
         menuItems.push(new MenuItem({
           label: "Create first project",
           type: "normal",
-          click: () => this.openNuxtAppWindow(),
+          click: () => {
+            this.openCreateProjectWindow()
+          },
           icon: addIcon,
         }));
       } else {
@@ -658,12 +774,6 @@ export class ManuScrapeController {
         type: "normal",
         click: () => this.logOut(),
         icon: logoutIcon,
-      }));
-
-      menuItems.push(new MenuItem({
-        label: "Open web app",
-        type: "normal",
-        click: () => this.openNuxtAppWindow(),
       }));
 
       menuItems.push(new MenuItem({

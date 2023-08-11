@@ -4,6 +4,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
   chrome: () => process.versions.chrome,
   electron: () => process.versions.electron,
+  projectCreated: (project: any) => {
+    ipcRenderer.send('project-created', project)
+  },
+  observationCreated: (project: any) => {
+    ipcRenderer.send('observation-created', project)
+  },
   areaMarked: (...args: any) => {
     ipcRenderer.send('area-marked', ...args);
   },
@@ -13,7 +19,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('sign-in', signInBody);
   },
   defaultHostValue: (callback: HostValueCallback) => {
-    console.log('setting callback and asking for default host!')
     ipcRenderer.once('default-host-value', callback);
     ipcRenderer.once('ask-for-default-host-value', callback);
     ipcRenderer.send('ask-for-default-host-value');
