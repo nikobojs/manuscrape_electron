@@ -7,3 +7,4 @@ python/env
 build/
 __pycache__
 python/chatjoiner.spec
+chatjoiner.spec
