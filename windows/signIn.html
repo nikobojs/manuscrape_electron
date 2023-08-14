@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="da">
+<html lang="da" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,67 +12,48 @@
         content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'"
     />
     <link rel="stylesheet" href="../assets/css.css" type="text/css">
+    <link rel="stylesheet" href="../assets/tailwind.min.css" type="text/css">
     <title>Sign in</title>
-    <style>
-        form {
-            display: flex;
-            flex-direction: column;
-            max-width: 400px;
-            width: 100%;
-            align-items: flex-start;
-        }
-        label, span, input {
-            font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-        }
-        label {
-            margin-bottom: 5px;
-        }
-        label, input {
-            font-size: 18px;
-        }
-        .container {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            flex-direction: column;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-        input {
-            padding: 8px 7px;
-            border-radius: 3px;
-        }
-        h2 {
-            margin-bottom: 40px;
-        }
-        .error-message {
-            color: red;
-            display: block;
-            margin-bottom: 16px;
-        }
-    </style>
 </head>
-<body>
-    <div class="container">
-        <h2>Sign in to ManuScrape</h2>
-        <form onsubmit="login(event)">
-            <label for="input-email">* Enter email:</label>
-            <input id ="input-email" placeholder="Email" type="email" required />
+<body class="dark pt-5 bg-[#1c1b22] text-white">
+    <div class="container px-4 max-w-sm text-center mx-auto">
+        <form class="flex flex-col max-w-sm w-full items-start text-center" onsubmit="login(event)">
+            <h2 class="text-xl mb-10">Sign in to ManuScrape</h2>
+            <label class="mb-1" for="input-email">Email</label>
+            <input
+                class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+                id="input-email"
+                placeholder="Email"
+                type="email"
+                required
+            />
             <br />
-            <label for="input-password">* Enter password:</label>
-            <input id="input-password" placeholder="Password" type="password" required />
+            <label class="mb-1" for="input-password">Password</label>
+            <input
+                class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+                id="input-password"
+                placeholder="Password"
+                type="password"
+                required
+            />
             <br />
-            <label for="input-host">Server domain or IP:</label>
-            <input id="input-host" placeholder="Default: manuscrape.dk" type="text" />
+            <label class="mb-1" for="input-host">Server domain or IP</label>
+            <input
+                class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+                id="input-host"
+                placeholder="manuscrape.org"
+                type="text"
+            />
 
             <br />
 
-            <span class="error-message" id="error-message"></span>
+            <span class="text-red-600 block mb-2" id="error-message">&nbsp;</span>
 
-            <input type="submit" id="input-submit" value="Sign in" />
+            <button
+                class="focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm text-white dark:text-gray-900 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center mt-2"
+                type="submit"
+                id="input-submit"
+            >Sign in</button>
         </form>
     </div>
 
@@ -87,12 +68,12 @@
         function login(event) {
             event.preventDefault();
             const errorElem = document.querySelector('#error-message');
-            errorElem.innerText = '';
+            errorElem.innerHTML = '&nbsp;';
             document.querySelector('#input-submit').disabled = true;
             document.querySelector('#input-submit').value = 'Signing in...'
             const email = document.querySelector('#input-email').value;
             const password = document.querySelector('#input-password').value;
-            const host = document.querySelector('#input-host').value || 'https://manuscrape.dk';
+            const host = document.querySelector('#input-host').value || 'https://manuscrape.org';
 
             window.electronAPI.signIn({ email, password, host }, () => {
                 window.close();

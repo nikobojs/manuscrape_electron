@@ -12,7 +12,8 @@
     "pyinstall": "cd python && source ./env/bin/activate && pip install -r requirements.txt && deactivate",
     "pyinstall-win": "cd python && env\\Scripts\\activate && pip install -r requirements.txt && deactivate",
     "pyfreeze": "source ./python/env/bin/activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python/src/main.py && deactivate",
-    "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python\\src\\main.py && deactivate"
+    "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python\\src\\main.py && deactivate",
+    "build-tailwindcss": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
   },
   "author": "Københavns Universitet",
   "license": "MIT",
@@ -26,6 +27,7 @@
     "@types/cookie": "^0.5.1",
     "@types/p5": "^1.6.2",
     "electron": "25.5.0",
+    "tailwindcss": "^3.3.3",
     "typescript": "^5.1.3"
   },
   "dependencies": {
