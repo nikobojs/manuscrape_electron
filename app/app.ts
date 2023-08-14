@@ -1,8 +1,15 @@
-import { app, globalShortcut, safeStorage } from 'electron';
+import { app, globalShortcut } from 'electron';
+
+// https://github.com/electron/windows-installer
+const squirrelEvent = process.argv[1];
+const isSquirrel = squirrelEvent.indexOf('--squirrel') != -1;
 
 // run this as early in the main process as possible
 // https://www.electronforge.io/config/makers/squirrel.windows
-if (require('electron-squirrel-startup')) app.quit();
+if (require('electron-squirrel-startup') || isSquirrel) {
+  console.debug('closing app because of squirrel event:', squirrelEvent);
+  app.quit();
+}
 
 import { ManuScrapeController } from './controller';
 import { ensurePythonAvail } from './helpers/pythonBridge';

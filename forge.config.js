@@ -1,3 +1,4 @@
+
 const isLinux = process.platform === 'linux';
 
 function pythonEntryBin() {
@@ -19,7 +20,17 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: (arch) => ({
+        // NOTE: EXPERIMENTAL
+        setupExe: `manuscrape-${package.version}-setup-${arch}.exe`,
+        noMsi: true,
+        // TODO: find and add icon
+        // setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
+        //
+        // TODO: add certificate
+        // certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
+        // certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD
+      }),
     },
     // {
     //   name: '@electron-forge/maker-zip',
