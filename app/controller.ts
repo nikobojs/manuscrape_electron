@@ -3,7 +3,7 @@ import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createSignInWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
-import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon } from './helpers/icons';
+import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon, successIcon } from './helpers/icons';
 import fs from 'node:fs';
 import { fetchUser, logout, tryLogin, renewCookie, addObservationDraft } from './helpers/api';
 import * as cookie from 'cookie';
@@ -135,7 +135,8 @@ export class ManuScrapeController {
         }
         new Notification({
           title: 'ManuScrape',
-          body: 'Draft created successfully',
+          body: 'Observation created successfully',
+          icon: successIcon,
         }).show();
         this.refreshContextMenu();
       });
@@ -381,6 +382,7 @@ export class ManuScrapeController {
         new Notification({
           title: 'ManuScrape',
           body: 'Signed in with ' + user?.email + '.',
+          icon: successIcon,
         }).show();
       }
     console.info('refreshed user', { host, email: user?.email });
