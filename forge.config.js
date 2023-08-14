@@ -1,4 +1,3 @@
-
 const isLinux = process.platform === 'linux';
 
 function pythonEntryBin() {
@@ -22,7 +21,7 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: (arch) => ({
         // NOTE: EXPERIMENTAL
-        setupExe: `manuscrape-${package.version}-setup-${arch}.exe`,
+        setupExe: `manuscrape-setup-${arch}.exe`,
         noMsi: true,
         // TODO: find and add icon
         // setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
