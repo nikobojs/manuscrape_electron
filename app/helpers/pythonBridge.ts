@@ -1,7 +1,7 @@
 import path from 'path';
 import { app } from 'electron';
 import fs from 'node:fs';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn } from 'node:child_process'
 
 function getChatJoinerPath(): string {
     const isWindows = process.platform === 'win32'
