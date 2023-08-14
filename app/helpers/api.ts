@@ -64,7 +64,7 @@ export async function renewCookie(
     host: string,
     token: string
 ): Promise<Response> {
-    return fetch(host + '/api/token_auth', {
+    const res = await fetch(host + '/api/token_auth', {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -72,6 +72,19 @@ export async function renewCookie(
         },
         body: JSON.stringify({ token }),
     });
+
+    if (res.status !== 200) {
+        let json;
+        try {
+            json = await res.json();
+        } catch(e) {
+            // ignore
+        }
+        const msg = json?.statusMessage || json?.message || 'Unknown error';
+        throw new Error(msg)
+    }
+
+    return res;
 }
 
 
