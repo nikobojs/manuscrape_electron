@@ -1,4 +1,4 @@
-import { app, globalShortcut } from 'electron';
+import { BrowserWindow, app, globalShortcut } from 'electron';
 
 // https://github.com/electron/windows-installer
 const squirrelEvent = process.argv[1];
@@ -16,7 +16,7 @@ import { ensurePythonAvail } from './helpers/pythonBridge';
 import { createTrayWindow } from './helpers/browserWindows';
 import { ensureEncryptionAvail } from './helpers/utils';
 
-let controller;
+let controller: ManuScrapeController | undefined;
 
 // force dark mode in chrome
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
@@ -27,9 +27,8 @@ app.whenReady().then(() => {
     if (process.platform !== 'darwin') app.quit()
   });
 
-  app.on('will-quit', (e) => {
+  app.on('will-quit', () => {
     globalShortcut.unregisterAll();
-    console.log('bye', e);
   })
 
   // ensure compiled python executable is available
@@ -46,7 +45,7 @@ app.whenReady().then(() => {
   ensureEncryptionAvail();
 
   // initialize controller object
-  controller = new ManuScrapeController(app, trayWindow);
+  controller = new ManuScrapeController(trayWindow);
 });
 
 process.on('unhandledRejection', function (err) {

@@ -18,9 +18,9 @@ export function ensureEncryptionAvail(): void {
   }
 }
 
-export async function yesOrNo(
+export function yesOrNo(
   message: string
-): Promise<boolean> {
+): boolean {
   const options: MessageBoxOptions = {
     title: 'Awaiting your confirmation',
     buttons: ['&Yes', '&No', '&Cancel'],
@@ -30,7 +30,7 @@ export async function yesOrNo(
     cancelId: 2
   };
 
-  const { response } = await dialog.showMessageBox(options);
+  const response = dialog.showMessageBoxSync(options);
 
   return response == 0; // Yes button is pressed
 }

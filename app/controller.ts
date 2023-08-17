@@ -1,14 +1,14 @@
-import { Notification, shell, screen, Tray, ipcMain, MenuItem, Menu, globalShortcut, safeStorage, session, dialog, BrowserWindow, IpcMainEvent } from 'electron';
+import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, dialog, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createSignInWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
-import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon, successIcon, warningIcon } from './helpers/icons';
-import fs from 'node:fs';
+import { trayIcon, successIcon, warningIcon } from './helpers/icons';
 import { fetchUser, logout, tryLogin, addObservationDraft } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
-import { authCookieExists, getInvalidationCookie, parseAuthCookie, readAuthCookies, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
-import { generateMenuItems } from './helpers/contextMenu';
+import { authCookieExists, getInvalidationCookie, readAuthCookies, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
+import { generateContextMenu } from './helpers/contextMenu';
+import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
 
 
 export class ManuScrapeController {
@@ -18,7 +18,7 @@ export class ManuScrapeController {
   public activeDisplayIndex: number;
 
   private app: Electron.App;
-  private trayWindow: Electron.BrowserWindow;
+  private trayWindow: Electron.BrowserWindow | undefined;
   private signInWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
@@ -29,9 +29,9 @@ export class ManuScrapeController {
   private tokenPath: string;
   private hostPath: string;
   private user: IUser | undefined;
+  private contextMenu: Menu | undefined;
 
-
-  constructor(app: Electron.App, trayWindow: BrowserWindow) {
+  constructor(trayWindow: BrowserWindow) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
@@ -39,24 +39,22 @@ export class ManuScrapeController {
     this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
     this.hostPath = path.join(app.getPath('userData'), 'host.txt.enc');
 
-    // setup tray app
-    this.tray = new Tray(trayIcon);
-    this.tray.setToolTip("ManuScrape");
-    this.tray.setIgnoreDoubleClickEvents(true);
+    trayWindow.on('ready-to-show', () => {
+      // setup tray app
+      this.tray = new Tray(trayIcon);
+      this.tray.setToolTip("ManuScrape");
+      this.tray.setIgnoreDoubleClickEvents(true);
 
-    // add open menu event listeners
-    this.tray.on("click", () => this.openMenu());
-    this.tray.on("right-click", () => this.openMenu());
+      // add open menu event listeners
+      this.tray.on("click", () => this.openMenu());
+      this.tray.on("right-click", () => this.openMenu());
 
-    // save hidden tray window to state
-    // NOTE: this is required to avoid the tray app getting garbage collected
-    this.trayWindow = trayWindow;
+      // save hidden tray window to state
+      // NOTE: this is required to avoid the tray app getting garbage collected
+      this.trayWindow = trayWindow;
 
-    // try signing
-    this.initialAuth().finally(() => {
-      // update context menu and setup shortcuts
-      this.refreshContextMenu();
-      this.setupShortcuts();
+      // try sign in and populate context menu
+      this.init();
     });
   }
 
@@ -64,6 +62,11 @@ export class ManuScrapeController {
   // open context menu
   public openMenu(): void {
     if (this.tray) {
+      if (this.contextMenu) {
+        this.tray.setContextMenu(this.contextMenu)
+      } else {
+        throw new Error('Tray menu cannot open without menu items')
+      }
       this.tray.popUpContextMenu();
     } else {
       throw new Error('Unable to open context menu, when tray app is not running');
@@ -84,33 +87,22 @@ export class ManuScrapeController {
     return activeDisplay;
   }
 
-  // boolean helpers for readability
-  public isActiveProjectId(projectId: number): boolean {
-    return this.activeProjectId == projectId;
-  }
-  public hasActiveProject(): boolean {
-    return this.activeProjectId !== undefined;
-  }
-  public isActiveDisplayId(displayIndex: number): boolean {
-    return this.activeDisplayIndex == displayIndex;
-  }
-
-  // is logged in helper
+  //  //logged in helper
   public isLoggedIn(): boolean {
     return !!this.loginToken;
   }
 
 
   // log out function
-  public logOut() {
-    dialog.showMessageBox(this.trayWindow, {
-      buttons: ['No', 'Yes'],
-      message: 'Are you sure you want to log out?',
-    }).then(async (res) => {
-      if (res.response == 1) {
-        await this.resetAuth();
-      }
-    });
+  public async logOut(): Promise<void> {
+    if (!this.trayWindow) {
+      throw new Error('Tray window is not defined');
+    }
+
+    const yes = yesOrNo('Are you sure you want to log out?');
+    if (yes) {
+      return this.resetAuth();
+    }
   }
 
   // update activeProjectId and refresh menu
@@ -129,6 +121,8 @@ export class ManuScrapeController {
 
     // define callback action when area has been marked
     const onMarkedArea = async (event: IpcMainEvent, area: any) => {
+
+      event.sender.close();
       const activeDisplay = this.getActiveDisplay();
       this.onMarkAreaDone();
       await quickScreenshot(
@@ -225,13 +219,12 @@ export class ManuScrapeController {
   private async confirmCloseNuxtWindowIfAny(): Promise<boolean> {
     if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
       this.nuxtWindow.focus();
-      const confirmed = await yesOrNo('Are you sure you want to close the existing window?');
-      // const confirmed = confirm('Are you sure you want to close the existing window?');
-      if (confirmed) {
+      const yes = yesOrNo('Are you sure you want to close the existing window?');
+      if (yes) {
         this.cancelNuxtWindow()
         await new Promise((r) => setTimeout(r, 200));
       }
-      return confirmed;
+      return yes;
     } else {
       return true;
     }
@@ -239,10 +232,10 @@ export class ManuScrapeController {
 
 
   // function that tries to authorize using files and cookies
-  private async initialAuth() {
+  private async init() {
     const hasAuthCookie = await authCookieExists();
-    const tokenExists = this.tokenFileExists();
-    const hostExists = this.hostFileExists();
+    const tokenExists = fileExists(this.tokenPath);
+    const hostExists = fileExists(this.hostPath);
 
     // define initial host and token values to be used for authorization
     let host, token;
@@ -250,14 +243,14 @@ export class ManuScrapeController {
     try {
       // if host and token files exists, try authorizing with them
       if (hostExists) {
-        this.apiHost = this.readHostFile();
+        this.apiHost = readFile(this.hostPath);
         host = this.apiHost;
       }
 
       // sign in with token if host and token files exist
       if (tokenExists && hostExists) {
         console.info('signing in with token and host files');
-        token = this.readTokenFile();
+        token = readFile(this.tokenPath);
       // if host file exists and cookie exists, extract token from cookie
       // TODO: fix pattern
       } else if (hasAuthCookie && hostExists) {
@@ -275,10 +268,16 @@ export class ManuScrapeController {
         console.error('Unable to connect to host');
       }
     } finally {
+      // TODO: weird bug requries refreshContext to be called twice
+      // context popup wont show unless refreshContextMenu is called twice
+      this.refreshContextMenu();
+      this.setupShortcuts();
+
       // use retrieved 'host' and 'token' to renew cookie and fetch user
       if (host && token) {
         await renewCookieFromToken(host, token).catch(() => {});
         await this.refreshUser(host, token);
+        this.refreshContextMenu();
       }
     }
   }
@@ -315,38 +314,6 @@ export class ManuScrapeController {
   }
 
 
-  // BEGIN file operations and helpers
-  private tokenFileExists(): boolean {
-    return fs.existsSync(this.tokenPath);
-  }
-  private hostFileExists(): boolean {
-    return fs.existsSync(this.hostPath);
-  }
-  private readHostFile(): string {
-    const encrypted = fs.readFileSync(this.hostPath);
-    const host = safeStorage.decryptString(encrypted);
-    return host;
-  }
-  private saveHostFile(host: string) {
-    const encryptedHost = safeStorage.encryptString(host);
-    fs.writeFileSync(this.hostPath, encryptedHost)
-  }
-  private saveTokenFile(token: string): void {
-    const encryptedToken = safeStorage.encryptString(token);
-    fs.writeFileSync(this.tokenPath, encryptedToken)
-  }
-  private readTokenFile(): string {
-    const encrypted = fs.readFileSync(this.tokenPath);
-    const token = safeStorage.decryptString(encrypted);
-    return token;
-  }
-  private deleteTokenFile(): void {
-    fs.unlinkSync(this.tokenPath);
-  }
-  private deleteHostFile(): void {
-    fs.unlinkSync(this.hostPath);
-  }
-  // END file operations and helpers
 
 
   // fetch fresh user object and save it to state
@@ -364,8 +331,8 @@ export class ManuScrapeController {
       if (freshLogin) {
         this.loginToken = token;
         this.apiHost = host;
-        this.saveHostFile(host);
-        this.saveTokenFile(token);
+        saveFile(host, this.hostPath);
+        saveFile(token, this.tokenPath);
         new Notification({
           title: 'ManuScrape',
           body: 'Signed in with ' + user?.email + '.',
@@ -383,6 +350,16 @@ export class ManuScrapeController {
 
   // reset auth session and update UI accordingly
   private async resetAuth() {
+    this.loginToken = undefined;
+    this.user = undefined;
+    this.refreshContextMenu();
+
+    new Notification({
+      title: 'ManuScrape',
+      body: 'Signed out successfully.',
+      icon: successIcon,
+    }).show();
+
     if (this.apiHost && this.loginToken) {
       await logout(this.apiHost, this.loginToken);
       const cookies = await readAuthCookies();
@@ -390,10 +367,7 @@ export class ManuScrapeController {
         await removeAuthCookies(this.apiHost);
       }
     }
-    this.loginToken = undefined;
-    this.user = undefined;
-    this.deleteTokenFile();
-    await this.refreshContextMenu();
+    deleteFile(this.tokenPath);
   }
 
 
@@ -577,7 +551,7 @@ export class ManuScrapeController {
     const invalidationCookie = await getInvalidationCookie(this.apiHost)
 
     if (invalidationCookie) {
-      console.info('sign out using browser window')
+      console.info('caught signed out in browser window')
       await this.resetAuth();
     } else if (this.isLoggedIn() && this.loginToken) {
       await this.refreshUser(this.apiHost, this.loginToken);
@@ -587,17 +561,17 @@ export class ManuScrapeController {
 
 
   // refresh the context menu ui based on state of current ManuController instance
-  // TODO: refactor function and improve readability
   private refreshContextMenu(): void {
     if (!this.tray) {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
     }
 
-    const menuItems = generateMenuItems(this, this.user);
-
-    // overwrite tray app context menu with generated one
-    const contextMenu = Menu.buildFromTemplate(menuItems);
-    this.tray.setContextMenu(contextMenu);
-    console.info('context menu refreshed', { isLoggedIn: this.isLoggedIn() })
+    const d = new Date();
+    this.contextMenu = generateContextMenu(this, this.user);
+    this.tray.setContextMenu(this.contextMenu);
+    const dd = new Date();
+    const diff = dd.getTime() - d.getTime();
+    console.info('regenerating menu took', diff, 'ms.')
+    console.info('context menu refreshed', { isLoggedIn: this.isLoggedIn(), items: this.contextMenu.items.length })
   }
 }

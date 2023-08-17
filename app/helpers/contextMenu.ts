@@ -1,15 +1,15 @@
-import { MenuItem, shell, screen } from "electron";
+import { MenuItem, type Display, shell, screen, Menu } from "electron";
 import type { ManuScrapeController } from "../controller";
 import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon } from "./icons";
 
 export function generateMenuItems(
   controller: ManuScrapeController,
-  user: IUser | undefined
+  user: IUser | undefined,
 ): MenuItem[] {
-    // declare empty menu item array
     const menuItems = [] as MenuItem[];
+    const activeDisplay = controller.getActiveDisplay();
 
-    if (!controller.isLoggedIn()) {
+    if (!user) {
       menuItems.push(new MenuItem({
         type: 'normal',
         label: 'Sign in',
@@ -20,7 +20,7 @@ export function generateMenuItems(
       }))
     } else if (controller.isMarkingArea) {
       menuItems.push(new MenuItem({
-        role: 'help',
+        type: 'normal',
         label: 'Overlay is currently open',
         enabled: false,
       }))
@@ -32,7 +32,7 @@ export function generateMenuItems(
         },
         accelerator: 'Alt+C',
       }))
-    } else if(controller.isLoggedIn() && user) {
+    } else if(user) {
       if (user.projects.length == 0) {
         menuItems.push(new MenuItem({
           label: "Create first project",
@@ -68,12 +68,12 @@ export function generateMenuItems(
       type: 'separator',      
     }));
 
-    if (controller.isLoggedIn() && user) {
+    if (user) {
 
       // create new empty screens submenu
       const screenMenu = new MenuItem({
         label: "Choose monitor",
-        sublabel: controller.getActiveDisplay().label,
+        sublabel: activeDisplay.label,
         submenu: [],
         type: 'submenu',
         icon: monitorIcon,
@@ -91,7 +91,7 @@ export function generateMenuItems(
           label: display.label,
           id: display.id.toString(),
           type: 'radio',
-          checked: controller.isActiveDisplayId(i),
+          checked: display.id == activeDisplay.id,
           enabled: !controller.isMarkingArea,
           click: () => controller.useDisplay(i),
         })
@@ -116,13 +116,13 @@ export function generateMenuItems(
               id: project.id.toString(),
               label: project.name,
               type: 'radio',
-              checked: controller.isActiveProjectId(project.id),
+              checked: controller.activeProjectId = project.id,
               click: () => controller.chooseProject(project.id),
             }));
           }
         }
 
-        if (!controller.hasActiveProject()) {
+        if (typeof controller.activeProjectId !== 'number') {
           controller.chooseProject(user.projects[0].id);
           const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
             item.id === controller.activeProjectId?.toString()
@@ -170,4 +170,14 @@ export function generateMenuItems(
     menuItems.push(itemExit);
 
     return menuItems;
+}
+
+
+export function generateContextMenu(
+  controller: ManuScrapeController,
+  user: IUser | undefined,
+) {
+    const menuItems = generateMenuItems(controller, user);
+    const menu = Menu.buildFromTemplate(menuItems);
+    return menu;
 }
