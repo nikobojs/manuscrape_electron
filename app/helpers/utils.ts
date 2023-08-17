@@ -1,4 +1,5 @@
-import { type MessageBoxOptions, dialog, safeStorage } from "electron";
+import { type MessageBoxOptions, dialog, safeStorage, Notification } from "electron";
+import { errorIcon } from "./icons";
 
 export function sleepAsync(ms: number | undefined) {
   return new Promise((ok) => setTimeout(ok, ms));
@@ -7,7 +8,13 @@ export function sleepAsync(ms: number | undefined) {
 export function ensureEncryptionAvail(): void {
   const encryptionAvailable = safeStorage.isEncryptionAvailable();
   if (!encryptionAvailable) {
-    throw new Error('Your machine does not support safe login.')
+    const err = new Error('Your machine does not support safe login. Your login sessions will not be saved')
+    new Notification({
+      title: 'ManuScrape',
+      body: err.message,
+      icon: errorIcon,
+    }).show();
+    throw err;
   }
 }
 

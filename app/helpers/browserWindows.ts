@@ -88,7 +88,7 @@ export const createSignInWindow = (): BrowserWindow => {
     movable: true,
     show: false,
     width: 320,
-    height: 440,
+    height: 460,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },

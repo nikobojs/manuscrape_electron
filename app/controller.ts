@@ -3,30 +3,32 @@ import path from 'path';
 import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createSignInWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
-import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon, successIcon } from './helpers/icons';
+import { trayIcon, bugReportIcon, logoutIcon, addIcon, loginIcon, monitorIcon, quitIcon, successIcon, warningIcon } from './helpers/icons';
 import fs from 'node:fs';
-import { fetchUser, logout, tryLogin, renewCookie, addObservationDraft } from './helpers/api';
-import * as cookie from 'cookie';
+import { fetchUser, logout, tryLogin, addObservationDraft } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
+import { authCookieExists, getInvalidationCookie, parseAuthCookie, readAuthCookies, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
+import { generateMenuItems } from './helpers/contextMenu';
 
 
 export class ManuScrapeController {
+  public isMarkingArea: boolean;
+  public allDisplays: Array<Electron.Display>
+  public activeProjectId: number | undefined;
+  public activeDisplayIndex: number;
+
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow;
   private signInWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
-  private allDisplays: Array<Electron.Display>
   private tray: Tray | undefined;
-  private activeDisplayIndex: number;
-  private isMarkingArea: boolean;
   private loginToken: string | undefined;
-  private user: IUser | undefined;
   private apiHost: string | undefined;
   private tokenPath: string;
   private hostPath: string;
-  private activeProjectId: number | undefined;
+  private user: IUser | undefined;
 
 
   constructor(app: Electron.App, trayWindow: BrowserWindow) {
@@ -82,6 +84,40 @@ export class ManuScrapeController {
     return activeDisplay;
   }
 
+  // boolean helpers for readability
+  public isActiveProjectId(projectId: number): boolean {
+    return this.activeProjectId == projectId;
+  }
+  public hasActiveProject(): boolean {
+    return this.activeProjectId !== undefined;
+  }
+  public isActiveDisplayId(displayIndex: number): boolean {
+    return this.activeDisplayIndex == displayIndex;
+  }
+
+  // is logged in helper
+  public isLoggedIn(): boolean {
+    return !!this.loginToken;
+  }
+
+
+  // log out function
+  public logOut() {
+    dialog.showMessageBox(this.trayWindow, {
+      buttons: ['No', 'Yes'],
+      message: 'Are you sure you want to log out?',
+    }).then(async (res) => {
+      if (res.response == 1) {
+        await this.resetAuth();
+      }
+    });
+  }
+
+  // update activeProjectId and refresh menu
+  public chooseProject(id: number) {
+    this.activeProjectId = id;
+    this.refreshContextMenu();
+  }
 
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
@@ -91,7 +127,8 @@ export class ManuScrapeController {
       return;
     }
 
-    const listener = async (event: IpcMainEvent, area: any) => {
+    // define callback action when area has been marked
+    const onMarkedArea = async (event: IpcMainEvent, area: any) => {
       const activeDisplay = this.getActiveDisplay();
       this.onMarkAreaDone();
       await quickScreenshot(
@@ -101,6 +138,8 @@ export class ManuScrapeController {
       )
 
       // make typescript linters happy
+      // NOTE: none of these errors should ever happen
+      // TODO: report errors
       if (!this.activeProjectId) {
         console.error('no project id')
         throw new Error('activeProjectId is not set')
@@ -141,11 +180,15 @@ export class ManuScrapeController {
         this.refreshContextMenu();
       });
 
+      // safe window in instance state
       this.nuxtWindow = win;
     };
 
-    this.setOnAreaMarkedListener(listener);
+    // add listener to state so it can be removed later
+    // NOTE: removeEventListener requires a reference to the function
+    this.setOnAreaMarkedListener(onMarkedArea);
 
+    // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
   }
 
@@ -163,6 +206,16 @@ export class ManuScrapeController {
         )
       }
     );
+
+    // TODO: needs development!
+    // TODO: open create observation window like createQuickScreenshot()
+    // TODO: consider generalizing some logic from createQuickScreenshot()
+
+    new Notification({
+      title: 'ManuScrape',
+      body: 'Scrollshots are not supported yet!',
+      icon: warningIcon,
+    }).show();
 
     this.openMarkAreaOverlay();
   }
@@ -187,7 +240,7 @@ export class ManuScrapeController {
 
   // function that tries to authorize using files and cookies
   private async initialAuth() {
-    const hasAuthCookie = await this.authCookieExists();
+    const hasAuthCookie = await authCookieExists();
     const tokenExists = this.tokenFileExists();
     const hostExists = this.hostFileExists();
 
@@ -209,7 +262,7 @@ export class ManuScrapeController {
       // TODO: fix pattern
       } else if (hasAuthCookie && hostExists) {
         console.info('signing in with cookie and saved host file');
-        token = await this.readTokenFromCookie();
+        token = await readTokenFromCookie();
       }
     } catch(err: any) {
       // TODO: report errors?
@@ -224,7 +277,7 @@ export class ManuScrapeController {
     } finally {
       // use retrieved 'host' and 'token' to renew cookie and fetch user
       if (host && token) {
-        await this.renewCookieFromToken(host, token).catch(() => {});
+        await renewCookieFromToken(host, token).catch(() => {});
         await this.refreshUser(host, token);
       }
     }
@@ -296,72 +349,6 @@ export class ManuScrapeController {
   // END file operations and helpers
 
 
-  // Some small cookie helpers
-  private async readAuthCookies(): Promise<Electron.Cookie[]> {
-    const cookies = await session.defaultSession.cookies.get({ name: 'authcookie' })
-    return cookies;
-  }
-  private async authCookieExists(): Promise<boolean> {
-    const cookies = await this.readAuthCookies();
-    return cookies.length > 0;
-  }
-  private async removeAuthCookies(): Promise<void> {
-    const cookiesExist = await this.authCookieExists();
-    if (cookiesExist && this.apiHost) {
-      await session.defaultSession.cookies.remove(this.apiHost, 'authcookie');
-    }
-  }
-
-
-  // async function that returns token from first auth cookie
-  // and throws if none found
-  private async readTokenFromCookie(): Promise<string> {
-    const cookies = await this.readAuthCookies();
-    if (cookies.length > 0) {
-      return cookies[0].value;
-    } else {
-      throw new Error('Cannot read cookie when it is not defined')
-    }
-  }
-
-
-  // renew cookie from host and token
-  // - calls endpoint that returns a cookie based on a token
-  // - sets session cookie and saves it on client machine
-  private async renewCookieFromToken(host: string, token: string): Promise<void> {
-    const res = await renewCookie(host, token);
-    if (res.status !== 200) {
-      throw new Error('Server returned status ' + res.status + ' when renewing cookie');
-    } else {
-      const newCookie = this.parseAuthCookie(host, res);
-      session.defaultSession.cookies.set(newCookie);
-    }
-  }
-
-
-  // read auth cookie from response object and throw if its bad
-  private parseAuthCookie(host: string, res: Response): Electron.CookiesSetDetails {
-    const cookieVal = res.headers.get('Set-Cookie');
-    if (!cookieVal) {
-      throw new Error('The response headers does not include \'Set-Cookie\'');
-    }
-    const parsed = cookie.parse(cookieVal);
-    const hostUrl = new URL(host);
-    const newCookie: Electron.CookiesSetDetails = {
-      value: parsed.authcookie,
-      expirationDate: new Date(parsed.Expires).getTime(),
-      path: '/',
-      sameSite: 'strict' as "strict" | "unspecified" | "no_restriction" | "lax",
-      url: host,
-      name: 'authcookie',
-      httpOnly: true,
-      secure: false, // TODO,
-      domain: hostUrl.hostname
-    };
-    return newCookie;
-  }
-
-
   // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
     // whether same credentials are already defined in instance properties    
@@ -398,9 +385,9 @@ export class ManuScrapeController {
   private async resetAuth() {
     if (this.apiHost && this.loginToken) {
       await logout(this.apiHost, this.loginToken);
-      const cookies = await this.readAuthCookies();
+      const cookies = await readAuthCookies();
       if (cookies.length > 0) {
-        await this.removeAuthCookies();
+        await removeAuthCookies(this.apiHost);
       }
     }
     this.loginToken = undefined;
@@ -490,7 +477,7 @@ export class ManuScrapeController {
 
     // update cookie so browser window is logged in by default
     // TODO: this might not be needed
-    await this.renewCookieFromToken(host, token);
+    await renewCookieFromToken(host, token);
 
     // try fetch user with token
     // NOTE: this confirms that the token works, and saves credentials in safeStorage
@@ -508,7 +495,7 @@ export class ManuScrapeController {
 
 
   // open markArea overlay. IPC listeners should have be added beforehand
-  private openSignInWindow() {
+  public openSignInWindow() {
     if (this.signInWindow && !this.signInWindow.isDestroyed()) {
       this.signInWindow.focus();
     } else {
@@ -528,7 +515,7 @@ export class ManuScrapeController {
 
   // opens webapp (hopefully authorized always!)
   // TODO: refactor
-  private async openCreateProjectWindow(): Promise<void> {
+  public async openCreateProjectWindow(): Promise<void> {
     if (!this.apiHost) {
       throw new Error('Api host not set when opening external browser window')
     }
@@ -557,7 +544,7 @@ export class ManuScrapeController {
   // add hardcoded global shortcuts
   // NOTE: should only be called once
   // NOTE: this should always match the MenuItem accelerators
-  // TODO: refactor
+  // TODO: refactor (to refreshShortcuts?)
   private setupShortcuts(): void {
     globalShortcut.register('Alt+Q', () => {
       console.info('caught exit shortcut. will exit now');
@@ -566,30 +553,6 @@ export class ManuScrapeController {
     globalShortcut.register('Alt+N', () => this.createQuickScreenshot())
     globalShortcut.register('Alt+S', () => this.createScrollScreenshot())
     console.info('set up keyboard shortcuts')
-  }
-
-
-  // is logged in helper
-  private isLoggedIn(): boolean {
-    return !!this.loginToken;
-  }
-
-
-  // log out function
-  private logOut() {
-    dialog.showMessageBox(this.trayWindow, {
-      buttons: ['No', 'Yes'],
-      message: 'Are you sure you want to log out?',
-    }).then(async (res) => {
-      if (res.response == 1) {
-        await this.resetAuth();
-      }
-    });
-  }
-
-  private chooseProject(id: number) {
-    this.activeProjectId = id;
-    this.refreshContextMenu();
   }
 
 
@@ -608,16 +571,10 @@ export class ManuScrapeController {
 
   // ensure auth state and contextmenu is ok and synced when nuxt window closes
   private async onExternalWindowClose() {
-    const cookies = await this.readAuthCookies();
     if (!this.apiHost) {
       throw new Error('Api host not set when opening external browser window')
     }
-    const hostUrl = new URL(this.apiHost);
-    const invalidationCookie = cookies.find((cookie) => 
-      cookie.domain == hostUrl.hostname &&
-      cookie.name === 'authcookie' &&
-      cookie.value === ''
-    );
+    const invalidationCookie = await getInvalidationCookie(this.apiHost)
 
     if (invalidationCookie) {
       console.info('sign out using browser window')
@@ -636,167 +593,7 @@ export class ManuScrapeController {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
     }
 
-    // declare empty menu item array
-    const menuItems = [] as MenuItem[];
-    if (!this.isLoggedIn()) {
-      menuItems.push(new MenuItem({
-        type: 'normal',
-        label: 'Sign in',
-        click: () => {
-          this.openSignInWindow();
-        },
-        icon: loginIcon,
-      }))
-    } else if (this.isMarkingArea) {
-      menuItems.push(new MenuItem({
-        role: 'help',
-        label: 'Overlay is currently open',
-        enabled: false,
-      }))
-      menuItems.push(new MenuItem({
-        type: 'normal',
-        label: 'Cancel action',
-        click: () => {
-          this.cancelOverlay();
-        },
-        accelerator: 'Alt+C',
-      }))
-    } else if(this.isLoggedIn() && this.user) {
-      if (this.user.projects.length == 0) {
-        menuItems.push(new MenuItem({
-          label: "Create first project",
-          type: "normal",
-          click: () => {
-            this.openCreateProjectWindow()
-          },
-          icon: addIcon,
-        }));
-      } else {
-        menuItems.push(new MenuItem({
-          label: "Take screenshot",
-          type: "normal",
-          click: () => this.createQuickScreenshot(),
-          accelerator: 'Alt+N',
-          icon: addIcon,
-        }));
-
-        menuItems.push(new MenuItem({
-          label: "Take scrollshot",
-          type: "normal",
-          click: () => this.createScrollScreenshot(),
-          accelerator: 'Alt+S',
-          icon: addIcon,
-        }));
-      }
-
-    }
-
-
-    // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
-    menuItems.push(new MenuItem({
-      type: 'separator',      
-    }));
-
-    if (this.isLoggedIn() && this.user) {
-
-      // create new empty screens submenu
-      const screenMenu = new MenuItem({
-        label: "Choose monitor",
-        sublabel: this.getActiveDisplay().label,
-        submenu: [],
-        type: 'submenu',
-        icon: monitorIcon,
-      });
-
-      // update screens available
-      this.allDisplays = screen.getAllDisplays();
-
-      // add all screens to submenu
-      for (let i = 0; i < this.allDisplays.length; i++) {
-        const display = this.allDisplays[i];
-
-        // create screen submenu item
-        const screenMenuItem = new MenuItem({
-          label: display.label,
-          id: display.id.toString(),
-          type: 'radio',
-          checked: this.activeDisplayIndex == i,
-          enabled: !this.isMarkingArea,
-          click: () => this.useDisplay(i),
-        })
-
-        // add screen to submenu
-        screenMenu.submenu?.insert(i, screenMenuItem)
-      }
-
-      // TODO: refactor function and improve readability
-      if (this.user.projects.length > 0) {
-        // add projects to menuItems
-        const projectMenu = new MenuItem({
-          label: "Choose project",
-          submenu: [],
-          type: 'submenu',
-        })
-
-        if (this.user.projects.length > 0) {
-          for (let i = 0; i < this.user.projects.length; i++) {
-            const project = this.user.projects[i];
-            projectMenu.submenu?.insert(i, new MenuItem({
-              id: project.id.toString(),
-              label: project.name,
-              type: 'radio',
-              checked: this.activeProjectId == project.id,
-              click: () => this.chooseProject(project.id),
-            }));
-          }
-        }
-
-        if (this.activeProjectId == undefined) {
-          this.chooseProject(this.user.projects[0].id);
-          const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
-            item.id === this.activeProjectId?.toString()
-          )
-          if (chosenMenuItem) {
-            chosenMenuItem.checked = true;
-          }
-        }
-        menuItems.push(projectMenu);
-      }
-
-      // add menu to menuItems
-      menuItems.push(screenMenu);
-
-      // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
-      menuItems.push(new MenuItem({
-        type: 'separator',      
-      }));
-
-      menuItems.push(new MenuItem({
-        label: "Log out",
-        type: "normal",
-        click: () => this.logOut(),
-        icon: logoutIcon,
-      }));
-
-      menuItems.push(new MenuItem({
-        label: "Report issue",
-        type: "normal",
-        click: () => shell.openExternal('https://github.com/nikobojs/manuscrape_electron/issues'),
-        icon: bugReportIcon,
-      }));
-
-    }
-
-    // exit context menu item
-    const itemExit = new MenuItem({
-      label: "Quit",
-      enabled: !this.isMarkingArea,
-      role: "quit",
-      icon: quitIcon,
-    });
-
-    // add all menu items
-    menuItems.push(itemExit);
+    const menuItems = generateMenuItems(this, this.user);
 
     // overwrite tray app context menu with generated one
     const contextMenu = Menu.buildFromTemplate(menuItems);

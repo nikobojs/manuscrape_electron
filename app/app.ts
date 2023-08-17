@@ -18,6 +18,9 @@ import { ensureEncryptionAvail } from './helpers/utils';
 
 let controller;
 
+// force dark mode in chrome
+app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+
 app.whenReady().then(() => {
 
   app.on('window-all-closed', function () {
