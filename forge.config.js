@@ -23,6 +23,8 @@ module.exports = {
         // NOTE: EXPERIMENTAL
         setupExe: `manuscrape-setup-${arch}.exe`,
         noMsi: true,
+        title: 'ManuScrape'
+
         // TODO: find and add icon
         // setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
         //
