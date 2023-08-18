@@ -88,7 +88,7 @@ export const createSignInWindow = (): BrowserWindow => {
     movable: true,
     show: false,
     width: 320,
-    height: 460,
+    height: 480,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
@@ -115,7 +115,7 @@ export const createSignUpWindow = (): BrowserWindow => {
     movable: true,
     show: false,
     width: 320,
-    height: 460,
+    height: 480,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
