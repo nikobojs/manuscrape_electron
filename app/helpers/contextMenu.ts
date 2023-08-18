@@ -1,4 +1,4 @@
-import { MenuItem, type Display, shell, screen, Menu } from "electron";
+import { MenuItem, shell, screen, Menu } from "electron";
 import type { ManuScrapeController } from "../controller";
 import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon } from "./icons";
 
@@ -15,6 +15,14 @@ export function generateMenuItems(
         label: 'Sign in',
         click: () => {
           controller.openSignInWindow();
+        },
+        icon: loginIcon,
+      }))
+      menuItems.push(new MenuItem({
+        type: 'normal',
+        label: 'Create account',
+        click: () => {
+          controller.openSignUpWindow();
         },
         icon: loginIcon,
       }))

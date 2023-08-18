@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('sign-in-error', callbackError)
     ipcRenderer.send('sign-in', signInBody);
   },
+  signUp: (signInBody: ISignUpBody, callback: SignInCallback, callbackError: SignUpCallback) => {
+    ipcRenderer.once('sign-up-ok', callback)
+    ipcRenderer.once('sign-up-error', callbackError)
+    ipcRenderer.send('sign-up', signInBody);
+  },
   defaultHostValue: (callback: HostValueCallback) => {
     ipcRenderer.once('default-host-value', callback);
     ipcRenderer.once('ask-for-default-host-value', callback);

@@ -59,12 +59,8 @@ export async function readTokenFromCookie(): Promise<string> {
 // - sets session cookie and saves it on client machine
 export async function renewCookieFromToken(host: string, token: string): Promise<void> {
   const res = await renewCookie(host, token);
-  if (res.status !== 200) {
-    throw new Error('Server returned status ' + res.status + ' when renewing cookie');
-  } else {
-    const newCookie = parseAuthCookie(host, res);
-    session.defaultSession.cookies.set(newCookie);
-  }
+  const newCookie = parseAuthCookie(host, res);
+  session.defaultSession.cookies.set(newCookie);
 }
 
 

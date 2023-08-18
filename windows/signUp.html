@@ -13,12 +13,12 @@
     />
     <link rel="stylesheet" href="../assets/css.css" type="text/css">
     <link rel="stylesheet" href="../assets/tailwind.min.css" type="text/css">
-    <title>Sign in</title>
+    <title>Sign up</title>
 </head>
 <body class="dark pt-5 bg-[#1c1b22] text-white">
     <div class="container px-4 max-w-sm text-center mx-auto">
-        <form class="flex flex-col max-w-sm w-full items-start text-center" onsubmit="login(event)">
-            <h2 class="text-xl mb-10">Sign in to ManuScrape</h2>
+        <form class="flex flex-col max-w-sm w-full items-start text-center" onsubmit="signUp(event)">
+            <h2 class="text-xl mb-10">Create Manuscrape account</h2>
             <label class="mb-1" for="input-email">Email</label>
             <input
                 class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
@@ -53,7 +53,7 @@
                 class="focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm text-white dark:text-gray-900 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center mt-2"
                 type="submit"
                 id="input-submit"
-            >Sign in</button>
+            >Sign up</button>
         </form>
     </div>
 
@@ -65,22 +65,22 @@
             }
         });
 
-        function login(event) {
+        function signUp(event) {
             event.preventDefault();
             const errorElem = document.querySelector('#error-message');
             errorElem.innerHTML = '&nbsp;';
             document.querySelector('#input-submit').disabled = true;
-            document.querySelector('#input-submit').value = 'Signing in...'
+            document.querySelector('#input-submit').value = 'Creating account...'
             const email = document.querySelector('#input-email').value;
             const password = document.querySelector('#input-password').value;
             const host = document.querySelector('#input-host').value || 'https://manuscrape.org';
 
-            window.electronAPI.signIn({ email, password, host }, () => {
+            window.electronAPI.signUp({ email, password, host }, () => {
                 window.close();
             }, (event, errorMessage) => {
                 errorElem.innerText = errorMessage;
                 document.querySelector('#input-submit').disabled = false;
-                document.querySelector('#input-submit').value = 'Sign in'
+                document.querySelector('#input-submit').value = 'Sign up'
             });
         }
 

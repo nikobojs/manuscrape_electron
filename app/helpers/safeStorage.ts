@@ -17,5 +17,14 @@ export function saveFile(content: string, p: string): void {
 }
 
 export function deleteFile(p: string): void {
-  fs.unlinkSync(p);
+  try {
+    fs.unlinkSync(p);
+  } catch(err: any) {
+    if (err?.code == 'ENOENT') {
+      // ignore if file doesn't exist, because if file was
+      // "already deleted" the function still did its job, right?
+    } else {
+      throw err;
+    }
+  }
 }

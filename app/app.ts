@@ -14,7 +14,7 @@ if (require('electron-squirrel-startup') || isSquirrel) {
 import { ManuScrapeController } from './controller';
 import { ensurePythonAvail } from './helpers/pythonBridge';
 import { createTrayWindow } from './helpers/browserWindows';
-import { ensureEncryptionAvail } from './helpers/utils';
+import { warnIfEncryptionUnavailable } from './helpers/utils';
 
 let controller: ManuScrapeController | undefined;
 
@@ -42,10 +42,10 @@ app.whenReady().then(() => {
 
   // ensure safeStorage works on this device
   // NOTE: must be run after first browser window is created
-  ensureEncryptionAvail();
+  const encryptionSupport = warnIfEncryptionUnavailable();
 
   // initialize controller object
-  controller = new ManuScrapeController(trayWindow);
+  controller = new ManuScrapeController(trayWindow, encryptionSupport);
 });
 
 process.on('unhandledRejection', function (err) {

@@ -106,6 +106,33 @@ export const createSignInWindow = (): BrowserWindow => {
 }
 
 
+export const createSignUpWindow = (): BrowserWindow => {
+  const win = new BrowserWindow({
+    title: "Sign up",
+    autoHideMenuBar: true,
+    minimizable: false,
+    closable: true,
+    movable: true,
+    show: false,
+    width: 320,
+    height: 460,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload.js'),
+    },
+  })
+
+  
+  win.loadFile('windows/signUp.html');
+
+  win.once('ready-to-show', () => {
+    win.show();
+    win.focus();
+  });
+
+  return win;
+}
+
+
 export const createAddObservationWindow = (
   apiHost: string,
   projectId: number,

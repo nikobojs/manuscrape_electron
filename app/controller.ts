@@ -1,10 +1,9 @@
-import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, dialog, BrowserWindow, type IpcMainEvent } from 'electron';
+import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
-import { URL } from 'node:url'
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createSignInWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createSignInWindow, createSignUpWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, warningIcon } from './helpers/icons';
-import { fetchUser, logout, tryLogin, addObservationDraft } from './helpers/api';
+import { fetchUser, logout, signIn, addObservationDraft, signUp, parseHostUrl } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readAuthCookies, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
@@ -20,6 +19,7 @@ export class ManuScrapeController {
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow | undefined;
   private signInWindow: Electron.BrowserWindow | undefined;
+  private signUpWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
@@ -30,14 +30,16 @@ export class ManuScrapeController {
   private hostPath: string;
   private user: IUser | undefined;
   private contextMenu: Menu | undefined;
+  private useEncryption: boolean;
 
-  constructor(trayWindow: BrowserWindow) {
+  constructor(trayWindow: BrowserWindow, useEncryption: boolean) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
     this.hostPath = path.join(app.getPath('userData'), 'host.txt.enc');
+    this.useEncryption = useEncryption;
 
     trayWindow.on('ready-to-show', () => {
       // setup tray app
@@ -331,13 +333,17 @@ export class ManuScrapeController {
       if (freshLogin) {
         this.loginToken = token;
         this.apiHost = host;
-        saveFile(host, this.hostPath);
-        saveFile(token, this.tokenPath);
         new Notification({
           title: 'ManuScrape',
           body: 'Signed in with ' + user?.email + '.',
           icon: successIcon,
         }).show();
+
+        // save login session if encryption is available
+        if (this.useEncryption) {
+          saveFile(host, this.hostPath);
+          saveFile(token, this.tokenPath);
+        }
       }
     console.info('refreshed user', { host, email: user?.email });
     } catch(e) {
@@ -383,72 +389,86 @@ export class ManuScrapeController {
   }
 
 
-  private async loginHandler(
+  private async signInHandler(
     event: Electron.IpcMainEvent,
     {email, password, host}: ISignInBody,
   ): Promise<void> {
-    // wait a little bit, for UX purpose
-    await new Promise((ok) => setTimeout(ok, 200));
-
-    // if no scheme is set, default to https
-    const hasProtocol = /^.+\:\/\//.test(host);
-    if (!hasProtocol) {
-      host = 'https://' + host;
-    }
-
-    // try parse host string
+    // ensure host string 
     try {
-      const parsedUrl = new URL(host);
-
-      // only allow http and https
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-        return event.reply(
-          'sign-in-error',
-          'The host input field must begin with http:// or https://'
-        ) // TODO: use enum
-      }
-    } catch(_e) {
+    } catch(err: any) {
       return event.reply(
         'sign-in-error',
-        'Invalid host input value'
-      ) // TODO: use enum
+        err?.message || 'Unknown error'
+      )
     }
 
-
-    // call api and get login token
+    // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
+
+    // parse and set token and host variables
     try {
-      const json = await tryLogin(host, email, password);
-      token = json.token;
-    } catch(e: any) {
-      // there was some kind of error. lets parse it
-      let msg = e?.message || 'Unknown error'
+      // validate and set host url string
+      host = parseHostUrl(host);
 
-      // covers basic errors for bad hosts
-      // TODO: improve error handling for more error cases
-      if (e?.cause) {
-        if (['EAI_AGAIN', 'ENOTFOUND'].includes(e.cause?.code)) {
-          msg = 'The host is invalid or not available'
-        } else if (e.cause?.code == 'ERR_SSL_WRONG_VERSION_NUMBER') {
-          msg = 'This kind of URL is invalid. Please specify the protocol.'
-        }
-      }
+      // unpack in try catch to ensure token value in runtime
+      const { token: _token } = await signIn(host, email, password);
+      token = _token;
 
-      // return `msg` to client, so error can be rendered
+    // return `error` to client, so error can be rendered
+    } catch(err: any) {
       return event.reply(
         'sign-in-error',
-        msg,
+        err?.message || 'Unknown error'
       ) // TODO: use enum
     }
 
-    // if we still dont have a token, we have to blame the api
-    if (!token) {
+    await this.updateAuthSession(host, token);
+
+    // tell client login was successful
+    event.reply('sign-in-ok'); // TODO: use enum
+  }
+
+
+  private async signUpHandler(
+    event: Electron.IpcMainEvent,
+    {email, password, host}: ISignUpBody,
+  ): Promise<void> {
+    // ensure host string 
+    try {
+    } catch(err: any) {
       return event.reply(
-        'sign-in-error',
-        'The server did not return the token.'
+        'sign-up-error',
+        err?.message || 'Unknown error'
+      )
+    }
+
+    // define initial token (to keep it in scope outside try/catch block)
+    let token: string | undefined;
+
+    // parse and set token and host variables
+    try {
+      // validate and set host url string
+      host = parseHostUrl(host);
+
+      // unpack in try catch to ensure token value in runtime
+      const { token: _token } = await signUp(host, email, password);
+      token = _token;
+
+    // return `error` to client, so error can be rendered
+    } catch(err: any) {
+      return event.reply(
+        'sign-up-error',
+        err?.message || 'Unknown error'
       ) // TODO: use enum
     }
 
+    await this.updateAuthSession(host, token);
+
+    // tell client login was successful
+    event.reply('sign-up-ok'); // TODO: use enum
+  }
+
+  private async updateAuthSession(host: string, token: string) {
     // update cookie so browser window is logged in by default
     // TODO: this might not be needed
     await renewCookieFromToken(host, token);
@@ -457,19 +477,22 @@ export class ManuScrapeController {
     // NOTE: this confirms that the token works, and saves credentials in safeStorage
     await this.refreshUser(host, token);
 
-    // tell client login was successful
-    event.reply('sign-in-ok'); // TODO: use enum
+    // remove all sign-up listeners, so this wont be executed multiple times
+    ipcMain.removeAllListeners('sign-up');
 
     // remove all sign-in listeners, so this wont be executed multiple times
     ipcMain.removeAllListeners('sign-in');
 
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
+
+    // TODO: also close existing open windows? maybe a reset windows method?
   }
 
 
   // open markArea overlay. IPC listeners should have be added beforehand
   public openSignInWindow() {
+    // TODO: also look for other windows! nuxtWindow (rename?) & signUpWindow
     if (this.signInWindow && !this.signInWindow.isDestroyed()) {
       this.signInWindow.focus();
     } else {
@@ -477,12 +500,32 @@ export class ManuScrapeController {
       // TODO: pass sensitive token data
       ipcMain.on(
         'sign-in', // TODO: use enum
-        (event, body) => this.loginHandler(event, body),
+        (event, body) => this.signInHandler(event, body),
       );
       ipcMain.once('ask-for-default-host-value', (event) => {
         event.reply('default-host-value', this?.apiHost || '')
       })
       this.signInWindow = createSignInWindow();
+    }
+  }
+
+
+  // open markArea overlay. IPC listeners should have be added beforehand
+  public openSignUpWindow() {
+    // TODO: also look for other windows! nuxtWindow (rename?) & signInWindow
+    if (this.signUpWindow && !this.signUpWindow.isDestroyed()) {
+      this.signUpWindow.focus();
+    } else {
+      // create new sign in window
+      // TODO: pass sensitive token data
+      ipcMain.on(
+        'sign-up', // TODO: use enum
+        (event, body) => this.signUpHandler(event, body),
+      );
+      ipcMain.once('ask-for-default-host-value', (event) => {
+        event.reply('default-host-value', this?.apiHost || '')
+      })
+      this.signInWindow = createSignUpWindow();
     }
   }
 
@@ -494,7 +537,7 @@ export class ManuScrapeController {
       throw new Error('Api host not set when opening external browser window')
     }
 
-    if (this.nuxtWindow) {
+    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
       this.nuxtWindow.focus();
       return;
     }
@@ -505,6 +548,7 @@ export class ManuScrapeController {
         new Notification({
           title: 'ManuScrape',
           body: 'Project created successfully',
+          icon: successIcon,
         }).show();
         this.refreshContextMenu();
       }

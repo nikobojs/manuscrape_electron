@@ -1,48 +1,132 @@
+// fetch decoration function to be used instead of fetch() when calling the nuxt api
+// NOTE: there is no runtime validation against the generic type
+async function req<T>(
+    host: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+    path: RequestInfo | URL,
+    token?: string,
+    body?: any,
+    headers?: HeadersInit,
+): Promise<{res: Response, json: T}> {
+    try {
+        // define initial request config
+        const init: RequestInit = {
+            method,
+            headers: {
+                'Accept': 'application/json',
+            },
+            credentials: 'include'
+        };
+
+        // add json body and header if body is defined
+        if (body) {
+            init.body = JSON.stringify(body);
+            init.headers = {
+                ...init.headers,
+                'Content-Type':  'application/json',
+            };
+        }
+
+        // add custom headers if defined
+        if (headers) {
+            init.headers = {...init.headers, ...headers};
+        }
+
+        // add token header if token is defined
+        if (token) {
+            init.headers = {
+                ...init.headers,
+                'Authentication': token,
+            }
+        }
+
+        // send api request
+        // NOTE: might throw connection errors
+        const res = await fetch(host + path, init);
+
+        // parse json
+        // NOTE: might throw json parse errors
+        const json = await res.json();
+
+        // if api returns message or statusMessage, throw error with server message
+        if (![200, 201].includes(res.status)) {
+            const msg =  json?.message || json?.statusMessage || 'Unknown error'
+            throw new Error(msg)
+        }
+
+        // return the json body as the generic type
+        // NOTE: there is no runtime validation in this generic function
+        return {res, json: json as T};
+    } catch(err: any) {
+      // covers basic errors for bad hosts
+      // TODO: improve error handling for more error cases
+      if (err?.cause) {
+        if (['EAI_AGAIN', 'ENOTFOUND'].includes(err.cause?.code)) {
+          throw new Error('The host is invalid or not available');
+        } else if (err.cause?.code == 'ERR_SSL_WRONG_VERSION_NUMBER') {
+          throw new Error('This kind of URL is invalid. Please specify the protocol.');
+        }
+      }
+
+      // catch if server is not sending json
+      if (err?.name === 'SyntaxError' && err?.message?.includes?.('Unexpected token')) {
+        // TODO: report this
+        throw new Error('The server probably down! Please contact your software provider')
+      }
+
+      // TODO: catch json parse errors
+      console.error('req() UNCAUGHT ERROR:', {
+        path,
+        method,
+        body,
+        err: {
+            name: err?.name, message: err?.message, cause: err?.cause
+        }
+    });
+
+      // TODO: report uncaught errors
+
+      // throw error
+      throw err;
+    }
+}
+
+
 export async function fetchUser(
     host: string,
     token: string
 ): Promise<IUser> {
-    const res = await fetch(host + '/api/user', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/javascript',
-            'Authentication': token,
-        },
-        credentials: 'include'
-    })
-
-    const json = await res.json();
-
-    if (res.status !== 200) {
-        const msg =  json?.statusMessage ?? 'Unknown error'
-        throw new Error(msg)
-    }
-
+    const  { json } = await req<IUser>(host, 'GET', '/api/user', token);
     return json;
 }
 
 
-export async function tryLogin(
+export async function signUp(
     host: string,
     email: string,
     password: string
-): Promise<ILoginOKResponse> {
-    const res = await fetch(host + '/api/auth', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-        headers: {
-          'Content-Type': 'application/javascript',
-        },
-        credentials: 'include'
-    })
+): Promise<ITokenResponse> {
+    const { json } = await req<ITokenResponse>(host, 'POST', '/api/user', undefined, { email, password })
 
-    const json = await res.json();
-
-    if (res.status !== 200) {
-        const msg =  json?.statusMessage ?? 'Unknown error'
-        throw new Error(msg)
+    // if we still dont have a token, we have to blame the api
+    if (!json?.token || typeof json?.token !== 'string') {
+        throw new Error('The server did not return the token.');
     }
+    return json;
+}
 
+
+export async function signIn(
+    host: string,
+    email: string,
+    password: string
+): Promise<ITokenResponse> {
+    const { json } = await req<ITokenResponse>(host, 'POST', '/api/auth', undefined, { email, password })
+
+    // if we still dont have a token, we have to blame the api
+    if (!json?.token || typeof json?.token !== 'string') {
+        throw new Error('The server did not return the token.');
+    }
     return json;
 }
 
@@ -50,13 +134,9 @@ export async function tryLogin(
 export async function logout(
     host: string,
     token: string
-): Promise<void> {
-    await fetch(host + '/api/auth', {
-        method: 'DELETE',
-        headers: {
-            'Authentication': token,
-        },
-    });
+): Promise<Response> {
+    const { res } = await req<ISuccessResponse>(host, 'DELETE', '/api/auth', token)
+    return res;
 }
 
 
@@ -64,26 +144,7 @@ export async function renewCookie(
     host: string,
     token: string
 ): Promise<Response> {
-    const res = await fetch(host + '/api/token_auth', {
-        credentials: 'include',
-        method: 'POST',
-        headers: {
-            'Authentication': token,
-        },
-        body: JSON.stringify({ token }),
-    });
-
-    if (res.status !== 200) {
-        let json;
-        try {
-            json = await res.json();
-        } catch(e) {
-            // ignore
-        }
-        const msg = json?.statusMessage || json?.message || 'Unknown error';
-        throw new Error(msg)
-    }
-
+    const { res } = await req<ISuccessResponse>(host, 'POST', '/api/token_auth', undefined, { token })
     return res;
 }
 
@@ -92,20 +153,49 @@ export async function addObservationDraft(
     host: string,
     token: string,
     projectId: number,
-): Promise<{ id: number }> {
-    const res = await fetch(host + `/api/projects/${projectId}/observation_drafts`, {
-        credentials: 'include',
-        method: 'POST',
-        headers: {
-            'Authentication': token,
-        },
-    });
+): Promise<IDraftCreatedResponse> {
+    const { json } = await req<IDraftCreatedResponse>(
+        host,
+        'POST',
+        `/api/projects/${projectId}/observation_drafts`,
+        token
+    )
 
-    const json = await res.json();
+    // const json = await res.json();
     if (typeof json['id'] !== 'number') {
         console.error('Create observation response:', { json })
         throw new Error('Api did not respond as expected when adding observation draft');
     } else {
         return { id: json['id'] };
     }
+}
+
+
+export function parseHostUrl(
+    host: string
+): string {
+    // ensure host is thruthy and a string
+    if (!host || typeof host != 'string') {
+        throw new Error('Host parameter is required');
+    }
+
+    // if no scheme is set, default to https
+    const hasProtocol = /^.+\:\/\//.test(host);
+    if (!hasProtocol) {
+      host = 'https://' + host;
+    }
+
+    try {
+      const parsedUrl = new URL(host);
+
+      // only allow http and https
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('The host input field must begin with http:// or https://');
+      }
+    } catch {
+        throw new Error('Invalid host input value');
+    }
+
+    // return host
+    return host;
 }

@@ -23,6 +23,12 @@ declare global {
     host: string;
   }
 
+  interface ISignUpBody {
+    email: string;
+    password: string;
+    host: string;
+  }
+
   interface IUser {
     id: number;
     email: string;
@@ -30,10 +36,19 @@ declare global {
     projects: Array<any>;
   }
 
-  interface ILoginOKResponse {
+  interface ITokenResponse {
     token: string;
   }
 
+  interface ISuccessResponse {
+    success: true,
+  }
+
+  interface IDraftCreatedResponse {
+    id: number
+  }
+
   type SignInCallback = (event: IpcRendererEvent, ...args: any[]) => void;
+  type SignUpCallback = (event: IpcRendererEvent, ...args: any[]) => void;
   type HostValueCallback = (event: IpcRendererEvent, ...args: any[]) => void;
 }
