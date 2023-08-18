@@ -14,7 +14,7 @@ export function generateMenuItems(
         type: 'normal',
         label: 'Sign in',
         click: () => {
-          controller.openSignInWindow();
+          controller.openAuthorizationWindow();
         },
         icon: loginIcon,
       }))
@@ -22,7 +22,7 @@ export function generateMenuItems(
         type: 'normal',
         label: 'Create account',
         click: () => {
-          controller.openSignUpWindow();
+          controller.openAuthorizationWindow(true);
         },
         icon: loginIcon,
       }))

@@ -16,10 +16,20 @@
     <title>Sign up</title>
 </head>
 <body class="dark pt-5 bg-[#1c1b22] text-white">
-    <div class="container px-4 max-w-sm text-center mx-auto">
-        <form class="flex flex-col max-w-sm w-full items-start text-center" onsubmit="signUp(event)">
-            <h2 class="text-xl mb-10">Create Manuscrape account</h2>
-            <label class="mb-1" for="input-email">Email</label>
+    <div class="container px-5 max-w-sm mx-auto">
+        <form class="flex flex-col max-w-sm w-full items-start mb-3" onsubmit="signUp(event)">
+            <h2 class="text-xl mb-5">New ManuScrape account</h2>
+            <span class="text-sm text-left block mb-4">
+                Register a new ManuScrape account on a custom server hosting
+                <a class="underline cursor-pointer" target="_blank" href="https://github.com/nikobojs/manuscrape_nuxt">this repo</a>
+                (or fork).
+            </span>
+            <span class="text-sm text-left block">
+                If you already have an account on an online server,
+                <a class="underline cursor-pointer" href="signIn.html">sign in</a>
+                instead.
+            </span>
+            <label class="mb-1 mt-5 text-gray-200 text-sm font-bold" for="input-email">Email</label>
             <input
                 class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
                 id="input-email"
@@ -28,7 +38,7 @@
                 required
             />
             <br />
-            <label class="mb-1" for="input-password">Password</label>
+            <label class="mb-1 text-gray-200 text-sm font-bold" for="input-password">Password</label>
             <input
                 class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
                 id="input-password"
@@ -37,7 +47,7 @@
                 required
             />
             <br />
-            <label class="mb-1" for="input-host">Server domain or IP</label>
+            <label class="mb-1 text-gray-200 text-sm font-bold" for="input-host">Host domain or IP</label>
             <input
                 class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
                 id="input-host"
@@ -47,13 +57,14 @@
 
             <br />
 
-            <span class="text-red-600 block mb-2" id="error-message">&nbsp;</span>
-
-            <button
-                class="focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm text-white dark:text-gray-900 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center mt-2 mb-4"
-                type="submit"
-                id="input-submit"
-            >Sign up</button>
+            <div class="flex flex-row gap-x-4 items-baseline">
+                <button
+                    class="text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm transition-colors bg-[#263d71] focus:bg-[#29419d] hover:bg-[#29419d] disabled:bg-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center"
+                    type="submit"
+                    id="input-submit"
+                >Sign up</button>
+                <span class="text-red-600 text-sm block" id="error-message">&nbsp;</span>
+            </div>
         </form>
     </div>
 

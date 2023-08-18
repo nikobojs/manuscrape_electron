@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from 'electron';
+import { BrowserWindow, shell, type BrowserWindowConstructorOptions } from 'electron';
 import path from 'path';
 
 // generic nuxt app window factory - not meant to be exported
@@ -78,60 +78,33 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
   return win;
 }
 
-
-export const createSignInWindow = (): BrowserWindow => {
-  const win = new BrowserWindow({
-    title: "Sign in",
+export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => {
+  const opts: BrowserWindowConstructorOptions = {
+    title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
     movable: true,
-    show: false,
+    show: true,
+    resizable: false,
     width: 320,
-    height: 480,
+    height: 500,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
-  })
+  }
 
-  
-  win.loadFile('windows/signIn.html');
+  const file = openSignUp ? 'windows/signUp.html' : 'windows/signIn.html';
+  const win = new BrowserWindow(opts);
 
-  win.once('ready-to-show', () => {
-    win.show();
+  win.loadFile(file);
+
+  win.once('show', () => {
     win.focus();
   });
 
   return win;
 }
-
-
-export const createSignUpWindow = (): BrowserWindow => {
-  const win = new BrowserWindow({
-    title: "Sign up",
-    autoHideMenuBar: true,
-    minimizable: false,
-    closable: true,
-    movable: true,
-    show: false,
-    width: 320,
-    height: 480,
-    webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
-    },
-  })
-
-  
-  win.loadFile('windows/signUp.html');
-
-  win.once('ready-to-show', () => {
-    win.show();
-    win.focus();
-  });
-
-  return win;
-}
-
 
 export const createAddObservationWindow = (
   apiHost: string,

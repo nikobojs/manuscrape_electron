@@ -1,7 +1,7 @@
 import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createSignInWindow, createSignUpWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, warningIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservationDraft, signUp, parseHostUrl } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
@@ -18,8 +18,7 @@ export class ManuScrapeController {
 
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow | undefined;
-  private signInWindow: Electron.BrowserWindow | undefined;
-  private signUpWindow: Electron.BrowserWindow | undefined;
+  private authWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
@@ -468,6 +467,12 @@ export class ManuScrapeController {
     event.reply('sign-up-ok'); // TODO: use enum
   }
 
+  private clearAuthIpcListeners() {
+      // clear existing relevant ipcMain listeners
+      ipcMain.removeAllListeners('sign-in');
+      ipcMain.removeAllListeners('sign-up');
+  }
+
   private async updateAuthSession(host: string, token: string) {
     // update cookie so browser window is logged in by default
     // TODO: this might not be needed
@@ -477,11 +482,8 @@ export class ManuScrapeController {
     // NOTE: this confirms that the token works, and saves credentials in safeStorage
     await this.refreshUser(host, token);
 
-    // remove all sign-up listeners, so this wont be executed multiple times
-    ipcMain.removeAllListeners('sign-up');
-
-    // remove all sign-in listeners, so this wont be executed multiple times
-    ipcMain.removeAllListeners('sign-in');
+    // clear existing relevant ipcMain listeners
+    this.clearAuthIpcListeners();
 
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
@@ -489,43 +491,43 @@ export class ManuScrapeController {
     // TODO: also close existing open windows? maybe a reset windows method?
   }
 
+  public openAuthorizationWindow(openSignUp = false) {
+    // navigate automatically if window is open
+    if (this.authWindow && !this.authWindow.isDestroyed()) {
 
-  // open markArea overlay. IPC listeners should have be added beforehand
-  public openSignInWindow() {
-    // TODO: also look for other windows! nuxtWindow (rename?) & signUpWindow
-    if (this.signInWindow && !this.signInWindow.isDestroyed()) {
-      this.signInWindow.focus();
+      // get html file url
+      const url = this.authWindow.webContents.getURL();
+
+      // if mismatch between what is requested and what page is currently active,
+      // load the url of the requested page
+      if (url.endsWith('signIn.html') && openSignUp) {
+        this.authWindow.loadFile('windows/signUp.html');
+      } else if (url.endsWith('signUp.html') && !openSignUp) {
+        this.authWindow.loadFile('windows/signIn.html');
+      }
+
+      // no matter what, focus the authWindow
+      this.authWindow.focus();
     } else {
-      // create new sign in window
-      // TODO: pass sensitive token data
-      ipcMain.on(
+      // clear existing relevant ipcMain listeners
+      this.clearAuthIpcListeners();
+
+      // attach new event listeners
+      // TODO: cleanup and use best ipc practices
+      ipcMain.once(
         'sign-in', // TODO: use enum
         (event, body) => this.signInHandler(event, body),
       );
-      ipcMain.once('ask-for-default-host-value', (event) => {
-        event.reply('default-host-value', this?.apiHost || '')
-      })
-      this.signInWindow = createSignInWindow();
-    }
-  }
-
-
-  // open markArea overlay. IPC listeners should have be added beforehand
-  public openSignUpWindow() {
-    // TODO: also look for other windows! nuxtWindow (rename?) & signInWindow
-    if (this.signUpWindow && !this.signUpWindow.isDestroyed()) {
-      this.signUpWindow.focus();
-    } else {
-      // create new sign in window
-      // TODO: pass sensitive token data
-      ipcMain.on(
+      ipcMain.once(
         'sign-up', // TODO: use enum
         (event, body) => this.signUpHandler(event, body),
       );
       ipcMain.once('ask-for-default-host-value', (event) => {
         event.reply('default-host-value', this?.apiHost || '')
       })
-      this.signInWindow = createSignUpWindow();
+
+      // create new sign in window
+      this.authWindow = createAuthorizationWindow(openSignUp);
     }
   }
 
