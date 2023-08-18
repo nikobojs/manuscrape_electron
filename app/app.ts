@@ -7,32 +7,26 @@ import { warnIfEncryptionUnavailable, yesOrNo } from './helpers/utils';
 // https://github.com/electron/windows-installer
 const squirrelEvent = process.argv[1];
 const isSquirrel = squirrelEvent && squirrelEvent.indexOf('--squirrel') != -1;
-
-// run this as early in the main process as possible
-// https://www.electronforge.io/config/makers/squirrel.windows
-if (require('electron-squirrel-startup') || isSquirrel) {
-  console.debug('closing app because of squirrel event:', squirrelEvent);
-
-  // ask if user want to keep running manuscrape after update or install from setup file
-  let keepRunning = false;
-  if (squirrelEvent === '--squirrel-updated') {
-    keepRunning = yesOrNo('ManuScrape successfully updated. To you want to start it now?')
-  } else if (squirrelEvent == '--squirrel-install') {
-    keepRunning = yesOrNo('ManuScrape successfully installed. To you want to start it now?')
-  }
-
-  // quit app early
-  if (!keepRunning){
-    app.quit()
-  }
-}
-
 let controller: ManuScrapeController | undefined;
 
 // force dark mode in chrome
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
 app.whenReady().then(() => {
+  // ask if user want to keep running manuscrape after update or install from setup file
+  if (isSquirrel) {
+    let keepRunning = false;
+    if (squirrelEvent === '--squirrel-updated') {
+      keepRunning = yesOrNo('ManuScrape successfully updated. To you want to start it now?')
+    } else if (squirrelEvent == '--squirrel-install') {
+      keepRunning = yesOrNo('ManuScrape successfully installed. To you want to start it now?')
+    }
+
+    // quit app early
+    if (!keepRunning){
+      app.quit()
+    }
+  }
 
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
