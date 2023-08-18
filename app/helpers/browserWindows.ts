@@ -88,7 +88,7 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
     show: true,
     resizable: false,
     width: 320,
-    height: 500,
+    height: 510,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
