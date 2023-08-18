@@ -5,7 +5,7 @@ import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow,
 import { trayIcon, successIcon, warningIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservationDraft, signUp, parseHostUrl } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
-import { authCookieExists, getInvalidationCookie, readAuthCookies, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
+import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
 import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
 
@@ -355,24 +355,35 @@ export class ManuScrapeController {
 
   // reset auth session and update UI accordingly
   private async resetAuth() {
-    this.loginToken = undefined;
+    // call logout api
+    if (this.apiHost && this.loginToken) {
+      await logout(this.apiHost, this.loginToken);
+    } else {
+      console.warn('Token was not present when calling log out endpoint');
+      // TODO: report this error
+    }
+
+    // update context menu and state
     this.user = undefined;
+    this.loginToken = undefined;
     this.refreshContextMenu();
 
+
+    // remove authorization cookies
+    // NOTE: it skips silently if there is none
+    await removeAuthCookies();
+
+    // delete saved token file
+    // NOTE: it skips silently if there is none
+    deleteFile(this.tokenPath);
+
+    // create delicious notification
     new Notification({
       title: 'ManuScrape',
       body: 'Signed out successfully.',
       icon: successIcon,
     }).show();
 
-    if (this.apiHost && this.loginToken) {
-      await logout(this.apiHost, this.loginToken);
-      const cookies = await readAuthCookies();
-      if (cookies.length > 0) {
-        await removeAuthCookies(this.apiHost);
-      }
-    }
-    deleteFile(this.tokenPath);
   }
 
 
@@ -611,13 +622,7 @@ export class ManuScrapeController {
     if (!this.tray) {
       throw new Error('Cannot refresh contextmenu, when tray app is not running')
     }
-
-    const d = new Date();
     this.contextMenu = generateContextMenu(this, this.user);
     this.tray.setContextMenu(this.contextMenu);
-    const dd = new Date();
-    const diff = dd.getTime() - d.getTime();
-    console.info('regenerating menu took', diff, 'ms.')
-    console.info('context menu refreshed', { isLoggedIn: this.isLoggedIn(), items: this.contextMenu.items.length })
   }
 }

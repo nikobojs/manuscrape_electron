@@ -34,10 +34,13 @@ export async function authCookieExists(): Promise<boolean> {
   const cookies = await readAuthCookies();
   return cookies.length > 0;
 }
-export async function removeAuthCookies(apiHost: string): Promise<void> {
+export async function removeAuthCookies(): Promise<void> {
   const cookiesExist = await authCookieExists();
-  if (cookiesExist && apiHost) {
-    await session.defaultSession.cookies.remove(apiHost, 'authcookie');
+  if (cookiesExist) {
+    const opts: Electron.ClearStorageDataOptions = {
+      storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
+    };
+    await session.defaultSession.clearStorageData(opts)
   }
 }
 
@@ -47,7 +50,8 @@ export async function removeAuthCookies(apiHost: string): Promise<void> {
 export async function readTokenFromCookie(): Promise<string> {
   const cookies = await readAuthCookies();
   if (cookies.length > 0) {
-    return cookies[0].value;
+    const val = cookies[0].value;
+    return val;
   } else {
     throw new Error('Cannot read cookie when it is not defined')
   }
