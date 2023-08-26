@@ -10,6 +10,8 @@ const createNuxtAppWindow = (url: string, onClose: () => void): BrowserWindow =>
     closable: true,
     movable: true,
     show: false,
+    width: 320,
+    height: 510,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
@@ -113,7 +115,7 @@ export const createAddObservationWindow = (
   onClose: () => void
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
-    `${apiHost}/projects/${projectId}/observations/${observationId}`,
+    `${apiHost}/projects/${projectId}/observations/${observationId}?electron=1`,
     onClose
   )
 
