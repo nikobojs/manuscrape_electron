@@ -109,11 +109,11 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
 export const createAddObservationWindow = (
   apiHost: string,
   projectId: number,
-  observationDraftId: number,
+  observationId: number,
   onClose: () => void
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
-    `${apiHost}/projects/${projectId}/observation_drafts/${observationDraftId}`,
+    `${apiHost}/projects/${projectId}/observations/${observationId}`,
     onClose
   )
 

@@ -41,7 +41,7 @@ export function generateMenuItems(
         accelerator: 'Alt+C',
       }))
     } else if(user) {
-      if (user.projects.length == 0) {
+      if (user.projectAccess.length == 0) {
         menuItems.push(new MenuItem({
           label: "Create first project",
           type: "normal",
@@ -109,7 +109,7 @@ export function generateMenuItems(
       }
 
       // TODO: refactor function and improve readability
-      if (user.projects.length > 0) {
+      if (user.projectAccess.length > 0) {
         // add projects to menuItems
         const projectMenu = new MenuItem({
           label: "Choose project",
@@ -117,9 +117,9 @@ export function generateMenuItems(
           type: 'submenu',
         })
 
-        if (user.projects.length > 0) {
-          for (let i = 0; i < user.projects.length; i++) {
-            const project = user.projects[i];
+        if (user.projectAccess.length > 0) {
+          for (let i = 0; i < user.projectAccess.length; i++) {
+            const project = user.projectAccess[i].project;
             projectMenu.submenu?.insert(i, new MenuItem({
               id: project.id.toString(),
               label: project.name,
@@ -131,7 +131,7 @@ export function generateMenuItems(
         }
 
         if (typeof controller.activeProjectId !== 'number') {
-          controller.chooseProject(user.projects[0].id);
+          controller.chooseProject(user.projectAccess[0].project.id);
           const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
             item.id === controller.activeProjectId?.toString()
           )

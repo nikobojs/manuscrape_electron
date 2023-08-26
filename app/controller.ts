@@ -3,7 +3,7 @@ import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, warningIcon } from './helpers/icons';
-import { fetchUser, logout, signIn, addObservationDraft, signUp, parseHostUrl } from './helpers/api';
+import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
@@ -146,19 +146,19 @@ export class ManuScrapeController {
         throw new Error('loginToken not attached to controller instance');
       }
 
-      // add draft and use returned id to create observation
-      const res = await addObservationDraft(
+      // add observation and use returned id to modify observation
+      const res = await addObservation(
         this.apiHost,
         this.loginToken,
         this.activeProjectId
       );
-      const observationDraftId = res.id;
+      const observationId = res.id;
 
-      // create add observation window using draft id
+      // create add observation window using observation id
       const win = createAddObservationWindow(
         this.apiHost,
         this.activeProjectId,
-        observationDraftId,
+        observationId,
         () => this.onExternalWindowClose()
       )
 

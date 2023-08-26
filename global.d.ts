@@ -33,7 +33,10 @@ declare global {
     id: number;
     email: string;
     createdAt: string;
-    projects: Array<any>;
+    projectAccess: {
+      role: string;
+      project: any;
+    }[];
   }
 
   interface ITokenResponse {
@@ -44,7 +47,7 @@ declare global {
     success: true,
   }
 
-  interface IDraftCreatedResponse {
+  interface IObservationCreatedResponse {
     id: number
   }
 
