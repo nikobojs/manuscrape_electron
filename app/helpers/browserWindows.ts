@@ -115,7 +115,7 @@ export const createAddObservationWindow = (
   onClose: () => void
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
-    `${apiHost}/projects/${projectId}/observations/${observationId}?electron=1`,
+    `${apiHost}/projects/${projectId}/observations/${observationId}?electron=1&uploading=1`,
     onClose
   )
 

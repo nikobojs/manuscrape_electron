@@ -1,4 +1,5 @@
-import { contextBridge, ipcRenderer, ipcMain, type IpcRendererEvent } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
+// console.log('version:', process.env.npm_package_version) (THIS WORKS)
 
 contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
@@ -28,4 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('ask-for-default-host-value', callback);
     ipcRenderer.send('ask-for-default-host-value');
   },
-})
+  observationImageUploaded: (callback: ImageUploadedCallback) => {
+    ipcRenderer.once('observation-image-uploaded', callback);
+    ipcRenderer.send('observation-image-upload-ready');
+  },
+});

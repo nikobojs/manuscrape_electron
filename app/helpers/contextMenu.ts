@@ -41,7 +41,7 @@ export function generateMenuItems(
         accelerator: 'Alt+C',
       }))
     } else if(user) {
-      if (user.projectAccess.length == 0) {
+      if (user.projectAccess?.length == 0) {
         menuItems.push(new MenuItem({
           label: "Create first project",
           type: "normal",
@@ -109,7 +109,7 @@ export function generateMenuItems(
       }
 
       // TODO: refactor function and improve readability
-      if (user.projectAccess.length > 0) {
+      if (user.projectAccess?.length > 0) {
         // add projects to menuItems
         const projectMenu = new MenuItem({
           label: "Choose project",

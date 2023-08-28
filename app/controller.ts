@@ -1,9 +1,9 @@
-import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
+import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent, ipcRenderer } from 'electron';
 import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
-import { trayIcon, successIcon, warningIcon } from './helpers/icons';
-import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl } from './helpers/api';
+import { trayIcon, successIcon, warningIcon, errorIcon } from './helpers/icons';
+import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
@@ -122,16 +122,73 @@ export class ManuScrapeController {
 
     // define callback action when area has been marked
     const onMarkedArea = async (event: IpcMainEvent, area: any) => {
-
       event.sender.close();
       const activeDisplay = this.getActiveDisplay();
       this.onMarkAreaDone();
-      await quickScreenshot(
+      const filePath = await quickScreenshot(
         area,
         activeDisplay,
         this.activeDisplayIndex
       )
+      await this.createObservation(filePath);
+    };
 
+    // add listener to state so it can be removed later
+    // NOTE: removeEventListener requires a reference to the function
+    this.setOnAreaMarkedListener(onMarkedArea);
+
+    // now once listeners are attached, open mark area overlay
+    this.openMarkAreaOverlay();
+  }
+
+
+  // create new scroll screenshot
+  public async createScrollScreenshot(): Promise<void> {
+    // ensure there is not already an observation being made
+    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    if (!confirmed) {
+      return;
+    }
+  
+    const onMarkedArea = async (event: IpcMainEvent, area: any) => {
+      event.sender.close();
+      const activeDisplay = this.getActiveDisplay();
+      this.onMarkAreaDone();
+      const filePath = await scrollScreenshot(
+        area,
+        activeDisplay,
+        this.activeDisplayIndex
+      )
+      await this.createObservation(filePath);
+    };
+
+
+    // add listener to state so it can be removed later
+    // NOTE: removeEventListener requires a reference to the function
+    this.setOnAreaMarkedListener(onMarkedArea);
+
+    this.openMarkAreaOverlay();
+  }
+
+
+  private uploadObservationImage(
+    observationId: number,
+    projectId: number,
+    filePath: string,
+  ) {
+    if (!this.apiHost) throw new Error('Api host is not defined');
+    if (!this.loginToken) throw new Error('You are not logged in');
+
+    return uploadObservationImage(
+      this.apiHost,
+      this.loginToken,
+      observationId,
+      projectId,
+      filePath,
+    );
+  }
+
+  private async createObservation(filePath: string) {
       // make typescript linters happy
       // NOTE: none of these errors should ever happen
       // TODO: report errors
@@ -175,44 +232,29 @@ export class ManuScrapeController {
         this.refreshContextMenu();
       });
 
+      ipcMain.once('observation-image-upload-ready', () => {
+        if (!this.activeProjectId) throw new Error('Active project is not set');
+        // try upload image
+        this.uploadObservationImage(
+          observationId,
+          this.activeProjectId,
+          filePath
+        ).then(() => {
+          this.nuxtWindow?.webContents.send('observation-image-uploaded');
+        }).catch((err) => {
+          new Notification({
+            title: 'ManuScrape',
+            body: 'Error when uploading image :(',
+            icon: errorIcon,
+          }).show();
+
+          throw err;
+          // TODO: report error and improve error handling!
+        });
+      })
+
       // safe window in instance state
       this.nuxtWindow = win;
-    };
-
-    // add listener to state so it can be removed later
-    // NOTE: removeEventListener requires a reference to the function
-    this.setOnAreaMarkedListener(onMarkedArea);
-
-    // now once listeners are attached, open mark area overlay
-    this.openMarkAreaOverlay();
-  }
-
-
-  // create new scroll screenshot
-  public createScrollScreenshot(): void {
-    ipcMain.once(
-      'area-marked', // TODO: use enum
-      async (_event, area) => {
-        this.onMarkAreaDone();
-        await scrollScreenshot(
-          area,
-          this.getActiveDisplay(),
-          this.activeDisplayIndex
-        )
-      }
-    );
-
-    // TODO: needs development!
-    // TODO: open create observation window like createQuickScreenshot()
-    // TODO: consider generalizing some logic from createQuickScreenshot()
-
-    new Notification({
-      title: 'ManuScrape',
-      body: 'Scrollshots are not supported yet!',
-      icon: warningIcon,
-    }).show();
-
-    this.openMarkAreaOverlay();
   }
 
 
@@ -313,8 +355,6 @@ export class ManuScrapeController {
     this.isMarkingArea = false;
     this.refreshContextMenu();
   }
-
-
 
 
   // fetch fresh user object and save it to state

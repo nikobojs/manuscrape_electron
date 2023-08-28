@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as axios from 'axios';
+
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
 // NOTE: there is no runtime validation against the generic type
 async function req<T>(
@@ -5,7 +8,7 @@ async function req<T>(
     method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     path: RequestInfo | URL,
     token?: string,
-    body?: any,
+    body?: Record<string, string> | FormData,
     headers?: HeadersInit,
 ): Promise<{res: Response, json: T}> {
     try {
@@ -15,11 +18,11 @@ async function req<T>(
             headers: {
                 'Accept': 'application/json',
             },
-            credentials: 'include'
+            credentials: 'include',
         };
 
         // add json body and header if body is defined
-        if (body) {
+        if (body && !(body instanceof FormData)) {
             init.body = JSON.stringify(body);
             init.headers = {
                 ...init.headers,
@@ -98,6 +101,37 @@ export async function fetchUser(
 ): Promise<IUser> {
     const  { json } = await req<IUser>(host, 'GET', '/api/user', token);
     return json;
+}
+
+
+export async function uploadObservationImage(
+    host: string,
+    token: string,
+    observationId: number,
+    projectId: number,
+    filePath: string,
+): Promise<void> {
+    const form = new FormData();
+    const buffer = fs.readFileSync(filePath);
+    const fname = 'image';
+    const extension = '.' + filePath.split('.').reverse()[0];
+    const fullFname = fname + extension;
+    const mimetype = ['jpg', 'jpeg'].includes(extension.toLowerCase()) ? 'image/jpg' : 'image/png';
+    const blob = new Blob([buffer], {type: mimetype});
+    form.append('file', blob, fullFname);
+
+    const res = await axios.default.put(
+        `${host}/api/projects/${projectId}/observations/${observationId}/image`,
+        form,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'Authentication': token
+            }
+        }
+    );
+
+    return res.data;
 }
 
 

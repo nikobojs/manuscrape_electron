@@ -103,9 +103,10 @@ export async function quickScreenshot(
   areaRect: any,
   activeDisplay: Electron.Display,
   activeDisplayIndex: number,
-): Promise<void> {
+): Promise<string> {
   const screenshot = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
-  await saveScreenshot(screenshot.source.name, screenshot.buffer);
+  const path = await saveScreenshot(screenshot.source.name, screenshot.buffer);
+  return path;
 }
 
 
@@ -114,7 +115,7 @@ export async function scrollScreenshot(
   areaRect: any,
   activeDisplay: Electron.Display,
   activeDisplayIndex: number,
-): Promise<void> {
+): Promise<string> {
   const md5sums = [] as string[];
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 4;
@@ -162,4 +163,6 @@ export async function scrollScreenshot(
     path.join(getTempPath(), dirname),
     resultImagePath,
   );
+
+  return resultImagePath;
 }
