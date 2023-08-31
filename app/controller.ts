@@ -212,11 +212,38 @@ export class ManuScrapeController {
       const observationId = res.id;
 
       // create add observation window using observation id
+      console.log(new Date().getTime(), 'open window')
       const win = createAddObservationWindow(
         this.apiHost,
         this.activeProjectId,
         observationId,
-        () => this.onExternalWindowClose()
+        () => this.onExternalWindowClose(),
+        async () => {
+          // ensure activeProjectId is still defined
+          if (!this.activeProjectId) {
+            console.error('no project id')
+            throw new Error('activeProjectId is not set')
+          }
+
+          console.log(new Date().getTime(), 'start upload')
+          // try upload image
+          await this.uploadObservationImage(
+            observationId,
+            this.activeProjectId,
+            filePath
+          ).then(() => {
+            console.log(new Date().getTime(), 'finish upload')
+          }).catch((err) => {
+            new Notification({
+              title: 'ManuScrape',
+              body: 'Error when uploading image :(',
+              icon: errorIcon,
+            }).show();
+
+            throw err;
+            // TODO: report error and improve error handling!
+          });
+        }
       )
 
       // add observation-created listener
@@ -231,27 +258,6 @@ export class ManuScrapeController {
         }).show();
         this.refreshContextMenu();
       });
-
-      ipcMain.once('observation-image-upload-ready', () => {
-        if (!this.activeProjectId) throw new Error('Active project is not set');
-        // try upload image
-        this.uploadObservationImage(
-          observationId,
-          this.activeProjectId,
-          filePath
-        ).then(() => {
-          this.nuxtWindow?.webContents.send('observation-image-uploaded');
-        }).catch((err) => {
-          new Notification({
-            title: 'ManuScrape',
-            body: 'Error when uploading image :(',
-            icon: errorIcon,
-          }).show();
-
-          throw err;
-          // TODO: report error and improve error handling!
-        });
-      })
 
       // safe window in instance state
       this.nuxtWindow = win;

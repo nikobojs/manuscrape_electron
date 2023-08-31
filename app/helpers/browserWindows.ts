@@ -2,16 +2,22 @@ import { BrowserWindow, shell, type BrowserWindowConstructorOptions } from 'elec
 import path from 'path';
 
 // generic nuxt app window factory - not meant to be exported
-const createNuxtAppWindow = (url: string, onClose: () => void): BrowserWindow => {
+const createNuxtAppWindow = (
+  url: string,
+  onClose: () => void,
+  onReady = () => {},
+  width = 320,
+  height = 510,
+): BrowserWindow => {
   const win = new BrowserWindow({
     title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
     movable: true,
-    show: false,
-    width: 320,
-    height: 510,
+    show: true,
+    width,
+    height,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
@@ -20,8 +26,8 @@ const createNuxtAppWindow = (url: string, onClose: () => void): BrowserWindow =>
   win.loadURL(url);
 
   win.once('ready-to-show', () => {
-    win.show();
     win.focus();
+    onReady();
   });
 
   win.once('close', () => onClose());
@@ -112,11 +118,15 @@ export const createAddObservationWindow = (
   apiHost: string,
   projectId: number,
   observationId: number,
-  onClose: () => void
+  onClose: () => void,
+  onReady: () => void
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/observations/${observationId}?electron=1&uploading=1`,
-    onClose
+    onClose,
+    onReady,
+    1200,
+    800,
   )
 
   return win;

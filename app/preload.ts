@@ -29,8 +29,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('ask-for-default-host-value', callback);
     ipcRenderer.send('ask-for-default-host-value');
   },
-  observationImageUploaded: (callback: ImageUploadedCallback) => {
-    ipcRenderer.once('observation-image-uploaded', callback);
-    ipcRenderer.send('observation-image-upload-ready');
-  },
 });
