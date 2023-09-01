@@ -27,7 +27,10 @@ const sketch = (p) => {
   p.draw = () => {
     if (alpha < 0) {
       p.clear(255, 255, 255, 1);
-      window.close();
+      setTimeout(() => {
+        window.electronAPI.areaMarked(resultRect);
+        window.close();
+      }, 500);
       closing = false;
       p.noLoop();
     }
@@ -78,7 +81,6 @@ const sketch = (p) => {
       height: area[3],
     }
 
-    window.electronAPI.areaMarked(resultRect);
     closing = true;
   }
 
