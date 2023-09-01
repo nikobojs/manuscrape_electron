@@ -131,7 +131,7 @@ def join_chats(args):
             # Print error message to stderr
             sys.stderr.write("Error when computing best match for image: \
                 smallest match score above threshold.\n")
-            return 1
+            sys.exit(1)
 
         min_score_indices.append(np.argmin(match_score))
 
