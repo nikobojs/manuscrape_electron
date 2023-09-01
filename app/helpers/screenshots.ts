@@ -125,6 +125,7 @@ export async function scrollScreenshot(
   const dirname = scrollShotId.toString();
   const resultImageDir = path.join(app.getPath('userData'), dirname, 'output');
   const resultImagePath = path.join(resultImageDir, 'result.png');
+  let lastSavePath: string | null = null;
 
   for (let i = 0; i < maxScreenshots; i++) {
     const beforeCapture = new Date().getTime();
@@ -149,7 +150,7 @@ export async function scrollScreenshot(
       repeatedScreenshots = 0;
       md5sums.push(hash);
       console.log('saving screenshot');
-      await saveScreenshot(source.name, buffer, dirname);
+      lastSavePath = await saveScreenshot(source.name, buffer, dirname);
     } else {
       repeatedScreenshots++;
     }
@@ -159,10 +160,15 @@ export async function scrollScreenshot(
 
   fs.mkdirSync(resultImageDir, { recursive: true });
 
-  await joinImagesVertically(
-    path.join(getTempPath(), dirname),
-    resultImagePath,
-  );
-
-  return resultImagePath;
+  if (md5sums.length > 1) {
+    await joinImagesVertically(
+      path.join(getTempPath(), dirname),
+      resultImagePath,
+    );
+    return resultImagePath;
+  } else if(lastSavePath) {
+    return lastSavePath;
+  } else {
+    throw new Error('Unable to save scroll shot!')
+  }
 }
