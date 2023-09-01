@@ -131,6 +131,7 @@ export class ManuScrapeController {
         this.activeDisplayIndex
       )
       await this.createObservation(filePath);
+      // TODO: remove temp file
     };
 
     // add listener to state so it can be removed later
@@ -154,12 +155,17 @@ export class ManuScrapeController {
       event.sender.close();
       const activeDisplay = this.getActiveDisplay();
       this.onMarkAreaDone();
-      const filePath = await scrollScreenshot(
-        area,
-        activeDisplay,
-        this.activeDisplayIndex
-      )
-      await this.createObservation(filePath);
+      try {
+        const filePath = await scrollScreenshot(
+          area,
+          activeDisplay,
+          this.activeDisplayIndex
+        )
+        await this.createObservation(filePath);
+        // TODO: remove temp file
+      } catch(err) {
+        // TODO: report and handle errors
+      }
     };
 
 
@@ -188,79 +194,125 @@ export class ManuScrapeController {
     );
   }
 
-  private async createObservation(filePath: string) {
-      // make typescript linters happy
-      // NOTE: none of these errors should ever happen
-      // TODO: report errors
-      if (!this.activeProjectId) {
-        console.error('no project id')
-        throw new Error('activeProjectId is not set')
-      } else if (!this.apiHost) {
-        console.error('no api host')
-        throw new Error('apiHost is not set')
-      } else if (!this.loginToken) {
-        console.error('no login token')
-        throw new Error('loginToken not attached to controller instance');
+  
+  public async openUploadObservationWindow() {
+    // make typescript linters happy
+    // NOTE: none of these errors should ever happen
+    // TODO: report errors
+    if (!this.activeProjectId) {
+      console.error('no project id')
+      throw new Error('activeProjectId is not set')
+    } else if (!this.apiHost) {
+      console.error('no api host')
+      throw new Error('apiHost is not set')
+    } else if (!this.loginToken) {
+      console.error('no login token')
+      throw new Error('loginToken not attached to controller instance');
+    }
+
+    // add empty observation and use returned id to modify observation
+    const res = await addObservation(
+      this.apiHost,
+      this.loginToken,
+      this.activeProjectId
+    );
+    const observationId = res.id;
+
+    // create nuxt window that enables modification and manual upload of empty observation
+    const win = createAddObservationWindow(
+      this.apiHost,
+      this.activeProjectId,
+      observationId,
+      () => this.onExternalWindowClose(),
+      undefined,
+      false,
+    );
+
+    // add observation-created listener
+    ipcMain.once('observation-created', (res) => {
+      if (this.nuxtWindow) {
+        this.nuxtWindow.close();
       }
+      new Notification({
+        title: 'ManuScrape',
+        body: 'Observation created successfully',
+        icon: successIcon,
+      }).show();
+    });
 
-      // add observation and use returned id to modify observation
-      const res = await addObservation(
-        this.apiHost,
-        this.loginToken,
-        this.activeProjectId
-      );
-      const observationId = res.id;
+    this.nuxtWindow = win;
+  }
 
-      // create add observation window using observation id
-      console.log(new Date().getTime(), 'open window')
-      const win = createAddObservationWindow(
-        this.apiHost,
-        this.activeProjectId,
-        observationId,
-        () => this.onExternalWindowClose(),
-        async () => {
-          // ensure activeProjectId is still defined
-          if (!this.activeProjectId) {
-            console.error('no project id')
-            throw new Error('activeProjectId is not set')
-          }
+  private async createObservation(filePath: string) {
+    // make typescript linters happy
+    // NOTE: none of these errors should ever happen
+    // TODO: report errors
+    if (!this.activeProjectId) {
+      console.error('no project id')
+      throw new Error('activeProjectId is not set')
+    } else if (!this.apiHost) {
+      console.error('no api host')
+      throw new Error('apiHost is not set')
+    } else if (!this.loginToken) {
+      console.error('no login token')
+      throw new Error('loginToken not attached to controller instance');
+    }
 
-          console.log(new Date().getTime(), 'start upload')
-          // try upload image
-          await this.uploadObservationImage(
-            observationId,
-            this.activeProjectId,
-            filePath
-          ).then(() => {
-            console.log(new Date().getTime(), 'finish upload')
-          }).catch((err) => {
-            new Notification({
-              title: 'ManuScrape',
-              body: 'Error when uploading image :(',
-              icon: errorIcon,
-            }).show();
+    // add observation and use returned id to modify observation
+    const res = await addObservation(
+      this.apiHost,
+      this.loginToken,
+      this.activeProjectId
+    );
+    const observationId = res.id;
 
-            throw err;
-            // TODO: report error and improve error handling!
-          });
+    // create add observation window using observation id
+    const win = createAddObservationWindow(
+      this.apiHost,
+      this.activeProjectId,
+      observationId,
+      () => this.onExternalWindowClose(),
+      async () => {
+        // ensure activeProjectId is still defined
+        if (!this.activeProjectId) {
+          throw new Error('activeProjectId is not set')
         }
-      )
 
-      // add observation-created listener
-      ipcMain.once('observation-created', (res) => {
-        if (this.nuxtWindow) {
-          this.nuxtWindow.close();
-        }
-        new Notification({
-          title: 'ManuScrape',
-          body: 'Observation created successfully',
-          icon: successIcon,
-        }).show();
-        this.refreshContextMenu();
-      });
+        console.log(new Date().getTime(), 'start upload')
+        // try upload image
+        await this.uploadObservationImage(
+          observationId,
+          this.activeProjectId,
+          filePath
+        ).then(() => {
+          console.log(new Date().getTime(), 'finish upload')
+        }).catch((err) => {
+          new Notification({
+            title: 'ManuScrape',
+            body: 'Error when uploading image :(',
+            icon: errorIcon,
+          }).show();
 
-      // safe window in instance state
-      this.nuxtWindow = win;
+          throw err;
+          // TODO: report error and improve error handling!
+        });
+      }
+    )
+
+    // add observation-created listener
+    ipcMain.once('observation-created', (res) => {
+      if (this.nuxtWindow) {
+        this.nuxtWindow.close();
+      }
+      new Notification({
+        title: 'ManuScrape',
+        body: 'Observation created successfully',
+        icon: successIcon,
+      }).show();
+    });
+
+    // safe window in instance state
+    this.nuxtWindow = win;
   }
 
 

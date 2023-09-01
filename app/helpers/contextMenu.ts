@@ -1,6 +1,6 @@
 import { MenuItem, shell, screen, Menu } from "electron";
 import type { ManuScrapeController } from "../controller";
-import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon } from "./icons";
+import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon, folderIcon } from "./icons";
 
 export function generateMenuItems(
   controller: ManuScrapeController,
@@ -66,8 +66,15 @@ export function generateMenuItems(
           accelerator: 'Alt+S',
           icon: addIcon,
         }));
-      }
 
+        menuItems.push(new MenuItem({
+          label: "Upload image",
+          type: "normal",
+          click: () => controller.openUploadObservationWindow(),
+          accelerator: 'Alt+S',
+          icon: addIcon,
+        }));
+      }
     }
 
 
@@ -115,8 +122,10 @@ export function generateMenuItems(
           label: "Choose project",
           submenu: [],
           type: 'submenu',
+          icon: folderIcon,
+          sublabel: '',
         })
-
+        
         if (user.projectAccess.length > 0) {
           for (let i = 0; i < user.projectAccess.length; i++) {
             const project = user.projectAccess[i].project;
@@ -124,21 +133,44 @@ export function generateMenuItems(
               id: project.id.toString(),
               label: project.name,
               type: 'radio',
-              checked: controller.activeProjectId = project.id,
+              checked: false,
               click: () => controller.chooseProject(project.id),
             }));
           }
         }
 
-        if (typeof controller.activeProjectId !== 'number') {
-          controller.chooseProject(user.projectAccess[0].project.id);
-          const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
-            item.id === controller.activeProjectId?.toString()
-          )
-          if (chosenMenuItem) {
-            chosenMenuItem.checked = true;
-          }
+        const chosenMenuItem = projectMenu.submenu?.items.find((item) =>
+          item.id === controller.activeProjectId?.toString()
+        );
+
+        const activeProjectAccess = user.projectAccess.find(
+          (p) => p.project.id === controller.activeProjectId
+        );
+
+
+        if (activeProjectAccess) {
+          projectMenu.sublabel = activeProjectAccess.project.name;
         }
+
+        if (chosenMenuItem) {
+          chosenMenuItem.checked = true;
+        } else {
+          controller.chooseProject(user.projectAccess[0].project.id);
+          projectMenu.sublabel = user.projectAccess[0].project.name;
+        }
+
+        projectMenu.submenu?.append(new MenuItem({
+          type: 'separator'
+        }))
+        projectMenu.submenu?.append(new MenuItem({
+          label: "Create project",
+          type: "normal",
+          click: () => {
+            controller.openCreateProjectWindow()
+          },
+          icon: addIcon,
+        }));
+
         menuItems.push(projectMenu);
       }
 

@@ -11,6 +11,7 @@ export const loginIcon = loadImage(path.join(__dirname, "../../assets/icons/logi
 export const logoutIcon = loadImage(path.join(__dirname, "../../assets/icons/logout.png"));
 export const monitorIcon = loadImage(path.join(__dirname, "../../assets/icons/monitor.png"));
 export const quitIcon = loadImage(path.join(__dirname, "../../assets/icons/quit.png"));
+export const folderIcon = loadImage(path.join(__dirname, "../../assets/icons/folder.png"));
 export const bugReportIcon = loadImage(path.join(__dirname, "../../assets/icons/bug_report.png"));
 
 export const errorIcon = loadImage(path.join(__dirname, "../../assets/icons/error.png"));

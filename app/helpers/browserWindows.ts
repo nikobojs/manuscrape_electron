@@ -6,8 +6,6 @@ const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
   onReady = () => {},
-  width = 320,
-  height = 510,
 ): BrowserWindow => {
   const win = new BrowserWindow({
     title: "ManuScrape",
@@ -15,22 +13,24 @@ const createNuxtAppWindow = (
     minimizable: false,
     closable: true,
     movable: true,
-    show: true,
-    width,
-    height,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
+    useContentSize: true,
+    backgroundColor: '#1c1b22',
   })
 
   win.loadURL(url);
 
-  win.once('ready-to-show', () => {
-    win.focus();
+  win.once('show', () => {
     onReady();
+    win.focus();
   });
 
   win.once('close', () => onClose());
+
+  win.show();
 
   return win;
 }
@@ -119,14 +119,24 @@ export const createAddObservationWindow = (
   projectId: number,
   observationId: number,
   onClose: () => void,
-  onReady: () => void
+  onReady: undefined | (() => void),
+  uploading: boolean = true,
+  electronTheme: boolean = true,
 ): BrowserWindow => {
+  const flags: Record<string, boolean> = {
+    'uploading': uploading,
+    'electron': electronTheme,
+  };
+
+  const query = Object.entries(flags).reduce((params, [key, val]) => {
+    if (val) params.push(`${key}=1`);
+    return params;
+  }, [] as string[]).join('&');
+
   const win = createNuxtAppWindow(
-    `${apiHost}/projects/${projectId}/observations/${observationId}?electron=1&uploading=1`,
+    `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
     onClose,
     onReady,
-    1200,
-    800,
   )
 
   return win;

@@ -35,7 +35,11 @@ declare global {
     createdAt: string;
     projectAccess: {
       role: string;
-      project: any;
+      project: {
+        id: number;
+        createdAt: string;
+        name: string;
+      };
     }[];
   }
 

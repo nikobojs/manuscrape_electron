@@ -1,9 +1,10 @@
-import { desktopCapturer, app } from 'electron';
+import { desktopCapturer, app, Notification } from 'electron';
 import * as fs from 'fs'
 import crypto from 'crypto';
 import path from 'path';
 import { sleepAsync } from './utils';
 import { joinImagesVertically } from './pythonBridge';
+import { errorIcon } from './icons';
 
 
 function getScreenshotFromSource(
@@ -131,7 +132,6 @@ export async function scrollScreenshot(
     const beforeCapture = new Date().getTime();
 
     const { source, buffer } = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
-    console.log('capturing screenshot');
 
     const afterCapture = new Date().getTime();
     const captureTookMs = beforeCapture - afterCapture;
@@ -144,12 +144,10 @@ export async function scrollScreenshot(
       .digest("base64");
       
     if (repeatedScreenshots > maxRepeatedScreenshots) {
-      console.log('Scrolling screenshot stopped recording')
       break;
     } else if (!md5sums.includes(hash)) {
       repeatedScreenshots = 0;
       md5sums.push(hash);
-      console.log('saving screenshot');
       lastSavePath = await saveScreenshot(source.name, buffer, dirname);
     } else {
       repeatedScreenshots++;
@@ -161,11 +159,21 @@ export async function scrollScreenshot(
   fs.mkdirSync(resultImageDir, { recursive: true });
 
   if (md5sums.length > 1) {
-    await joinImagesVertically(
-      path.join(getTempPath(), dirname),
-      resultImagePath,
-    );
-    return resultImagePath;
+    try {
+      await joinImagesVertically(
+        path.join(getTempPath(), dirname),
+        resultImagePath,
+      );
+      return resultImagePath;
+    } catch(err) {
+      new Notification({
+        title: 'Unable to process scrollshot :(',
+        body: 'Please scroll slowly either up or down',
+        icon: errorIcon,
+      }).show()
+      throw new Error('Unable to join scrollshot images to one single image');
+      // TODO: report error
+    }
   } else if(lastSavePath) {
     return lastSavePath;
   } else {
