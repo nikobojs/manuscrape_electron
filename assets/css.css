@@ -9,3 +9,7 @@ body, html {
 label, span, input {
   font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
+
+.mark-area-overlay {
+  cursor: crosshair;
+}
