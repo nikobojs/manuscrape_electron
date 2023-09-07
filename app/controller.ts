@@ -278,15 +278,12 @@ export class ManuScrapeController {
           throw new Error('activeProjectId is not set')
         }
 
-        console.log(new Date().getTime(), 'start upload')
         // try upload image
         await this.uploadObservationImage(
           observationId,
           this.activeProjectId,
           filePath
-        ).then(() => {
-          console.log(new Date().getTime(), 'finish upload')
-        }).catch((err) => {
+        ).catch((err) => {
           new Notification({
             title: 'ManuScrape',
             body: 'Error when uploading image :(',
