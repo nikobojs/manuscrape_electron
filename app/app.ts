@@ -21,8 +21,11 @@ let controller: ManuScrapeController | undefined;
 // force dark mode in chrome
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
-app.whenReady().then(() => {
+// seems like the best thing to do
+// NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
+  app.disableHardwareAcceleration();
 
+app.whenReady().then(() => {
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
       app.quit()
