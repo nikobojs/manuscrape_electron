@@ -374,11 +374,21 @@ export class ManuScrapeController {
       this.refreshContextMenu();
       this.setupShortcuts();
 
-      // use retrieved 'host' and 'token' to renew cookie and fetch user
-      if (host && token) {
-        await renewCookieFromToken(host, token).catch(() => {});
-        await this.refreshUser(host, token);
-        this.refreshContextMenu();
+      try {
+        // use retrieved 'host' and 'token' to renew cookie and fetch user
+        if (host && token) {
+          await renewCookieFromToken(host, token).catch(() => {});
+          await this.refreshUser(host, token);
+          this.refreshContextMenu();
+        }
+        // show login window if not logged in by now
+        if (!this.isLoggedIn()) {
+          this.openAuthorizationWindow(false);
+        }
+      } catch(e: any) {
+        // show login window if there was some kind of error
+        // TODO: report error
+        this.openAuthorizationWindow(false);
       }
     }
   }
