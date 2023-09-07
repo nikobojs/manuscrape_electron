@@ -64,7 +64,7 @@ async function req<T>(
       // covers basic errors for bad hosts
       // TODO: improve error handling for more error cases
       if (err?.cause) {
-        if (['EAI_AGAIN', 'ENOTFOUND'].includes(err.cause?.code)) {
+        if (['EAI_AGAIN', 'ENOTFOUND', 'ECONNREFUSED'].includes(err.cause?.code)) {
           throw new Error('The host is invalid or not available');
         } else if (err.cause?.code == 'ERR_SSL_WRONG_VERSION_NUMBER') {
           throw new Error('This kind of URL is invalid. Please specify the protocol.');
