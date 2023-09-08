@@ -93,11 +93,18 @@ const sketch = (p) => {
       area[1] -= area[3]
     }
 
+    const width = area[2];
+    const height = area[3];
+
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+
     resultRect = {
       x: area[0],
       y: area[1],
-      width: area[2],
-      height: area[3],
+      width,
+      height,
     }
 
     closing = true;
