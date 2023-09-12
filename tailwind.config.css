@@ -1,3 +1,12 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
+
+.tooltip {
+  @apply invisible absolute;
+}
+
+.has-tooltip:hover .tooltip {
+  @apply visible z-50;
+}
+
 @import "tailwindcss/utilities";
