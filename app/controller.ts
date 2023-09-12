@@ -272,25 +272,26 @@ export class ManuScrapeController {
       this.activeProjectId,
       observationId,
       () => this.onExternalWindowClose(),
-      async () => {
+      () => {
         // ensure activeProjectId is still defined
         if (!this.activeProjectId) {
           throw new Error('activeProjectId is not set')
         }
 
         // try upload image
-        await this.uploadObservationImage(
+        this.uploadObservationImage(
           observationId,
           this.activeProjectId,
           filePath
         ).catch((err) => {
           new Notification({
             title: 'ManuScrape',
-            body: 'Error when uploading image :(',
+            body: err.message + ' :(' || 'Error when uploading image :(',
             icon: errorIcon,
           }).show();
 
-          throw err;
+          this.nuxtWindow?.close()
+          // TODO: delete observation draft!
           // TODO: report error and improve error handling!
         });
       }

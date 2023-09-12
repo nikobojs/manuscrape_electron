@@ -120,18 +120,23 @@ export async function uploadObservationImage(
     const blob = new Blob([buffer], {type: mimetype});
     form.append('file', blob, fullFname);
 
-    const res = await axios.default.put(
-        `${host}/api/projects/${projectId}/observations/${observationId}/image`,
-        form,
-        {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'Authentication': token
+    try {
+        const res = await axios.default.put(
+            `${host}/api/projects/${projectId}/observations/${observationId}/image`,
+            form,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authentication': token
+                }
             }
-        }
-    );
+        );
 
-    return res.data;
+        return res.data;
+    } catch(e: any) {
+        const msg = e?.response?.data?.message || e?.response?.data?.statusMessage || e?.code || e?.message || 'Unknown error';
+        throw new Error(msg);
+    }
 }
 
 
