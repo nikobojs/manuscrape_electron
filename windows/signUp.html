@@ -42,7 +42,17 @@
                 </div>
 
                 <div>
-                    <label class="text-gray-200 text-sm font-bold" for="input-password">Password</label>
+                    <label class="text-gray-200 text-sm font-bold flex gap-2" for="input-password">
+                        Password
+                        <div class='has-tooltip relative w-full'>
+                            <span class='border-gray-700 border tooltip rounded shadow-lg p-1 bg-slate-950 -mt-[64px] block absolute'>
+                                <p class="text-white text-xs">
+                                    Password: minimum 6 characters, minimum one letter, minimum one symbol or number
+                                </p>
+                            </span>
+                            <img src="../assets/icons/info.png" class="mb-1 w-4 h-4 inline-block" />
+                        </div>
+                    </label>
                     <input
                         class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
                         id="input-password"

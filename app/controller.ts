@@ -509,15 +509,6 @@ export class ManuScrapeController {
     event: Electron.IpcMainEvent,
     {email, password, host}: ISignInBody,
   ): Promise<void> {
-    // ensure host string 
-    try {
-    } catch(err: any) {
-      return event.reply(
-        'sign-in-error',
-        err?.message || 'Unknown error'
-      )
-    }
-
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
 
@@ -549,15 +540,6 @@ export class ManuScrapeController {
     event: Electron.IpcMainEvent,
     {email, password, host}: ISignUpBody,
   ): Promise<void> {
-    // ensure host string 
-    try {
-    } catch(err: any) {
-      return event.reply(
-        'sign-up-error',
-        err?.message || 'Unknown error'
-      )
-    }
-
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
 
@@ -572,6 +554,7 @@ export class ManuScrapeController {
 
     // return `error` to client, so error can be rendered
     } catch(err: any) {
+      console.log('CAUGHT ERROR!!!!!', err.message)
       return event.reply(
         'sign-up-error',
         err?.message || 'Unknown error'
@@ -588,6 +571,7 @@ export class ManuScrapeController {
       // clear existing relevant ipcMain listeners
       ipcMain.removeAllListeners('sign-in');
       ipcMain.removeAllListeners('sign-up');
+      ipcMain.removeAllListeners('ask-for-default-host-value');
   }
 
   private async updateAuthSession(host: string, token: string) {
@@ -631,15 +615,15 @@ export class ManuScrapeController {
 
       // attach new event listeners
       // TODO: cleanup and use best ipc practices
-      ipcMain.once(
+      ipcMain.on(
         'sign-in', // TODO: use enum
         (event, body) => this.signInHandler(event, body),
       );
-      ipcMain.once(
+      ipcMain.on(
         'sign-up', // TODO: use enum
         (event, body) => this.signUpHandler(event, body),
       );
-      ipcMain.once('ask-for-default-host-value', (event) => {
+      ipcMain.on('ask-for-default-host-value', (event) => {
         event.reply('default-host-value', this?.apiHost || '')
       })
 
