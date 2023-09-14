@@ -1,20 +1,67 @@
 // x, y, w, h
 let area = [0,0,0,0];
 let dragging = false;
-let alpha = 180;
-let closing = false;
 let resultRect = null;
 let fillColor = null;
 let strokeColor = null;
+let spinnerSize = 32;
+let spinnerSpeed = 8;
+let spinnerColor;
 
-function close() {
-  alpha -= 16;
+function drawArea(p, area) {
+  p.noStroke();
+  p.fill(fillColor);
+
+  const minX = Math.min(area[0], area[2] + area[0]);
+  const minY = Math.min(area[1], area[3] + area[1]);
+  const maxX = Math.max(area[0], area[2] + area[0]);
+  const maxY = Math.max(area[1], area[3] + area[1]);
+  const w = Math.abs(area[2]);
+  const h = Math.abs(area[3]);
+
+
+  p.rect(0, 0, p.windowWidth, minY)
+  p.rect(0, minY, minX, h)
+  p.rect(maxX, minY, p.windowWidth - maxX, h)
+  p.rect(0, maxY, p.windowWidth, p.windowHeight - maxY)
+
+  p.noFill();
+  p.stroke(strokeColor)
+  p.strokeWeight(2);
+
+  p.rect(minX, minY, w, h)
 }
 
-const sketch = (p) => {
+function drawProcessing(p) {
+  let step = p.frameCount % (spinnerSpeed * 7.25);
+  let angle = p.map(step, 0, spinnerSpeed * 7.25, 0, p.TWO_PI);
+  
+  p.push();
+  p.translate(p.windowWidth - 64, 64);
+  p.rotate(angle);
+  p.noFill();
+  p.stroke(spinnerColor);
+  p.strokeWeight(5);
+  p.strokeCap(p.SQUARE);
+  p.arc(0, 0, spinnerSize - (spinnerSize / 20), spinnerSize - (spinnerSize / 20), 0, p.PI + p.HALF_PI, p.OPEN);
+  p.pop();
 
+  p.push();
+  p.translate(p.windowWidth - 64, 64);
+  p.stroke(spinnerColor);
+  p.fill(spinnerColor);
+  p.strokeWeight(1);
+  p.textSize(32);
+  p.textAlign(p.RIGHT, p.CENTER);
+  p.text('Processing image...', -50, 0)
+  p.pop();
+}
+
+
+const sketch = (p) => {
   strokeColor = p.color(80, 110, 180, 1)
-  fillColor = p.color(23, 29, 38, alpha)
+  fillColor = p.color(23, 29, 38, 130)
+  spinnerColor = p.color(33, 150, 243);
 
   p.setup = () => {
     p.createCanvas(p.windowWidth, p.windowHeight);
@@ -22,47 +69,13 @@ const sketch = (p) => {
     window.focus();
   }
 
-
   p.draw = () => {
-    if (alpha < 0) {
-      p.clear(255, 255, 255, 1);
-      window.electronAPI.areaMarked(resultRect);
-      closing = false;
-      window.close();
-      p.noLoop();
-    }
-
-    if (dragging || closing) {
-      p.clear(255, 255, 255, 1);
-      fillColor.setAlpha(alpha);
-      strokeColor.setAlpha(alpha);
-      p.noStroke();
-      p.fill(fillColor);
-
-      const minX = Math.min(area[0], area[2] + area[0]);
-      const minY = Math.min(area[1], area[3] + area[1]);
-      const maxX = Math.max(area[0], area[2] + area[0]);
-      const maxY = Math.max(area[1], area[3] + area[1]);
-      const w = Math.abs(area[2]);
-      const h = Math.abs(area[3]);
-
-
-      p.rect(0, 0, p.windowWidth, minY)
-      p.rect(0, minY, minX, h)
-      p.rect(maxX, minY, p.windowWidth - maxX, h)
-      p.rect(0, maxY, p.windowWidth, p.windowHeight - maxY)
-
-      p.noFill();
-      p.stroke(strokeColor)
-      p.strokeWeight(2);
-
-      p.rect(minX, minY, w, h)
-
-      if (closing) {
-        alpha = alpha - 32;
-      }
+    p.clear(255, 255, 255, 1);
+    if (dragging) {
+      drawArea(p, area);
+    } else if(resultRect) {
+      drawProcessing(p);
     } else {
-      p.clear(255, 255, 255, 1);
       p.background(fillColor);
     }
   }
@@ -107,7 +120,7 @@ const sketch = (p) => {
       height,
     }
 
-    closing = true;
+    window.electronAPI.areaMarked(resultRect);
   }
 
   p.windowResized = () => {

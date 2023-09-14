@@ -55,7 +55,7 @@ export function createTrayWindow(): BrowserWindow {
 
 export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWindow => {
   const win = new BrowserWindow({
-    title: "ManuScrape Overlay",
+    title: "ManuScrape - Mark area overlay",
     // remove the default frame around the window
     frame: false,
     // hide Electron’s default menu
@@ -69,6 +69,10 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
     alwaysOnTop: true,
     closable: false,
     movable: false,
+    focusable: false,
+    fullscreen: true,
+    hiddenInMissionControl: true,
+    thickFrame: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
       backgroundThrottling: false,
@@ -78,13 +82,12 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
 
   win.loadFile('windows/markArea.html');
   win.setBounds(activeDisplay.workArea)
-  win.maximize();
-  win.setFullScreen(true);
   win.show();
-  win.focus();
+  // win.webContents.openDevTools();
 
   return win;
 }
+
 
 export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
@@ -119,7 +122,7 @@ export const createAddObservationWindow = (
   projectId: number,
   observationId: number,
   onClose: () => void,
-  onReady: undefined | (() => void),
+  onReady?: undefined | (() => void),
   uploading: boolean = true,
   electronTheme: boolean = true,
 ): BrowserWindow => {

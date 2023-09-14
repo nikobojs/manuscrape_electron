@@ -121,7 +121,7 @@ export async function uploadObservationImage(
     form.append('file', blob, fullFname);
 
     try {
-        const res = await axios.default.put(
+        await axios.default.put(
             `${host}/api/projects/${projectId}/observations/${observationId}/image`,
             form,
             {
@@ -131,8 +131,6 @@ export async function uploadObservationImage(
                 }
             }
         );
-
-        return res.data;
     } catch(e: any) {
         const msg = e?.response?.data?.message || e?.response?.data?.statusMessage || e?.code || e?.message || 'Unknown error';
         throw new Error(msg);
