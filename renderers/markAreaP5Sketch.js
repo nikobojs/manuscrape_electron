@@ -4,9 +4,11 @@ let dragging = false;
 let resultRect = null;
 let fillColor = null;
 let strokeColor = null;
-let spinnerSize = 32;
+let spinnerSize = 28;
 let spinnerSpeed = 8;
 let spinnerColor;
+let statusText = '';
+let statusDescription = '';
 
 function drawArea(p, area) {
   p.noStroke();
@@ -35,9 +37,26 @@ function drawArea(p, area) {
 function drawProcessing(p) {
   let step = p.frameCount % (spinnerSpeed * 7.25);
   let angle = p.map(step, 0, spinnerSpeed * 7.25, 0, p.TWO_PI);
-  
+  // create text and box
   p.push();
-  p.translate(p.windowWidth - 64, 64);
+  p.translate(p.windowWidth - 64, 32);
+  p.noStroke()
+  p.fill(10, 10, 10, 100);
+  p.rect(-390, -32, 454, 88)
+  p.stroke(spinnerColor);
+  p.fill(spinnerColor);
+  p.strokeWeight(1);
+  p.textSize(28);
+  p.textAlign(p.RIGHT, p.CENTER);
+  p.text(statusText, -50, 0)
+  p.fill(spinnerColor);
+  p.textSize(16);
+  p.text(statusDescription, -50, 30)
+  p.pop();
+  
+  // create rotating spinner
+  p.push();
+  p.translate(p.windowWidth - 64, 32);
   p.rotate(angle);
   p.noFill();
   p.stroke(spinnerColor);
@@ -45,18 +64,7 @@ function drawProcessing(p) {
   p.strokeCap(p.SQUARE);
   p.arc(0, 0, spinnerSize - (spinnerSize / 20), spinnerSize - (spinnerSize / 20), 0, p.PI + p.HALF_PI, p.OPEN);
   p.pop();
-
-  p.push();
-  p.translate(p.windowWidth - 64, 64);
-  p.stroke(spinnerColor);
-  p.fill(spinnerColor);
-  p.strokeWeight(1);
-  p.textSize(32);
-  p.textAlign(p.RIGHT, p.CENTER);
-  p.text('Processing image...', -50, 0)
-  p.pop();
 }
-
 
 const sketch = (p) => {
   strokeColor = p.color(80, 110, 180, 1)
@@ -73,7 +81,7 @@ const sketch = (p) => {
     p.clear(255, 255, 255, 1);
     if (dragging) {
       drawArea(p, area);
-    } else if(resultRect) {
+    } else if(resultRect && statusText && statusDescription) {
       drawProcessing(p);
     } else {
       p.background(fillColor);
@@ -126,7 +134,11 @@ const sketch = (p) => {
   p.windowResized = () => {
     p.resizeCanvas(p.windowWidth, p.windowHeight)
   }
-
 }
+
+window.electronAPI.onStatus((_event, status) => {
+  statusText = status.statusText;
+  statusDescription = status.statusDescription;
+});
 
 new p5(sketch);

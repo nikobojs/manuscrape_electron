@@ -2,7 +2,7 @@ import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, Browser
 import path from 'path';
 import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
-import { trayIcon, successIcon } from './helpers/icons';
+import { trayIcon, successIcon, errorIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
@@ -30,12 +30,14 @@ export class ManuScrapeController {
   private user: IUser | undefined;
   private contextMenu: Menu | undefined;
   private useEncryption: boolean;
+  private cancelOperation: boolean;
 
   constructor(trayWindow: BrowserWindow, useEncryption: boolean) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
+    this.cancelOperation = false;
     this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
     this.hostPath = path.join(app.getPath('userData'), 'host.txt.enc');
     this.useEncryption = useEncryption;
@@ -137,7 +139,11 @@ export class ManuScrapeController {
     }
 
     // generate callback function that utilizes scrollScreenshot
-    this.useOnMarkedAreaCallback(scrollScreenshot)
+    this.useOnMarkedAreaCallback(
+      scrollScreenshot,
+      'Recording scrollshot...',
+      'Cancel: Alt+C   Save: Alt+S',
+    )
 
     // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
@@ -152,7 +158,7 @@ export class ManuScrapeController {
     // TODO: make sure errors are handled in caller function
     if (!this.apiHost) throw new Error('Api host is not defined');
     if (!this.loginToken) throw new Error('You are not logged in');
-    if (!projectId) throw new Error('Project id could not be found')
+    if (!projectId) throw new Error('Project id could not be found');
 
     return uploadObservationImage(
       this.apiHost,
@@ -168,13 +174,17 @@ export class ManuScrapeController {
     callback: (
       area: any,
       activeDisplay: Electron.Display,
-      activeDisplayIndex: number
-    ) => Promise<string>
+      activeDisplayIndex: number,
+      isCancelled: () => boolean,
+    ) => Promise<string>,
+    statusText?: string,
+    statusDescription?: string,
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
       if (typeof this.apiHost !== 'string') throw new Error('Something went terribly wrong')
       if (typeof this.loginToken !== 'string') throw new Error('Something went terribly wrong')
       if (typeof this.activeProjectId !== 'number') throw new Error('Something went terribly wrong')
+      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.()) throw new Error('Overlay window does not exist');
 
       // make mouse events "go through" this current window (always-on-top)
       this.overlayWindow?.setIgnoreMouseEvents?.(true);
@@ -182,46 +192,62 @@ export class ManuScrapeController {
       // call the cleanup and refresh context function
       this.onMarkAreaDone();
 
-      try {
-          // first, create new observation draft, to obtain observation id
-          const { id: obsId } = await addObservation(
-            this.apiHost,
-            this.loginToken,
-            this.activeProjectId
-          );
-          
-          // take scrollshot/screenshot ('callback' argument)
-          const filePath = await callback(
-            area,
-            this.getActiveDisplay(),
-            this.activeDisplayIndex
-          );
-
-          // close overlay now that upload is done
-          this.cancelOverlay();
-
-          // open observation form window
-          this.openCreateObservationWindow(obsId, true),
-
-          // upload the image
-          await this.uploadObservationImage(obsId, filePath, this.activeProjectId);
-
-      } catch(e: any) {
-        // TODO: report errors
-        // TODO: handle errors better
-        console.error(e)
-        this.cancelOverlay();
+      // emit the status text if its defined
+      if (statusText) {
+        this.overlayWindow?.webContents.send('mark-area-status', { statusText, statusDescription });
       }
 
-      // TODO: remove temp file
+      try {
+        // first, create new observation draft, to obtain observation id
+        const { id: obsId } = await addObservation(
+          this.apiHost,
+          this.loginToken,
+          this.activeProjectId,
+        );
+
+        // take scrollshot/screenshot ('callback' argument)
+        const filePath = await callback(
+          area,
+          this.getActiveDisplay(),
+          this.activeDisplayIndex,
+          () => this.cancelOperation,
+        );
+
+        // close overlay now that upload is done
+        this.cancelOverlay();
+
+        // open observation form window
+        this.openCreateObservationWindow(obsId, true);
+
+        // upload the image
+        await this.uploadObservationImage(obsId, filePath, this.activeProjectId);
+
+      } catch (e: any) {
+        // TODO: report errors
+        // TODO: handle errors better
+        if (e?.message !== 'Cancelled') {
+          console.error(e);
+          new Notification({
+            title: 'ManuScrape',
+            body: e?.message || 'Unknown error :(',
+            icon: errorIcon,
+          }).show();
+        }
+        this.cancelOverlay();
+      } finally {
+        this.cancelOperation = false;
+        this.refreshShortcuts();
+      }
+
+      // TODO: remove temp file(s)
     };
-    
+
     // add listener to state so it can be removed later
     // NOTE: removeEventListener requires a reference to the function
     this.setOnAreaMarkedListener(handler);
   }
 
-  
+
   public async openUploadObservationWindow() {
     // make typescript linters happy
     // NOTE: none of these errors should ever happen
@@ -287,7 +313,7 @@ export class ManuScrapeController {
       if (this.overlayWindow?.isDestroyed() === false) {
         this.overlayWindow.close();
       }
-      
+
       new Notification({
         title: 'ManuScrape',
         body: 'Observation created successfully',
@@ -336,13 +362,13 @@ export class ManuScrapeController {
       if (tokenExists && hostExists) {
         console.info('signing in with token and host files');
         token = readFile(this.tokenPath);
-      // if host file exists and cookie exists, extract token from cookie
-      // TODO: fix pattern
+        // if host file exists and cookie exists, extract token from cookie
+        // TODO: fix pattern
       } else if (hasAuthCookie && hostExists) {
         console.info('signing in with cookie and saved host file');
         token = await readTokenFromCookie();
       }
-    } catch(err: any) {
+    } catch (err: any) {
       // TODO: report errors?
       // TODO: test for specific errors
       console.warn('Ignoring error when authorizing intially:');
@@ -356,12 +382,12 @@ export class ManuScrapeController {
       // TODO: weird bug requries refreshContext to be called twice
       // context popup wont show unless refreshContextMenu is called twice
       this.refreshContextMenu();
-      this.setupShortcuts();
+      this.refreshShortcuts();
 
       try {
         // use retrieved 'host' and 'token' to renew cookie and fetch user
         if (host && token) {
-          await renewCookieFromToken(host, token).catch(() => {});
+          await renewCookieFromToken(host, token).catch(() => { });
           await this.refreshUser(host, token);
           this.refreshContextMenu();
         }
@@ -369,7 +395,7 @@ export class ManuScrapeController {
         if (!this.isLoggedIn()) {
           this.openAuthorizationWindow(false);
         }
-      } catch(e: any) {
+      } catch (e: any) {
         // show login window if there was some kind of error
         // TODO: report error
         this.openAuthorizationWindow(false);
@@ -382,7 +408,6 @@ export class ManuScrapeController {
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       ipcMain.removeAllListeners('area-marked');
-      globalShortcut.unregister('Alt+C')
       this.onMarkAreaDone();
       if (!this.overlayWindow?.isDestroyed()) {
         this.overlayWindow.close();
@@ -397,7 +422,6 @@ export class ManuScrapeController {
       ipcMain.removeAllListeners('area-marked');
       ipcMain.removeAllListeners('observation-created');
       ipcMain.removeAllListeners('project-created');
-      globalShortcut.unregister('Alt+C')
       this.onMarkAreaDone();
       this.nuxtWindow.close();
     }
@@ -438,7 +462,7 @@ export class ManuScrapeController {
           saveFile(token, this.tokenPath);
         }
       }
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       // TODO: report error
       // ignore expired/bad token
@@ -488,13 +512,17 @@ export class ManuScrapeController {
     this.isMarkingArea = true;
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
     this.refreshContextMenu();
-    globalShortcut.register('Alt+C', () => this.cancelOverlay());
+    globalShortcut.unregister('Alt+C')
+    globalShortcut.register('Alt+C', () => {
+      this.cancelOverlay();
+      this.cancelOperation = true;
+    });
   }
 
 
   private async signInHandler(
     event: Electron.IpcMainEvent,
-    {email, password, host}: ISignInBody,
+    { email, password, host }: ISignInBody,
   ): Promise<void> {
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
@@ -508,8 +536,8 @@ export class ManuScrapeController {
       const { token: _token } = await signIn(host, email, password);
       token = _token;
 
-    // return `error` to client, so error can be rendered
-    } catch(err: any) {
+      // return `error` to client, so error can be rendered
+    } catch (err: any) {
       return event.reply(
         'sign-in-error',
         err?.message || 'Unknown error'
@@ -525,7 +553,7 @@ export class ManuScrapeController {
 
   private async signUpHandler(
     event: Electron.IpcMainEvent,
-    {email, password, host}: ISignUpBody,
+    { email, password, host }: ISignUpBody,
   ): Promise<void> {
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
@@ -539,8 +567,8 @@ export class ManuScrapeController {
       const { token: _token } = await signUp(host, email, password);
       token = _token;
 
-    // return `error` to client, so error can be rendered
-    } catch(err: any) {
+      // return `error` to client, so error can be rendered
+    } catch (err: any) {
       return event.reply(
         'sign-up-error',
         err?.message || 'Unknown error'
@@ -554,10 +582,10 @@ export class ManuScrapeController {
   }
 
   private clearAuthIpcListeners() {
-      // clear existing relevant ipcMain listeners
-      ipcMain.removeAllListeners('sign-in');
-      ipcMain.removeAllListeners('sign-up');
-      ipcMain.removeAllListeners('ask-for-default-host-value');
+    // clear existing relevant ipcMain listeners
+    ipcMain.removeAllListeners('sign-in');
+    ipcMain.removeAllListeners('sign-up');
+    ipcMain.removeAllListeners('ask-for-default-host-value');
   }
 
   private async updateAuthSession(host: string, token: string) {
@@ -648,18 +676,33 @@ export class ManuScrapeController {
   }
 
 
-  // add hardcoded global shortcuts
-  // NOTE: should only be called once
-  // NOTE: this should always match the MenuItem accelerators
-  // TODO: refactor (to refreshShortcuts?)
-  private setupShortcuts(): void {
+  // reset hardcoded global shortcuts
+  private refreshShortcuts(): void {
+    globalShortcut.unregisterAll();
     globalShortcut.register('Alt+Q', () => {
       console.info('caught exit shortcut. will exit now');
       this.app.exit(0)
     })
-    globalShortcut.register('Alt+N', () => this.createQuickScreenshot())
-    globalShortcut.register('Alt+S', () => this.createScrollScreenshot())
-    console.info('set up keyboard shortcuts')
+    globalShortcut.register('Alt+N', async () => {
+      const confirmed = await this.confirmCloseNuxtWindowIfAny()
+      if (!confirmed) {
+        return;
+      }
+      if (!this.overlayWindow?.isDestroyed?.()) {
+        this.overlayWindow?.close();
+      }
+      return this.createQuickScreenshot();
+    })
+    globalShortcut.register('Alt+S', async () => {
+      const confirmed = await this.confirmCloseNuxtWindowIfAny()
+      if (!confirmed) {
+        return;
+      }
+      if (!this.overlayWindow?.isDestroyed?.()) {
+        this.overlayWindow?.close();
+      }
+      return this.createScrollScreenshot();
+    })
   }
 
 
@@ -689,6 +732,7 @@ export class ManuScrapeController {
     } else if (this.isLoggedIn() && this.loginToken) {
       await this.refreshUser(this.apiHost, this.loginToken);
       this.refreshContextMenu();
+      this.refreshShortcuts();
     }
   }
 

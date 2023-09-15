@@ -59,4 +59,8 @@ declare global {
   type SignUpCallback = (event: IpcRendererEvent, ...args: any[]) => void;
   type HostValueCallback = (event: IpcRendererEvent, ...args: any[]) => void;
   type ImageUploadedCallback = (event: IpcRendererEvent, ...args: any[]) => void;
+  type MarkAreaStatusCallback = (
+    event: IpcRendererEvent,
+    status: {statusText: string; statusDescription: string}
+  ) => void;
 }

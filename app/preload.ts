@@ -29,4 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('ask-for-default-host-value', callback);
     ipcRenderer.send('ask-for-default-host-value');
   },
+  onStatus: (callback: MarkAreaStatusCallback) => {
+    ipcRenderer.once('mark-area-status', callback);
+  }
 });
