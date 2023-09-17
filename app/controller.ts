@@ -108,11 +108,13 @@ export class ManuScrapeController {
     }
   }
 
+
   // update activeProjectId and refresh menu
   public chooseProject(id: number) {
     this.activeProjectId = id;
     this.refreshContextMenu();
   }
+
 
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
@@ -409,9 +411,7 @@ export class ManuScrapeController {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       ipcMain.removeAllListeners('area-marked');
       this.onMarkAreaDone();
-      if (!this.overlayWindow?.isDestroyed()) {
-        this.overlayWindow.close();
-      }
+      this.overlayWindow.close();
     }
   }
 
@@ -507,7 +507,7 @@ export class ManuScrapeController {
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
     if (this.overlayWindow && !this.overlayWindow?.isDestroyed?.()) {
-      throw new Error('Overlay window is already active');
+      this.overlayWindow.close();
     }
     this.isMarkingArea = true;
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
