@@ -310,10 +310,10 @@ export class ManuScrapeController {
     // add observation-created listener
     ipcMain.once('observation-created', (res) => {
       if (this.nuxtWindow?.isDestroyed() === false) {
-        this.nuxtWindow.close();
+        this.nuxtWindow?.webContents.close();
       }
       if (this.overlayWindow?.isDestroyed() === false) {
-        this.overlayWindow.close();
+        this.overlayWindow?.webContents.close();
       }
 
       new Notification({
@@ -331,7 +331,7 @@ export class ManuScrapeController {
   // ensure not more than one app window
   private async confirmCloseNuxtWindowIfAny(): Promise<boolean> {
     if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
-      this.nuxtWindow.focus();
+      this.nuxtWindow.webContents.focus();
       const yes = yesOrNo('Are you sure you want to close the existing window?');
       if (yes) {
         this.cancelNuxtWindow()
@@ -411,7 +411,7 @@ export class ManuScrapeController {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       ipcMain.removeAllListeners('area-marked');
       this.onMarkAreaDone();
-      this.overlayWindow.close();
+      this.overlayWindow.webContents.close();
     }
   }
 
@@ -423,7 +423,7 @@ export class ManuScrapeController {
       ipcMain.removeAllListeners('observation-created');
       ipcMain.removeAllListeners('project-created');
       this.onMarkAreaDone();
-      this.nuxtWindow.close();
+      this.nuxtWindow.webContents.close();
     }
   }
 
@@ -507,7 +507,7 @@ export class ManuScrapeController {
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
     if (this.overlayWindow && !this.overlayWindow?.isDestroyed?.()) {
-      this.overlayWindow.close();
+      this.overlayWindow.webContents.close();
     }
     this.isMarkingArea = true;
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
@@ -659,14 +659,21 @@ export class ManuScrapeController {
       return;
     }
 
-    ipcMain.once('project-created', (res) => {
+    // TODO: when project is created, client should send project id to this func
+    // through IPC. this will allow the newly created project to be choosed automatically,
+    // without string matching project names
+    ipcMain.once('project-created', async () => {
       if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
-        this.nuxtWindow.close();
+        this.nuxtWindow.webContents.close();
         new Notification({
           title: 'ManuScrape',
           body: 'Project created successfully',
           icon: successIcon,
         }).show();
+        if (!this.apiHost || !this.loginToken) {
+          throw new Error('Api host or login token is missing');
+        }
+        await this.refreshUser(this.apiHost, this.loginToken);
         this.refreshContextMenu();
       }
     });
@@ -689,7 +696,7 @@ export class ManuScrapeController {
         return;
       }
       if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.close();
+        this.overlayWindow?.webContents.close();
       }
       return this.createQuickScreenshot();
     })
@@ -699,7 +706,7 @@ export class ManuScrapeController {
         return;
       }
       if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.close();
+        this.overlayWindow?.webContents.close();
       }
       return this.createScrollScreenshot();
     })

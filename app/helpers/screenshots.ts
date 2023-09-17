@@ -213,6 +213,10 @@ export async function scrollScreenshot(
     // else if there is only one image, return its path
     return lastSavePath;
   } else {
-    throw new Error('Unable to save scroll shot!');
+    if (isCancelled()) {
+      throw new Error('Cancelled');
+    } else {
+      throw new Error('Unable to save scroll shot!');
+    }
   }
 }
