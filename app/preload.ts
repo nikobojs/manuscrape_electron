@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         },
       } as any);
       // TODO: do something about multiple tracks!
-      stream.getTracks().forEach(function(track) {
+      stream.getVideoTracks().forEach(function(track) {
         console.log(JSON.stringify({
             settings: track.getSettings(),
             constraints: track.getConstraints(),
