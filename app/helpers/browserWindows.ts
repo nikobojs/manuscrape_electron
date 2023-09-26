@@ -1,5 +1,6 @@
-import { BrowserWindow, shell, type BrowserWindowConstructorOptions } from 'electron';
+import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
 import path from 'path';
+const isLinux = process.platform === 'linux';
 
 // generic nuxt app window factory - not meant to be exported
 const createNuxtAppWindow = (
@@ -19,8 +20,8 @@ const createNuxtAppWindow = (
     },
     useContentSize: true,
     backgroundColor: '#1c1b22',
-    minWidth: 1270,  // tested on gnome 3
-    minHeight: 910,  // tested on gnome 3
+    minWidth: 1270,
+    minHeight: isLinux ? 910 : 840,
   })
 
   win.loadURL(url);
