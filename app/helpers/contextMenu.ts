@@ -68,10 +68,9 @@ export function generateMenuItems(
         }));
 
         menuItems.push(new MenuItem({
-          label: "Upload image",
+          label: "Create empty draft",
           type: "normal",
           click: () => controller.openUploadObservationWindow(),
-          accelerator: 'Alt+S',
           icon: addIcon,
         }));
       }
