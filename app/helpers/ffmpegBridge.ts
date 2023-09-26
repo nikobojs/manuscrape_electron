@@ -53,48 +53,14 @@ export function cropVideoFile(
       outputPath,
     ];
     const process = spawn(ffmpeg, cmd);
-    console.log('ffmpeg', cmd.join(' '))
-    // NOT WORKING
-    // const process = spawn(ffmpeg, [
-    //     '-i',
-    //     filepath,
-    //     '-filter:v',
-    //     `crop=${width}:${height}:${x}:${y}`,
-    //     '-threads',
-    //     '5',
-    //     outputPath,
-    // ]);
-    // NOT WORKING
-    // const process = spawn(ffmpeg, [
-    //     '-i',
-    //     filepath,
-    //     '-filter:v',
-    //     `crop=${width}:${height}:${x}:${y}`,
-    //     '-threads',
-    //     '5',
-    //     '-preset',
-    //     'ultrafast',
-    //     '-strict',
-    //     '-2',
-    //     outputPath,
-    // ]);
-
-    // process.stdout.on("data", function (data: string) {
-    //     console.info(data)
-    // });
-
-    // process.stderr.on("data", (data: string) => {
-    //     console.error(`stderr: ${data}`);
-    //     console.log(`stderr: ${data}`);
-    // }); 
 
     process.on("close", (code: number) => {
-        console.info('ffmpeg program exited with code', code);
+        fs.unlinkSync(filepath);
         if (code === 0) {
-            console.log('saved result video:', outputPath);
             console.log('ffmpeg program took', ((new Date().getTime() - beginTime) / 1000).toFixed(2) + 's')
             resolve();
         } else {
+            console.info('ffmpeg program exited with code', code);
             reject();
         }
     });

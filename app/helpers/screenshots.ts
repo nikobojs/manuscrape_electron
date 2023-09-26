@@ -217,9 +217,11 @@ export async function scrollScreenshot(
 
   // if there are more than one screenshot, join the images to one big and return path
   if (totalScreenshots > 1) {
+    const screenshotsPath = path.join(getTempPath(), dirname);
+
     try {
       await joinImagesVertically(
-        path.join(getTempPath(), dirname),
+        screenshotsPath,
         resultImagePath,
       );
       return resultImagePath;
@@ -231,6 +233,9 @@ export async function scrollScreenshot(
       }).show()
       throw new Error('Unable to join scrollshot images to one single image');
       // TODO: report error
+    } finally {
+      // remove all the single screenshots no matter if it went well joining them
+      fs.rmSync(screenshotsPath, { recursive: true });
     }
   } else if (lastSavePath) {
     // else if there is only one image, return its path

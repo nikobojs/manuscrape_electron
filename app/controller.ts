@@ -1,4 +1,4 @@
-import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent, ipcRenderer } from 'electron';
+import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
 import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
@@ -8,6 +8,7 @@ import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
 import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
+import fs from 'fs';
 
 
 export class ManuScrapeController {
@@ -182,6 +183,7 @@ export class ManuScrapeController {
           if (!this.apiHost) throw new Error('Something very bad just happened... :(');
           if (!this.loginToken) throw new Error('Something very bad just happened... :(');
           await uploadVideoToObservation(this.apiHost, this.loginToken, observationId, projectId, path);
+          fs.unlinkSync(path);
           this.nuxtWindow?.webContents.send('refresh-uploaded-files');
         } catch(err: any) {
           // TODO: report error
@@ -277,6 +279,9 @@ export class ManuScrapeController {
       if (typeof this.activeProjectId !== 'number') throw new Error('Something went terribly wrong')
       if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.()) throw new Error('Overlay window does not exist');
 
+      // define here so we can delete it after upload in the finally block
+      let filePath: undefined | string;
+
       // make mouse events "go through" this current window (always-on-top)
       this.overlayWindow?.setIgnoreMouseEvents?.(true);
 
@@ -301,7 +306,7 @@ export class ManuScrapeController {
         );
 
         // take scrollshot/screenshot ('callback' argument)
-        const filePath = await callback(
+        filePath = await callback(
           area,
           this.getActiveDisplay(),
           this.activeDisplayIndex,
@@ -316,7 +321,6 @@ export class ManuScrapeController {
 
         // upload the image
         await this.uploadObservationImage(obsId, filePath, this.activeProjectId);
-
       } catch (e: any) {
         // TODO: report errors
         // TODO: handle errors better
@@ -330,6 +334,9 @@ export class ManuScrapeController {
         }
         this.cancelOverlay();
       } finally {
+        if (filePath) {
+          fs.rmSync(filePath);
+        }
         this.cancelOperation = false;
         this.refreshShortcuts();
       }
