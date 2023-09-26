@@ -11,7 +11,7 @@ import fs from 'fs';
 
 function getScreenshotFromSource(
   source: Electron.DesktopCapturerSource,
-  areaRect: any
+  areaRect: Square,
 ): IScreenshot {
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
@@ -49,7 +49,7 @@ function findCapturerSourceByDisplay(
 
 
 async function captureScreenshot(
-  areaRect: any,
+  areaRect: Square,
   activeScreen: Electron.Display,
   activeDisplayIndex: number,
 ): Promise<IScreenshot> {
@@ -123,9 +123,8 @@ export async function saveScreenshot(
 }
 
 
-// TODO: fix typing
 export async function quickScreenshot(
-  areaRect: any,
+  areaRect: Square,
   activeDisplay: Electron.Display,
   activeDisplayIndex: number,
   _isCancelled: () => boolean,
@@ -136,9 +135,8 @@ export async function quickScreenshot(
 }
 
 
-// TODO: fix typing
 export async function scrollScreenshot(
-  areaRect: any,
+  areaRect: Square,
   activeDisplay: Electron.Display,
   activeDisplayIndex: number,
   isCancelled: () => boolean,
