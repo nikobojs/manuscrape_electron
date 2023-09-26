@@ -1,5 +1,8 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, desktopCapturer } from "electron";
+
 // console.log('version:', process.env.npm_package_version) (THIS WORKS)
+
+let recorder: MediaRecorder | undefined;
 
 contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
@@ -30,6 +33,77 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('ask-for-default-host-value');
   },
   onStatus: (callback: MarkAreaStatusCallback) => {
-    ipcRenderer.once('mark-area-status', callback);
-  }
+    ipcRenderer.removeAllListeners('mark-area-status');
+    ipcRenderer.on('mark-area-status', callback);
+  },
+  beginVideoCapture: async (observationId: number, projectId: number, onDone: (() => any)) => {
+    // cleanup existing ipcRenderer listeners
+    ipcRenderer.removeAllListeners('refresh-uploaded-files');
+    ipcRenderer.removeAllListeners('stop-video-capture');
+
+    // when main thread tells os to begin capturing, lets open the stream!
+    ipcRenderer.once('video-capture', async (event, fullWidth: number, fullHeight: number) => {
+      // TODO: ensure supported
+      // const supported = navigator.mediaDevices.getSupportedConstraints()
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            frameRate: { min: 15, max: 60, ideal: 60 },
+            resizeMode: 'none',
+            maxFrameRate: 60,
+            minFrameRate: 60,
+            width: { max: fullWidth },
+            height: { max: fullHeight },
+          },
+        },
+      } as any);
+      // TODO: do something about multiple tracks!
+      stream.getTracks().forEach(function(track) {
+        console.log(JSON.stringify({
+            settings: track.getSettings(),
+            constraints: track.getConstraints(),
+            capabilities: track.getCapabilities(),
+        }, null, 2));
+        track.applyConstraints({ width: { ideal: fullWidth }, height: { ideal: fullHeight }, frameRate: { ideal: 60 } })
+      });
+
+      // set global recorder and add eventlisteners
+      recorder = new MediaRecorder(stream);
+      const blobs: Blob[] = [];
+      recorder.onerror = (err) => console.error(err);
+      recorder.ondataavailable = (ev) => blobs.push(ev.data);
+      recorder.onstop = async (_ev) => {
+        // create video file blob and send to main thread (without saving file)
+        const fullBlob = new Blob(blobs, {type: 'video/webm'});
+        const arrBuf = await toArrayBuffer(fullBlob);
+        ipcRenderer.once('refresh-uploaded-files', () => onDone());
+        ipcRenderer.send('video-capture-done', arrBuf);
+      };
+
+      recorder.start();
+    });
+
+    // called when mainthread wants renderer to stop capturing
+    ipcRenderer.once('stop-video-capture', () => {
+      recorder?.stop();
+    });
+
+    // send to main thread that we want to start video capture!
+    // NOTE: this should reply by emitting the 'video-capture' event above
+    ipcRenderer.send('begin-video-capture', projectId, observationId);
+  },
 });
+
+
+// TODO: add timeout and size error
+function toArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  return new Promise((resolve) => {
+    const fileReader = new FileReader();
+    fileReader.onload = function() {
+        resolve(this.result as ArrayBuffer)
+    };
+    fileReader.readAsArrayBuffer(blob);
+  })
+}

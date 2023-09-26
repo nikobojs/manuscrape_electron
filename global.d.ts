@@ -48,11 +48,18 @@ declare global {
   }
 
   interface ISuccessResponse {
-    success: true,
+    success: true;
   }
 
   interface IObservationCreatedResponse {
-    id: number
+    id: number;
+  }
+
+  interface Square {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
   }
 
   type SignInCallback = (event: IpcRendererEvent, ...args: any[]) => void;

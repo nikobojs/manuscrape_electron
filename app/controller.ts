@@ -1,9 +1,9 @@
 import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent, ipcRenderer } from 'electron';
 import path from 'path';
-import { quickScreenshot, scrollScreenshot } from './helpers/screenshots';
+import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/screenshots';
 import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, errorIcon } from './helpers/icons';
-import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage } from './helpers/api';
+import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage, uploadVideoToObservation } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
@@ -116,6 +116,93 @@ export class ManuScrapeController {
   }
 
 
+  // create video capture and upload automatically
+  private async createVideoCapture(
+    event: IpcMainEvent,
+    projectId: number,  // TODO: remove this param (use this.activeProject)
+    observationId: number,
+  ) {
+    // callback function when area is marked
+    const onMarkedHandler = async (
+      _event: IpcMainEvent,
+      area: Square
+    ) => {
+      if (typeof this.apiHost !== 'string') throw new Error('Something went terribly wrong')
+      if (typeof this.loginToken !== 'string') throw new Error('Something went terribly wrong')
+      if (typeof this.activeProjectId !== 'number') throw new Error('Something went terribly wrong')
+      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.()) throw new Error('Overlay window does not exist');
+
+      // make mouse events "go through" this current window (always-on-top)
+      this.overlayWindow?.setIgnoreMouseEvents?.(true);
+
+      // call the cleanup and refresh context function
+      this.onMarkAreaDone();
+
+      if (!this.nuxtWindow) {
+        // TODO: report error
+        throw new Error('Nuxt window is not defined')
+      }
+
+      globalShortcut.unregister('Alt+S');
+      globalShortcut.register('Alt+S', () => {
+        this.nuxtWindow?.webContents.send('stop-video-capture')
+      });
+
+      const fullWidth = this.allDisplays.reduce((sum, cur) => sum + cur.size.width, 0);
+      const fullHeight = this.allDisplays.reduce((sum, cur) => sum + cur.size.height, 0);
+      event.reply(
+        'video-capture',
+        fullWidth,
+        fullHeight,
+      );
+
+      this.overlayWindow?.webContents.send('mark-area-status', {
+        statusText: 'Recording...',
+        statusDescription: 'Alt+S:  Stop recording',
+        hideArea: false,
+      });
+
+      ipcMain.once('video-capture-done', async (event, video: ArrayBuffer) => {
+        this.overlayWindow?.webContents.send('mark-area-status', {
+          statusText: 'Processing video...',
+          statusDescription: '',
+          hideArea: true,
+        });
+
+        try {
+          // save and crop video
+          const path = await saveAndCropVideo(video, this.getActiveDisplay(), area);
+          this.overlayWindow?.webContents.send('mark-area-status', {
+            statusText: 'Uploading video...',
+            statusDescription: '',
+            hideArea: true,
+          });
+
+          // upload file on path
+          if (!this.apiHost) throw new Error('Something very bad just happened... :(');
+          if (!this.loginToken) throw new Error('Something very bad just happened... :(');
+          await uploadVideoToObservation(this.apiHost, this.loginToken, observationId, projectId, path);
+          this.nuxtWindow?.webContents.send('refresh-uploaded-files');
+        } catch(err: any) {
+          // TODO: report error
+          console.error(err);
+          new Notification({
+            title: 'Failed to capture, save or upload video :(',
+            icon: errorIcon,
+          }).show();
+        } finally {
+          this.cancelOverlay();
+        }
+      });
+    }
+
+    this.setOnAreaMarkedListener(onMarkedHandler);
+
+    // now once listeners are attached, open mark area overlay
+    this.openMarkAreaOverlay();
+  }
+
+
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
     // ensure there is not already an observation being made
@@ -145,6 +232,7 @@ export class ManuScrapeController {
       scrollScreenshot,
       'Recording scrollshot...',
       'Cancel: Alt+C   Save: Alt+S',
+      true,
     )
 
     // now once listeners are attached, open mark area overlay
@@ -181,6 +269,7 @@ export class ManuScrapeController {
     ) => Promise<string>,
     statusText?: string,
     statusDescription?: string,
+    hideArea = false
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
       if (typeof this.apiHost !== 'string') throw new Error('Something went terribly wrong')
@@ -196,7 +285,11 @@ export class ManuScrapeController {
 
       // emit the status text if its defined
       if (statusText) {
-        this.overlayWindow?.webContents.send('mark-area-status', { statusText, statusDescription });
+        this.overlayWindow?.webContents.send('mark-area-status', {
+          statusText,
+          statusDescription,
+          hideArea,
+        });
       }
 
       try {
@@ -305,6 +398,17 @@ export class ManuScrapeController {
       undefined,
       automaticImageUpload,
       true,
+    );
+
+    ipcMain.on(
+      'begin-video-capture',
+      async (
+        event: IpcMainEvent,
+        projectId: number,
+        observationId: number,
+      ) => {
+        await this.createVideoCapture(event, projectId, observationId);
+      }
     );
 
     // add observation-created listener
@@ -732,6 +836,8 @@ export class ManuScrapeController {
       throw new Error('Api host not set when opening external browser window')
     }
     const invalidationCookie = await getInvalidationCookie(this.apiHost)
+
+    ipcMain.removeAllListeners('begin-video-capture');
 
     if (invalidationCookie) {
       console.info('caught signed out in browser window')

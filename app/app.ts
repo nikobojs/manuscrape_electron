@@ -15,11 +15,15 @@ import { ManuScrapeController } from './controller';
 import { ensurePythonAvail } from './helpers/pythonBridge';
 import { createTrayWindow } from './helpers/browserWindows';
 import { warnIfEncryptionUnavailable } from './helpers/utils';
+import { ensureFfmpegAvail } from './helpers/ffmpegBridge';
 
 let controller: ManuScrapeController | undefined;
 
 // force dark mode in chrome
 app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+
+// enable screen capturing using navigator.mediaDevices.getUserMedia
+app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
 
 // seems like the best thing to do
 // NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
@@ -40,6 +44,9 @@ app.whenReady().then(() => {
   // NOTE: this is required for both development and production environments
   // NOTE: to compile the python part of the app, read the docs ;)
   ensurePythonAvail();
+
+  // ensure ffmpeg binaries are available
+  ensureFfmpegAvail();
 
   // create hidden tray window
   // NOTE: this needs to exist for a lot of stuff to work

@@ -1,4 +1,5 @@
 // x, y, w, h
+let hideArea = false;
 let area = [0,0,0,0];
 let dragging = false;
 let resultRect = null;
@@ -11,6 +12,7 @@ let statusText = '';
 let statusDescription = '';
 
 function drawArea(p, area) {
+  p.push()
   p.noStroke();
   p.fill(fillColor);
 
@@ -31,7 +33,8 @@ function drawArea(p, area) {
   p.stroke(strokeColor)
   p.strokeWeight(2);
 
-  p.rect(minX, minY, w, h)
+  p.rect(minX, minY, w, h);
+  p.pop();
 }
 
 function drawProcessing(p) {
@@ -41,7 +44,7 @@ function drawProcessing(p) {
   p.push();
   p.translate(p.windowWidth - 64, 32);
   p.noStroke()
-  p.fill(10, 10, 10, 100);
+  p.fill(10, 10, 10, 190);
   p.rect(-390, -32, 454, 88)
   p.stroke(spinnerColor);
   p.fill(spinnerColor);
@@ -81,7 +84,8 @@ const sketch = (p) => {
     p.clear(255, 255, 255, 1);
     if (dragging) {
       drawArea(p, area);
-    } else if(resultRect && statusText && statusDescription) {
+    } else if(resultRect && statusText && typeof statusDescription === 'string') {
+      hideArea || drawArea(p, area);
       drawProcessing(p);
     } else {
       p.background(fillColor);
@@ -139,6 +143,7 @@ const sketch = (p) => {
 window.electronAPI.onStatus((_event, status) => {
   statusText = status.statusText;
   statusDescription = status.statusDescription;
+  hideArea = status.hideArea;
 });
 
 new p5(sketch);

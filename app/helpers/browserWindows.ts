@@ -19,6 +19,8 @@ const createNuxtAppWindow = (
     },
     useContentSize: true,
     backgroundColor: '#1c1b22',
+    minWidth: 1270,  // tested on gnome 3
+    minHeight: 910,  // tested on gnome 3
   })
 
   win.loadURL(url);

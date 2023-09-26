@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as axios from 'axios';
+import * as path from 'path';
 
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
 // NOTE: there is no runtime validation against the generic type
@@ -123,6 +124,36 @@ export async function uploadObservationImage(
     try {
         await axios.default.put(
             `${host}/api/projects/${projectId}/observations/${observationId}/image`,
+            form,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authentication': token
+                }
+            }
+        );
+    } catch(e: any) {
+        const msg = e?.response?.data?.message || e?.response?.data?.statusMessage || e?.code || e?.message || 'Unknown error';
+        throw new Error(msg);
+    }
+}
+
+
+export async function uploadVideoToObservation(
+    host: string,
+    token: string,
+    observationId: number,
+    projectId: number,
+    filePath: string,
+): Promise<void> {
+    const form = new FormData();
+    const buffer = fs.readFileSync(filePath);
+    const blob = new Blob([buffer], {type: 'video/webm'});
+    form.append('file', blob, path.basename(filePath));
+
+    try {
+        await axios.default.post(
+            `${host}/api/projects/${projectId}/observations/${observationId}/upload`,
             form,
             {
                 headers: {

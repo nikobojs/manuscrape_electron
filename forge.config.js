@@ -6,10 +6,16 @@ function pythonEntryBin() {
   return binDir + binFilename;
 }
 
+function ffmpegEntryBin() {
+  const binDir = `./bin/`;
+  const binFilename = `ffmpeg${isLinux ? '' : '.exe'}`;
+  return binDir + binFilename;
+}
+
 module.exports = {
   packagerConfig: {
     asar: true,
-    extraResource: [pythonEntryBin()],
+    extraResource: [pythonEntryBin(), ffmpegEntryBin()],
     ignore: [
       /python\//
     ],

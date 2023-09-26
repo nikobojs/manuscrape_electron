@@ -2,6 +2,7 @@ import { desktopCapturer, app, Notification, ipcMain, globalShortcut, BrowserWin
 import path from 'path';
 import { sleepAsync } from './utils';
 import { joinImagesVertically } from './pythonBridge';
+import { cropVideoFile } from './ffmpegBridge';
 import { errorIcon } from './icons';
 import { blockhashData, hammingDistance } from './blockhash-js';
 import jpeg from 'jpeg-js';
@@ -59,18 +60,40 @@ async function captureScreenshot(
     thumbnailSize: fullsize,
     fetchWindowIcons: false,
   });
-
+  // register in shortcuts: videoStream.stop()
   const displaySource = findCapturerSourceByDisplay(sources, activeScreen, activeDisplayIndex);
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
   return screenshot;
 }
 
-function getTempPath(): string {
+
+export function getTempPath(): string {
   const fullPath = path.join(app.getPath('temp'), 'manuscrape');
   if (!fs.existsSync(fullPath)) {
     fs.mkdirSync(fullPath);
   }
   return fullPath;
+}
+
+
+export async function saveAndCropVideo(
+  video: ArrayBuffer,
+  display: Electron.Display,
+  area: Square,
+): Promise<string> {
+  const path = getTempPath() + '/capture_' + new Date().toISOString().replace(/\:/g, '') + '.temp.webm';
+  const resultPath = getTempPath() + '/capture_' + new Date().toISOString().replace(/\:/g, '') + '.webm';
+
+  // save raw video (containing lots of stuff)
+  fs.writeFileSync(path, Buffer.from(video));
+
+  // crop file
+  ipcMain.removeAllListeners('video-capture-done');
+  area.x += display.workArea.x;
+  area.y += display.workArea.y;
+  await cropVideoFile(path, resultPath, area)
+
+  return resultPath
 }
 
 
