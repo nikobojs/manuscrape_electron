@@ -7,7 +7,12 @@ const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
   onReady = () => {},
+  width?: number | undefined,
+  height?: number | undefined,
 ): BrowserWindow => {
+  if (!height) height = isLinux ? 910 : 840;
+  if (!width) width = 1270;
+
   const win = new BrowserWindow({
     title: "ManuScrape",
     autoHideMenuBar: true,
@@ -20,8 +25,8 @@ const createNuxtAppWindow = (
     },
     useContentSize: true,
     backgroundColor: '#1c1b22',
-    minWidth: 1270,
-    minHeight: isLinux ? 910 : 840,
+    minWidth: width,
+    minHeight: height,
   })
 
   win.loadURL(url);
@@ -120,6 +125,7 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
   return win;
 }
 
+
 export const createAddObservationWindow = (
   apiHost: string,
   projectId: number,
@@ -155,6 +161,20 @@ export const createAddProjectWindow = (
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
     `${apiHost}/`,
+    onClose
+  )
+
+  return win;
+}
+
+
+export const createDraftsWindow = (
+  apiHost: string,
+  projectId: number,
+  onClose: () => void
+): BrowserWindow => {
+  const win = createNuxtAppWindow(
+    `${apiHost}/projects/${projectId}/drafts?electron=1`,
     onClose
   )
 

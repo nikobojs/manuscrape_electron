@@ -1,6 +1,6 @@
 import { MenuItem, shell, screen, Menu } from "electron";
 import type { ManuScrapeController } from "../controller";
-import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon, folderIcon } from "./icons";
+import { loginIcon, addIcon, monitorIcon, logoutIcon, bugReportIcon, quitIcon, folderIcon, openInNewIcon } from "./icons";
 
 export function generateMenuItems(
   controller: ManuScrapeController,
@@ -83,6 +83,13 @@ export function generateMenuItems(
     }));
 
     if (user) {
+
+      menuItems.push(new MenuItem({
+        label: "Open drafts",
+        type: "normal",
+        click: () => controller.openObservationDraftsWindow(),
+        icon: openInNewIcon,
+      }));
 
       // create new empty screens submenu
       const screenMenu = new MenuItem({

@@ -1,7 +1,7 @@
 import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
 import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow, createDraftsWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, errorIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage, uploadVideoToObservation } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
@@ -334,14 +334,13 @@ export class ManuScrapeController {
         }
         this.cancelOverlay();
       } finally {
+        // remove temp file
         if (filePath) {
           fs.rmSync(filePath);
         }
         this.cancelOperation = false;
         this.refreshShortcuts();
       }
-
-      // TODO: remove temp file(s)
     };
 
     // add listener to state so it can be removed later
@@ -790,6 +789,28 @@ export class ManuScrapeController {
     });
 
     const win = createAddProjectWindow(this.apiHost, () => this.onExternalWindowClose());
+    this.nuxtWindow = win;
+  }
+
+
+  // opens observation drafts window
+  public async openObservationDraftsWindow(): Promise<void> {
+    if (!this.apiHost) {
+      throw new Error('Api host not set when opening external browser window')
+    } else if (!this.activeProjectId) {
+      throw new Error('Project id not set when opening external browser window')
+    }
+
+    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
+      this.nuxtWindow.focus();
+      return;
+    }
+
+    const win = createDraftsWindow(
+      this.apiHost,
+      this.activeProjectId,
+      () => this.onExternalWindowClose()
+    );
     this.nuxtWindow = win;
   }
 
