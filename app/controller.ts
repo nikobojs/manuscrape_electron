@@ -623,7 +623,12 @@ export class ManuScrapeController {
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
     this.refreshContextMenu();
     globalShortcut.unregister('Alt+C')
+    globalShortcut.unregister('Esc')
     globalShortcut.register('Alt+C', () => {
+      this.cancelOverlay();
+      this.cancelOperation = true;
+    });
+    globalShortcut.register('Esc', () => {
       this.cancelOverlay();
       this.cancelOperation = true;
     });
