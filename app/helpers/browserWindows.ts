@@ -81,6 +81,13 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
     fullscreen: true,
     hiddenInMissionControl: true,
     thickFrame: false,
+
+    // EXPERIMENTAL: makes overlay work on gnome 3
+    x: activeDisplay.bounds.x,
+    y: activeDisplay.bounds.y,
+    width: activeDisplay.workArea.width,
+    height: activeDisplay.workArea.height,
+
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
       backgroundThrottling: false,
