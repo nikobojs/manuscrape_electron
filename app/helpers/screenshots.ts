@@ -124,21 +124,21 @@ export async function saveScreenshot(
 
 
 export async function quickScreenshot(
-  areaRect: Square,
-  activeDisplay: Electron.Display,
-  activeDisplayIndex: number,
+  area: Square,
+  display: Electron.Display,
+  displayIndex: number,
   _isCancelled: () => boolean,
 ): Promise<string> {
-  const screenshot = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
+  const screenshot = await captureScreenshot(area, display, displayIndex);
   const path = await saveScreenshot(screenshot.source.name, screenshot.buffer);
   return path;
 }
 
 
 export async function scrollScreenshot(
-  areaRect: Square,
-  activeDisplay: Electron.Display,
-  activeDisplayIndex: number,
+  area: Square,
+  display: Electron.Display,
+  displayIndex: number,
   isCancelled: () => boolean,
 ): Promise<string> {
   const maxScreenshots = 512;
@@ -172,7 +172,10 @@ export async function scrollScreenshot(
     const beforeCapture = new Date().getTime();
 
     // capture, decode and hash image
-    const { source, buffer } = await captureScreenshot(areaRect, activeDisplay, activeDisplayIndex);
+    const { source, buffer } = await captureScreenshot(
+      area,
+      display,
+      displayIndex);
     const data = jpeg.decode(buffer);
     const imageHash = blockhashData(data, 128, 2);
 

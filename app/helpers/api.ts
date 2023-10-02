@@ -2,6 +2,9 @@ import * as fs from 'fs';
 import * as axios from 'axios';
 import * as path from 'path';
 
+type ReqBodyVal =  string | number | boolean | null | { [key: string]: ReqBodyVal } | ReqBodyVal[];
+type ReqBody = { [key: string]: ReqBodyVal };
+
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
 // NOTE: there is no runtime validation against the generic type
 async function req<T>(
@@ -9,7 +12,7 @@ async function req<T>(
     method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
     path: RequestInfo | URL,
     token?: string,
-    body?: Record<string, string> | FormData,
+    body?: ReqBody | FormData,
     headers?: HeadersInit,
 ): Promise<{res: Response, json: T}> {
     try {
@@ -76,6 +79,16 @@ async function req<T>(
       if (err?.name === 'SyntaxError' && err?.message?.includes?.('Unexpected token')) {
         // TODO: report this
         throw new Error('The server probably down! Please contact your software provider')
+      }
+
+      // filter out sensitive data from body that will be logged
+      if (!(body instanceof FormData) && typeof body === 'object') {
+        if (body?.token) {
+            body.token = '<REDACTED>';
+        }
+        if(body?.password) {
+            body.password = '<REDACTED>';
+        }
       }
 
       // TODO: catch json parse errors
