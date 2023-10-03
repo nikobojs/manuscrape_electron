@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('mark-area-status', callback);
   },
   beginVideoCapture: async (observationId: number, projectId: number, onDone: (() => any)) => {
+
+    const perm = await navigator.permissions.query({ name: 'display-capture' as unknown as PermissionName });
+    if (perm.state !== 'granted') {
+      throw new Error('Screen recording permission was not granted from browser')
+    }
+
     // cleanup existing ipcRenderer listeners
     ipcRenderer.removeAllListeners('refresh-uploaded-files');
     ipcRenderer.removeAllListeners('stop-video-capture');
@@ -44,9 +50,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // when main thread tells os to begin capturing, lets open the stream!
     ipcRenderer.once('video-capture', async (event, fullWidth: number, fullHeight: number) => {
       // TODO: ensure supported
-      // const supported = navigator.mediaDevices.getSupportedConstraints()
+      const supported = navigator.mediaDevices.getSupportedConstraints();
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
+        audio: false, // DOESNT WORK IF SET TO TRUE :S
         video: {
           mandatory: {
             chromeMediaSource: 'desktop',
@@ -60,13 +67,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
         },
       } as any);
       // TODO: do something about multiple tracks!
+      // const vTracks = stream.getVideoTracks();
+      // const aTracks = stream.getAudioTracks();
+      // console.log('VIDEO TRACKS (if more than one, heres a refactor for you! :\')');
+      // console.log(vTracks.length);
+      // console.log('\nAUDIO TRACKS (if more than one, heres a refactor for you! :\')');
+      // console.log(aTracks.length);
+
       stream.getVideoTracks().forEach(function(track) {
-        console.log(JSON.stringify({
+        console.log('video-track', JSON.stringify({
+            label: track.label,
+            trackId: track.id,
             settings: track.getSettings(),
             constraints: track.getConstraints(),
             capabilities: track.getCapabilities(),
         }, null, 2));
-        track.applyConstraints({ width: { ideal: fullWidth }, height: { ideal: fullHeight }, frameRate: { ideal: 60 } })
+
+        // TODO: not sure if needed
+        track.applyConstraints({
+          width: { ideal: fullWidth },
+          height: { ideal: fullHeight },
+          frameRate: { ideal: 60 },
+        })
       });
 
       // set global recorder and add eventlisteners

@@ -172,7 +172,12 @@ export class ManuScrapeController {
 
         try {
           // save and crop video
-          const path = await saveAndCropVideo(video, this.getActiveDisplay(), area);
+          const path = await saveAndCropVideo(
+            video,
+            this.getActiveDisplay(),
+            this.allDisplays,
+            area,
+          );
           this.overlayWindow?.webContents.send('mark-area-status', {
             statusText: 'Uploading video...',
             statusDescription: '',

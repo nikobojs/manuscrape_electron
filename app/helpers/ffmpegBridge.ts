@@ -36,7 +36,6 @@ export function cropVideoFile(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const ffmpeg = getFfmpegPath();
-    console.log('AREA:', area)
     const { width, height, x, y } = area;
     const beginTime = new Date().getTime();
     const cmd = [
