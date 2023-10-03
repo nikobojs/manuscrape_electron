@@ -185,6 +185,7 @@ export class ManuScrapeController {
           await uploadVideoToObservation(this.apiHost, this.loginToken, observationId, projectId, path);
           fs.unlinkSync(path);
           this.nuxtWindow?.webContents.send('refresh-uploaded-files');
+          this.nuxtWindow?.restore();
         } catch(err: any) {
           // TODO: report error
           console.error(err);
@@ -198,6 +199,7 @@ export class ManuScrapeController {
       });
     }
 
+    this.nuxtWindow?.minimize();
     this.setOnAreaMarkedListener(onMarkedHandler);
 
     // now once listeners are attached, open mark area overlay
