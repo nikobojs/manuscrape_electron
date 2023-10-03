@@ -70,7 +70,7 @@ export function generateMenuItems(
         menuItems.push(new MenuItem({
           label: "Create empty draft",
           type: "normal",
-          click: () => controller.openUploadObservationWindow(),
+          click: () => controller.openEmptyDraftWindow(),
           icon: addIcon,
         }));
       }

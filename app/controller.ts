@@ -356,7 +356,7 @@ export class ManuScrapeController {
   }
 
 
-  public async openUploadObservationWindow() {
+  public async openEmptyDraftWindow() {
     // make typescript linters happy
     // NOTE: none of these errors should ever happen
     // TODO: report errors
@@ -369,6 +369,12 @@ export class ManuScrapeController {
     } else if (!this.loginToken) {
       console.error('no login token')
       throw new Error('loginToken not attached to controller instance');
+    }
+
+    // return early if user mistakenly opens one more window
+    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    if (!confirmed) {
+      return;
     }
 
     // add empty observation and use returned id to modify observation
@@ -776,8 +782,8 @@ export class ManuScrapeController {
       throw new Error('Api host not set when opening external browser window')
     }
 
-    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
-      this.nuxtWindow.focus();
+    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    if (!confirmed) {
       return;
     }
 
@@ -813,8 +819,8 @@ export class ManuScrapeController {
       throw new Error('Project id not set when opening external browser window')
     }
 
-    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
-      this.nuxtWindow.focus();
+    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    if (!confirmed) {
       return;
     }
 
