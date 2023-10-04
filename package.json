@@ -1,7 +1,7 @@
 {
   "name": "manuscrape_electron",
   "productName": "ManuScrape",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A system tray app foor capturing scrolling screenshotscd",
   "main": "dist/app.js",
   "scripts": {
