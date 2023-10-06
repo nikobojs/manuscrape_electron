@@ -37,7 +37,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('mark-area-status', callback);
   },
   beginVideoCapture: async (observationId: number, projectId: number, onDone: (() => any)) => {
-
     const perm = await navigator.permissions.query({ name: 'display-capture' as unknown as PermissionName });
     if (perm.state !== 'granted') {
       throw new Error('Screen recording permission was not granted from browser')

@@ -819,15 +819,32 @@ export class ManuScrapeController {
       throw new Error('Project id not set when opening external browser window')
     }
 
+    // support video capture (if navigating from draft list into draft details)
+    ipcMain.on(
+      'begin-video-capture',
+      async (
+        event: IpcMainEvent,
+        projectId: number,
+        observationId: number,
+      ) => {
+        await this.createVideoCapture(event, projectId, observationId);
+      }
+    );
+
+    // close nuxt window if existing
     const confirmed = await this.confirmCloseNuxtWindowIfAny()
     if (!confirmed) {
       return;
     }
 
+    // open drafts window
     const win = createDraftsWindow(
       this.apiHost,
       this.activeProjectId,
-      () => this.onExternalWindowClose()
+      () => {
+        this.onExternalWindowClose();
+        ipcMain.removeAllListeners('begin-video-capture')
+      }
     );
     this.nuxtWindow = win;
   }
