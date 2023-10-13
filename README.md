@@ -1,27 +1,30 @@
 # ManuScrape Native
-ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined project parameters), including tools to collect, edit, enrich and export. There are two actors: the project manager, and the collaborator (can only submit observations). This is the general idea:
+ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined project parameters), including tools to collect, edit, enrich and export. There are two actors: the project manager, and the collaborator (can only submit observations).
 
-Project manager (using web app):
-```mermaid
-graph LR
-B(Create project) --> C(Setup project parameters) --> D(Invite colleborators)
-```
+## Basic feature overview:
 
-Collaborator (using native app):
-```mermaid
-graph LR
-B(Capture image) --> C(Edit image) --> D(Enter parameter values) --> E(Attach files) --> F(Submit observation)
-```
+Project managers can setup projects using the web app:
+  1. Define project name
+  3. Define observation parameters
+  4. Invite collaborators by email
+
+Collaborators can then submit observations (using native app):
+  1. Capture image (using smart tools or file upload)
+  2. Edit image
+  3. Enter observation parameter values
+  4. Attach extra files if any
+  5. Submit observation
+
+Whether you're a collaborator or project owner isn't bound to your ManuScrape user, but to your permission role in the specific project.
+
+When there are enough observations, the project manager can export the data to different formats, including spreadsheets and zip files. Right now the export features are optimized to be easily integratable with NVivo 14.
+<br />
+<br />
 
 ## Installation on Windows
 Before you start installing, you need to decide where you want to put your data. As of now you can temporarily use [manuscrape.org](https://manuscrape.org) for free, and it is also the default in the signup flow.
 
 You can download a compiled windows installer, that will either install or update ManuScrape to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
-<br />
-<br />
-
-## Features
-_Video introduction will maybe come out soon!_
 <br />
 <br />
 
