@@ -516,9 +516,14 @@ export class ManuScrapeController {
           await this.refreshUser(host, token);
           this.refreshContextMenu();
         }
-        // show login window if not logged in by now
         if (!this.isLoggedIn()) {
+          // show login window if not logged in by now
           this.openAuthorizationWindow(false);
+
+        } else if (this.user?.projectAccess.length === 0) {
+          // if no projects available for user, open createProjects window
+          await this.openCreateProjectWindow();
+
         }
       } catch (e: any) {
         // show login window if there was some kind of error
@@ -731,6 +736,10 @@ export class ManuScrapeController {
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
 
+    if (this.user?.projectAccess.length === 0) {
+      // if no projects available for user, open createProjects window
+      await this.openCreateProjectWindow();
+    }
     // TODO: also close existing open windows? maybe a reset windows method?
   }
 
