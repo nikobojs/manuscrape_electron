@@ -18,14 +18,14 @@ B(Capture image) --> C(Edit image) --> D(Enter parameter values) --> E(Attach fi
 
 Before you start installing, you need to decide where you want to put your data. As of now you can temporarily use [manuscrape.org](https://manuscrape.org) for free, and it is also the default in the signup flow.
 
-You can download a compiled windows installer, that will either install or update ManuScrape to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
+You can download a compiled windows installer, that will either install or update ManuScrape to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).<br />
 
 ## Features
 
-_Video introduction will maybe come out soon!_
+_Video introduction will maybe come out soon!_<br />
 
 ## Bug reports / feature requests
-After the launch of v1.0.0, we intend to use GitHub Issues for all development tasks. If you experience bugs or need features added or refactored, please [submit an issue](https://github.com/nikobojs/manuscrape_electron/issues), preferably in english. 
+After the launch of v1.0.0, we intend to use GitHub Issues for all development tasks. If you experience bugs or need features added or refactored, please [submit an issue](https://github.com/nikobojs/manuscrape_electron/issues), preferably in english. <br />
 
 ## Development
 
@@ -40,7 +40,7 @@ This repo is an Electron app tested continuously on Windows 11 and a couple Linu
 	3. `npm install`
 	4. `npm pyinstall`
 	5. `npm pyfreeze`
-2. [Install ManuScrape Nuxt repository]()
+2. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
 3. Setup PostgreSQL database
 4. Verify environment variables on both repositories
 5. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
