@@ -23,7 +23,7 @@ Collaborators can then submit observations (using native app):
 
 Whether you're a collaborator or project owner isn't bound to your ManuScrape user, but to your permission role in the specific project.
 
-When there are enough observations, the project manager can export the data to different formats, including spreadsheets and zip files. Right now the export features are optimized to be easily integratable with NVivo 14.
+The project manager can at any time export the entire project into to different formats, including spreadsheets and zip files. Right now the export features are optimized to deliver formats that are easy to import into [NVivo 14](https://lumivero.com/products/nvivo/).
 <br />
 <br />
 
@@ -42,7 +42,7 @@ After the launch of v1.0.0, we intend to use GitHub Issues for all development t
 ## Contribute to the code
 You are most welcome to contribute to the project in any way. Except donations. For now.
 
-#### TL;DR
+#### TL;DR:
 Clone repositories, look for TODO-comments, make improvement, create feature branch (naming doesn't matter), commit, create PR, and done! The PR will be reviewed by the project maintainers.
 <br />
 
@@ -50,7 +50,7 @@ Clone repositories, look for TODO-comments, make improvement, create feature bra
 This repo is an Electron app tested continuously on Windows 11 and a couple Linux distributions. The app provides some client-side native tools that talks with the api of the online backend app. [Here is the backend repo](https://github.com/nikobojs/manuscrape_nuxt). These to repositories follows compatability with git tags (eg. `v0.9.2` client works with `v0.9.2` api).
 <br />
 
-#### Git conventions
+#### Git conventions:
 Not strict in any way. We'll always figure it out so do your stuff the way you think works best. Pull requests (into "unstable" branch) on feature branches will be reviewed and merged by the current admins of the project.
 <br />
 
@@ -69,4 +69,10 @@ Not strict in any way. We'll always figure it out so do your stuff the way you t
 _NOTE: Development ennvironment for windows is not actively maintained or tested_
 <br />
 <br />
-It is possible to setup on windows, as the app compiles on windows. The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might make it fix a python path bug for you: `npm run pyinstall-win` and `npm run pyfreeze-win`. If you know a better fix, please submit an issue!
+It is possible to setup on windows, as the app compiles on windows. However, sometimes the npm scripts does not work on windows.
+
+The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might make it fix a python path bug for you:
+
+`npm run pyinstall-win` and `npm run pyfreeze-win`
+
+If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for instpiration. If you know consistent fix, please submit an issue!
