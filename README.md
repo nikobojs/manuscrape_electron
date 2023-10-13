@@ -1,12 +1,13 @@
 # ManuScrape Native
 ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined project parameters), including tools to collect, edit, enrich and export. There are two actors: the project manager, and the collaborator (can only submit observations).
+<br />
 
 ## Basic feature overview:
 
 Project managers can setup projects using the web app:
-  1. Define project name
-  3. Define observation parameters
-  4. Invite collaborators by email
+  1. Enter project name
+  2. Define observation parameters
+  3. Invite collaborators by email
 
 Collaborators can then submit observations (using native app):
   1. Capture image (using smart tools or file upload)
@@ -36,7 +37,7 @@ After the launch of v1.0.0, we intend to use GitHub Issues for all development t
 ## Contribute to the code
 You are most welcome to contribute to the project in any way. Except donations. For now.
 
-#### TLDR
+#### TL;DR
 Clone repositories, look for TODO-comments, make improvement, create feature branch (naming doesn't matter), commit, create PR, and done! The PR will be reviewed by the project maintainers.
 <br />
 
@@ -58,8 +59,8 @@ Not strict in any way. We'll always figure it out so do your stuff the way you t
 2. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
 5. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
 6. Start Electron app: `cd manuscrape_electron && npm start`
-<br />
 
 #### Setup on Windows:
-_NOTE: Development ennvironment for windows is not actively maintained or tested_  
+_NOTE: Development ennvironment for windows is not actively maintained or tested_
+<br />
 It is possible to setup on windows, as the app compiles on windows. The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might make it fix a python path bug for you: `npm run pyinstall-win` and `npm run pyfreeze-win`. If you know a better fix, please submit an issue!
