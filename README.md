@@ -33,14 +33,16 @@ After the launch of v1.0.0, we intend to use GitHub Issues for all development t
 ## Contribute to the code
 You are most welcome to contribute to the project in any way. Except donations. For now.
 
+#### TLDR
+Clone repositories, look for TODO-comments, make improvement, create feature branch (naming doesn't matter), commit, create PR, and done! The PR will be reviewed by the project maintainers.
+<br />
+
 #### Repository overview:
 This repo is an Electron app tested continuously on Windows 11 and a couple Linux distributions. The app provides some client-side native tools that talks with the api of the online backend app. [Here is the backend repo](https://github.com/nikobojs/manuscrape_nuxt). These to repositories follows compatability with git tags (eg. `v0.9.2` client works with `v0.9.2` api).
 <br />
-<br />
 
 #### Git conventions
-Not strict in any way. We'll always figure it out so you do stuff the way you think it works best. However pull requests (into "unstable" branch) on feature branches is preferred.
-<br />
+Not strict in any way. We'll always figure it out so do your stuff the way you think works best. Pull requests (into "unstable" branch) on feature branches will be reviewed and merged by the current admins of the project.
 <br />
 
 #### Setup on Linux or Mac:
@@ -53,7 +55,6 @@ Not strict in any way. We'll always figure it out so you do stuff the way you th
 2. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
 5. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
 6. Start Electron app: `cd manuscrape_electron && npm start`
-<br />
 <br />
 
 #### Setup on Windows:
