@@ -1,5 +1,9 @@
 # ManuScrape Native
-ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined project parameters), including tools to collect, edit, enrich and export. There are two actors: the project manager, and the collaborator (can only submit observations).
+ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined parameters), including tools to collect, edit, enrich and export.
+<br />
+<br />
+There are two main actors: the project manager, and the collaborator (can only submit observations).
+<br />
 <br />
 
 ## Basic feature overview:
@@ -62,5 +66,6 @@ Not strict in any way. We'll always figure it out so do your stuff the way you t
 
 #### Setup on Windows:
 _NOTE: Development ennvironment for windows is not actively maintained or tested_
+<br />
 <br />
 It is possible to setup on windows, as the app compiles on windows. The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might make it fix a python path bug for you: `npm run pyinstall-win` and `npm run pyfreeze-win`. If you know a better fix, please submit an issue!
