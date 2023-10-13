@@ -71,8 +71,8 @@ _NOTE: Development ennvironment for windows is not actively maintained or tested
 <br />
 It is possible to setup on windows, as the app compiles on windows. However, sometimes the npm scripts does not work on windows.
 
-The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might make it fix a python path bug for you:
+The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might fix the python path bug:
 
 `npm run pyinstall-win` and `npm run pyfreeze-win`
 
-If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for instpiration. If you know consistent fix, please submit an issue!
+If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for inspiration. If you know consistent fix, please submit an issue!
