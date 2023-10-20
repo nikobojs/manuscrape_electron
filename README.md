@@ -3,7 +3,7 @@
 ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined parameters), including tools to collect, edit, enrich and export.
 <br />
 <br />
-There are two main actors: the *project manager* and the *collaborator* (can only submit observations).
+There are two main actors: the *project manager* and the *collaborator*.
 <br />
 <br />
 
