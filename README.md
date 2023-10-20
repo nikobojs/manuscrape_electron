@@ -39,7 +39,7 @@ After the launch of v1.0.0, we intend to use GitHub Issues for all development t
 <br />
 <br />
 
-## Contribute to the code
+## Contribute to the code ☕
 You are more than welcome to contribute to the project in any way. Except donations. For now.
 
 #### TL;DR:
@@ -76,3 +76,15 @@ The tricky part here is `virtualenv` from PyPi, which is the virtual python envi
 `npm run pyinstall-win` and `npm run pyfreeze-win`
 
 If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for inspiration. If you know of a consistent fix, please submit an issue!
+
+<br />
+<br />
+## Contributors 💥 🚀 😻
+- [@FAF2205](https://github.com/FAF2205)
+- [@Pallisgaard](https://github.com/Pallisaard)
+- [@Pedrotheplant](https://github.com/Pedrotheplant)
+- [@SEilertsen](https://github.com/SEilertsen)
+- [@bjarke22](https://github.com/bjarke22)
+- [@jakobdemant](https://github.com/jakobdemant)
+- [@nabojens](https://github.com/nabojens)
+- [@nikobojs](https://github.com/nikobojs)
