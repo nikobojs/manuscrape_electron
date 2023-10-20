@@ -76,9 +76,9 @@ The tricky part here is `virtualenv` from PyPi, which is the virtual python envi
 `npm run pyinstall-win` and `npm run pyfreeze-win`
 
 If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for inspiration. If you know of a consistent fix, please submit an issue!
+<br />
+<br />
 
-<br />
-<br />
 ## Contributors 💥 🚀 😻
 - [@FAF2205](https://github.com/FAF2205)
 - [@Pallisgaard](https://github.com/Pallisaard)
