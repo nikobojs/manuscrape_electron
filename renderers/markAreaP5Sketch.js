@@ -87,7 +87,7 @@ const sketch = (p) => {
     } else if(resultRect && statusText && typeof statusDescription === 'string') {
       hideArea || drawArea(p, area);
       drawProcessing(p);
-    } else {
+    } else if (!resultRect) {
       p.background(fillColor);
     }
   }
