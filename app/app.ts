@@ -1,5 +1,13 @@
 import { app, globalShortcut } from 'electron';
 
+// ask OS for a "single instance lock"
+// if OS supports it, app will quit if launched as second instance
+const obtainedLock = app.requestSingleInstanceLock();
+if (!obtainedLock) {
+  console.error('ManuScrape is already running. Will quit :/')
+  app.quit();
+}
+
 // https://github.com/electron/windows-installer
 const squirrelEvent = process.argv[1];
 const isSquirrel = squirrelEvent && squirrelEvent.indexOf('--squirrel') != -1;
