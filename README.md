@@ -81,6 +81,7 @@ If they don't work, try installing and compiling the python program manually (in
 
 ## Contributors 💥 🚀 😻
 - [@FAF2205](https://github.com/FAF2205)
+- [@Mod-lab-stoff](https://github.com/Mod-lab-stoff)
 - [@Pallisgaard](https://github.com/Pallisaard)
 - [@Pedrotheplant](https://github.com/Pedrotheplant)
 - [@SEilertsen](https://github.com/SEilertsen)
