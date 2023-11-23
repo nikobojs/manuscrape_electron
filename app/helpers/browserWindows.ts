@@ -18,6 +18,7 @@ const createNuxtAppWindow = (
     closable: true,
     movable: true,
     show: false,
+    icon: path.join(__dirname, '../../assets/icons/desktop-icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
@@ -117,6 +118,7 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
     movable: true,
     show: true,
     resizable: false,
+    icon: path.join(__dirname, '../../assets/icons/desktop-icon.png'),
     width: 320,
     height: isLinux ? 450 : 480, // TODO: needs adjustment on windows
     webPreferences: {

@@ -1,4 +1,5 @@
 const isLinux = process.platform === 'linux';
+const path = require('path');
 
 function pythonEntryBin() {
   const binDir = `./python/dist/`;
@@ -15,6 +16,7 @@ function ffmpegEntryBin() {
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
     extraResource: [pythonEntryBin(), ffmpegEntryBin()],
     ignore: [
       /python\//
@@ -29,10 +31,11 @@ module.exports = {
         // NOTE: EXPERIMENTAL
         setupExe: `manuscrape-setup-${arch}.exe`,
         noMsi: true,
-        title: 'ManuScrape'
+        title: 'ManuScrape',
 
         // TODO: find and add icon
-        // setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
+        setupIcon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
+        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
         //
         // TODO: add certificate
         // certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
