@@ -1,13 +1,32 @@
-# ManuScrape Windows App
+<br />
 
+<a href="https://github.com/nikobojs/manuscrape_electron">
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/nikobojs/manuscrape_nuxt/stable/public/logo/manuscrape-logo-dark.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/nikobojs/manuscrape_nuxt/stable/public/logo/manuscrape-logo-light.svg">
+  <img width="250" alt="Manuscape logo" src="https://raw.githubusercontent.com/nikobojs/manuscrape_nuxt/stable/public/logo/manuscrape-logo-light.svg">
+</picture>
+</a>
+<br />
+<br />
 ManuScrape is a solution for managing large amounts of observations (images mapped to custom defined parameters), including tools to collect, edit, enrich and export.
 <br />
 <br />
-There are two main actors: the *project manager* and the *collaborator*.
+
+# ManuScrape Windows App
+
+This is the main ManuScrape repo which holds the native client side windows app and installation guide. <br />
+
+> If you are looking for the backend repo, go to the [manuscrape_nuxt repository](https://github.com/nikobojs/manuscrape_nuxt).
+
 <br />
 <br />
 
 ## Basic feature overview:
+
+There are two main actors: the *project manager* and the *collaborator*.
+<br />
+<br />
 
 *Project managers* can setup projects using the web app:
   1. Enter project name
@@ -81,6 +100,7 @@ If they don't work, try installing and compiling the python program manually (in
 
 ## Contributors 💥 🚀 😻
 - [@FAF2205](https://github.com/FAF2205)
+- [@Mod-lab-stoff](https://github.com/Mod-lab-stoff)
 - [@Pallisgaard](https://github.com/Pallisaard)
 - [@Pedrotheplant](https://github.com/Pedrotheplant)
 - [@SEilertsen](https://github.com/SEilertsen)
