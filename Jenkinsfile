@@ -5,7 +5,7 @@ pipeline {
         stage('Install APT dependencies') {
             steps {
                 echo 'Installing apt packages...'
-                sh 'sudo apt install python3-pip python3-venv'
+                sh 'sudo apt install -y python3-pip python3-venv'
             }
         }
         stage('Install NPM dependencies') {
