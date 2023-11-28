@@ -16,8 +16,10 @@ pipeline {
         }
         stage('Install PyPi dependencies') {
             steps {
-                echo 'Installing pip3 libs..'
-                sh 'cd python && source ./env/bin/activate'
+                echo 'Creating and activating python virtual environment..'
+                sh 'cd python'
+                sh 'python3 -m venv env'
+                sh 'source ./env/bin/activate'
                 sh 'pip3 install -r requirements.txt'
             }
         }
@@ -25,6 +27,7 @@ pipeline {
             steps {
                 sh './compile.sh'
                 sh 'cd ..'
+                sh 'deactivate'
             }
         }
         stage('Compile binary installer') {
