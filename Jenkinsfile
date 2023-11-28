@@ -5,7 +5,7 @@ pipeline {
         stage('Install APT dependencies') {
             steps {
                 echo 'Installing apt packages...'
-                sh 'sudo apt install -y python3-pip python3-venv'
+                sh 'sudo apt install -y python3-pip python3-venv rpm'
             }
         }
         stage('Install NPM dependencies') {
@@ -17,17 +17,13 @@ pipeline {
         stage('Install PyPi dependencies') {
             steps {
                 echo 'Creating and activating python virtual environment..'
-                sh 'cd python'
-                sh 'python3 -m venv env'
-                sh 'source ./env/bin/activate'
-                sh 'pip3 install -r requirements.txt'
+                sh 'cd python && python3 -m venv env'
+                sh 'cd python && source ./env/bin/activate && pip3 install -r requirements.txt && deactivate'
             }
         }
         stage('Compile python executable') {
             steps {
-                sh './compile.sh'
-                sh 'cd ..'
-                sh 'deactivate'
+                sh 'cd python && source ./env/bin/activate && ./compile.sh && deactivate'
             }
         }
         stage('Compile binary installer') {
