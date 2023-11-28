@@ -15,6 +15,7 @@ function ffmpegEntryBin() {
 
 module.exports = {
   packagerConfig: {
+    executableName: 'manuscrape_electron',
     asar: true,
     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
     extraResource: [pythonEntryBin(), ffmpegEntryBin()],
@@ -33,7 +34,6 @@ module.exports = {
         noMsi: true,
         title: 'ManuScrape',
 
-        // TODO: find and add icon
         setupIcon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
         icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
         //
@@ -52,7 +52,11 @@ module.exports = {
     // },
     {
       name: '@electron-forge/maker-rpm',
-      config: {},
+      executableName: 'manuscrape_electron',
+      config: {
+        name: 'ManuScrape',
+        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
+      },
     },
   ],
   plugins: [
