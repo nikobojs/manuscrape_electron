@@ -12,9 +12,6 @@ pipeline {
             steps {
                 echo 'Installing npm libs..'
                 sh 'npm install'
-                sh 'npm run pyinstall'
-                sh 'npm run pyfreeze'
-                sh 'npm run make'
             }
         }
         stage('Install PyPi dependencies') {
