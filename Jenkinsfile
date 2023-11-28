@@ -30,6 +30,7 @@ pipeline {
         }
         stage('Compile binary installer') {
             steps {
+                sh 'rm -rf dist out'
                 sh 'npm run make'
             }
         }
