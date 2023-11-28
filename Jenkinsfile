@@ -10,6 +10,8 @@ pipeline {
         }
         stage('Install NPM dependencies') {
             steps {
+                echo 'Removing all node_modules data..'
+                sh 'rm -rf node_modules'
                 echo 'Installing npm libs..'
                 sh 'npm install'
             }
