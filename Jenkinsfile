@@ -17,14 +17,14 @@ pipeline {
         stage('Install PyPi dependencies') {
             steps {
                 echo 'Installing pip3 libs..'
-                sh 'cd python'
-                sh 'source ./env/bin/activate'
+                sh 'cd python && source ./env/bin/activate'
                 sh 'pip3 install -r requirements.txt'
             }
         }
         stage('Compile python executable') {
             steps {
                 sh './compile.sh'
+                sh 'cd ..'
             }
         }
         stage('Compile binary installer') {
