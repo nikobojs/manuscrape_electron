@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        docker { image 'debian:12' }
+    }
 
     stages {
         stage('Install APT dependencies') {
