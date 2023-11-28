@@ -2,19 +2,37 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
+        stage('Install APT dependencies') {
             steps {
-                echo 'Building..'
+                echo 'Installing apt packages...'
+                sh 'sudo apt install python3-pip python3-venv'
+            }
+        }
+        stage('Install NPM dependencies') {
+            steps {
+                echo 'Installing npm libs..'
                 sh 'npm install'
                 sh 'npm run pyinstall'
                 sh 'npm run pyfreeze'
                 sh 'npm run make'
             }
         }
-        stage('Test') {
+        stage('Install PyPi dependencies') {
             steps {
-                echo 'Testing..'
-                sh 'npm run test'
+                echo 'Installing pip3 libs..'
+                sh 'cd python'
+                sh 'source ./env/bin/activate'
+                sh 'pip3 install -r requirements.txt'
+            }
+        }
+        stage('Compile python executable') {
+            steps {
+                sh './compile.sh'
+            }
+        }
+        stage('Compile binary installer') {
+            steps {
+                sh 'npm run make'
             }
         }
         stage('Deploy') {
