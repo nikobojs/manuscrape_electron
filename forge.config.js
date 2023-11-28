@@ -19,9 +19,10 @@ module.exports = {
     asar: true,
     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
     extraResource: [pythonEntryBin(), ffmpegEntryBin()],
-    ignore: [
-      /python\//
-    ],
+    // TODO: whats the purpose of this?
+    // ignore: [
+    //   /python\//
+    // ],
   },
   rebuildConfig: {
   },
