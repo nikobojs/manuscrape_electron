@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'debian:12'
+            image 'node:lts'
             args '-u root:root'
         }
     }
@@ -10,14 +10,7 @@ pipeline {
         stage('Install apt dependencies') {
             steps {
                 echo 'Installing apt packages...'
-                sh 'apt-get update && apt-get install -y sudo'
-                sh 'apt install -y python3-pip python3-venv rpm curl git'
-            }
-        }
-        stage('Install nodejs/npm') {
-            steps {
-                echo 'Installing npm via. n'
-                sh 'curl -fsSL https://raw.githubusercontent.com/tj/n/master/bin/n | bash -s lts'
+                sh 'apt-get update && apt install -y python3-pip python3-venv rpm git'
             }
         }
         stage('Install NPM dependencies') {
