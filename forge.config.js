@@ -19,10 +19,13 @@ module.exports = {
     asar: true,
     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
     extraResource: [pythonEntryBin(), ffmpegEntryBin()],
-    // TODO: whats the purpose of this?
-    // ignore: [
-    //   /python\//
-    // ],
+
+    // This is to avoid following error on npm build on linux:
+    // Error: /tmp/electron-packager/tmp-VyJyij/resources/app/python/env/bin/python:
+    //        file "../../../../../usr/bin/python3.11" links out of the package
+    ignore: [
+      /python\//
+    ],
   },
   rebuildConfig: {
   },
@@ -51,14 +54,14 @@ module.exports = {
     //   name: '@electron-forge/maker-deb',
     //   config: {},
     // },
-    {
-      name: '@electron-forge/maker-rpm',
-      executableName: 'manuscrape_electron',
-      config: {
-        name: 'ManuScrape',
-        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
-      },
-    },
+    // {
+    //   name: '@electron-forge/maker-rpm',
+    //   executableName: 'manuscrape_electron',
+    //   config: {
+    //     name: 'ManuScrape',
+    //     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
+    //   },
+    // },
   ],
   plugins: [
     {
