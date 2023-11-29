@@ -12,7 +12,7 @@ pipeline {
                 echo 'Installing apt packages...'
                 sh 'apt-get update && apt install -y python3-pip python3-venv rpm git dirmngr gnupg apt-transport-https ca-certificates'
                 sh 'apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF'
-                sh 'echo "deb https://download.mono-project.com/repo/debian stable-bookworm main" > /etc/apt/sources.list.d/mono-official-stable.list'
+                sh 'echo "deb https://download.mono-project.com/repo/debian stable-buster main" > /etc/apt/sources.list.d/mono-official-stable.list'
             }
         }
         stage('Install mono') {
@@ -43,9 +43,9 @@ pipeline {
                 sh 'cd python && . env/bin/activate && ./compile.sh && deactivate'
             }
         }
-        stage('Compile binary installer') {
+        stage('Compile windows installer') {
             steps {
-                sh 'npm run make'
+                sh 'npx electron-forge make -p win32'
             }
         }
         stage('Deploy') {
