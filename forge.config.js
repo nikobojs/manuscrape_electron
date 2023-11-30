@@ -14,18 +14,22 @@ function ffmpegEntryBin() {
 }
 
 module.exports = {
+  // docs: https://electron.github.io/packager/main/interfaces/electronpackager.options.html
   packagerConfig: {
     executableName: 'manuscrape_electron',
     asar: true,
+    overwrite: true,
     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
     extraResource: [pythonEntryBin(), ffmpegEntryBin()],
 
     // This is to avoid following error on npm build on linux:
     // Error: /tmp/electron-packager/tmp-VyJyij/resources/app/python/env/bin/python:
     //        file "../../../../../usr/bin/python3.11" links out of the package
-    ignore: [
-      /python\//
-    ],
+    // NOTE: but the error still happens in jenkins
+    // NOTE: also works on linux when building for windows without
+    // ignore: [
+    //   /python\//
+    // ],
   },
   rebuildConfig: {
   },
@@ -69,4 +73,11 @@ module.exports = {
       config: {},
     },
   ],
+  hooks: {
+    packageAfterCopy: async (config, buildPath, electronVersion, platform, arch) => {
+      console.log('Copying files is done! Current dirname is:\n', __dirname)
+      console.log({ platform, arch, buildPath, electronVersion })
+      console.log(config);
+    }
+  }
 };
