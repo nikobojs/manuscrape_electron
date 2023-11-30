@@ -27,9 +27,11 @@ module.exports = {
     //        file "../../../../../usr/bin/python3.11" links out of the package
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
-    // ignore: [
-    //   /python\//
-    // ],
+    ignore: [
+      /python\//,
+      /python3\.\d+$/,
+      /python$/
+    ],
   },
   rebuildConfig: {
   },
@@ -58,14 +60,14 @@ module.exports = {
     //   name: '@electron-forge/maker-deb',
     //   config: {},
     // },
-    // {
-    //   name: '@electron-forge/maker-rpm',
-    //   executableName: 'manuscrape_electron',
-    //   config: {
-    //     name: 'ManuScrape',
-    //     icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
-    //   },
-    // },
+    {
+      name: '@electron-forge/maker-rpm',
+      executableName: 'manuscrape_electron',
+      config: {
+        name: 'ManuScrape',
+        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
+      },
+    },
   ],
   plugins: [
     {
@@ -77,7 +79,7 @@ module.exports = {
     packageAfterCopy: async (config, buildPath, electronVersion, platform, arch) => {
       console.log('Copying files is done! Current dirname is:\n', __dirname)
       console.log({ platform, arch, buildPath, electronVersion })
-      console.log(config);
+      console.log(JSON.stringify(config, null, 4));
     }
   }
 };

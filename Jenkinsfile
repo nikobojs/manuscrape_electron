@@ -46,7 +46,7 @@ pipeline {
         stage('Compile windows installer') {
             steps {
                 sh 'npx tsc'
-                sh 'npx electron-forge make -p win32'
+                sh 'npx electron-forge make'
             }
         }
         stage('Deploy') {
