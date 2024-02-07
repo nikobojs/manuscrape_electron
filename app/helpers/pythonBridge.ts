@@ -27,18 +27,22 @@ export function ensurePythonAvail(): void {
 
 export function joinImagesVertically(
     imagesDir: string,
-    outputPath: string
+    outputPath: string,
+    rowsPrCrop: number,
 ): Promise<void> {
     console.log('starting to join images...');
     return new Promise((resolve, reject) => {
         const chatjoinerPath = getChatJoinerPath();
 
         const beginTime = new Date().getTime();
-        const python = spawn(chatjoinerPath, [
+        const args = [
             imagesDir,
+            '--n_rows_in_crop',
+            '' + rowsPrCrop,
             '-o',
             outputPath,
-        ]);
+        ];
+        const python = spawn(chatjoinerPath, args);
     
         python.stdout.on("data", function (data: string) {
             console.info(data)

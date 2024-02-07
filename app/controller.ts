@@ -16,6 +16,7 @@ export class ManuScrapeController {
   public allDisplays: Array<Electron.Display>
   public activeProjectId: number | undefined;
   public activeDisplayIndex: number;
+  public rowsPrCrop: number;
 
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow | undefined;
@@ -39,6 +40,7 @@ export class ManuScrapeController {
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.cancelOperation = false;
+    this.rowsPrCrop = 25;
     this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
     this.hostPath = path.join(app.getPath('userData'), 'host.txt.enc');
     this.useEncryption = useEncryption;
@@ -238,7 +240,14 @@ export class ManuScrapeController {
 
     // generate callback function that utilizes scrollScreenshot
     this.useOnMarkedAreaCallback(
-      scrollScreenshot,
+       (area, activeDisplay, activeDisplayIndex, isCancelled) =>
+        scrollScreenshot(
+          area,
+          this.rowsPrCrop,
+          activeDisplay,
+          activeDisplayIndex,
+          isCancelled,
+        ),
       'Recording scrollshot...',
       'Cancel: Alt+C   Save: Alt+S',
       true,
@@ -320,14 +329,16 @@ export class ManuScrapeController {
           () => this.cancelOperation,
         );
 
-        // close overlay now that upload is done
+        // close overlay now that saving is done
         this.cancelOverlay();
 
+        // TODO: the two promises don't work in parallel :/
         // open observation form window
-        this.openCreateObservationWindow(obsId, true);
+        await this.openCreateObservationWindow(obsId, true);
 
         // upload the image
         await this.uploadObservationImage(obsId, filePath, this.activeProjectId);
+
       } catch (e: any) {
         // TODO: report errors
         // TODO: handle errors better
@@ -339,6 +350,9 @@ export class ManuScrapeController {
             icon: errorIcon,
           }).show();
         }
+
+        this.cancelOperation = true;
+        this.cancelNuxtWindow();
         this.cancelOverlay();
       } finally {
         // remove temp file
@@ -856,6 +870,11 @@ export class ManuScrapeController {
       }
     );
     this.nuxtWindow = win;
+  }
+
+  public setRowsPrCrop(n: number) {
+    this.rowsPrCrop = n;
+    this.refreshContextMenu();
   }
 
 

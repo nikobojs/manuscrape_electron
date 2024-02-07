@@ -73,6 +73,25 @@ export function generateMenuItems(
           click: () => controller.openEmptyDraftWindow(),
           icon: addIcon,
         }));
+
+        // add rowsPrCrop setting
+        const rowsPrCropMenu = new MenuItem({
+          label: "Rows pr. crop (scrollshot)",
+          submenu: [],
+          type: 'submenu',
+        });
+        const rowsPrCropSettings = [10, 25, 50, 75, 100, 125];
+        for(const setting of rowsPrCropSettings) {
+          const rowsPrCropItem = new MenuItem({
+            label: setting.toString(),
+            id: setting.toString(),
+            type: 'radio',
+            checked: controller.rowsPrCrop == setting,
+            click: () => controller.setRowsPrCrop(setting),
+          });
+          rowsPrCropMenu.submenu?.append(rowsPrCropItem);
+        }
+        menuItems.push(rowsPrCropMenu)
       }
     }
 

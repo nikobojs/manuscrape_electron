@@ -163,6 +163,7 @@ export async function quickScreenshot(
 
 export async function scrollScreenshot(
   area: Square,
+  rowsPrCrop: number,
   display: Electron.Display,
   displayIndex: number,
   isCancelled: () => boolean,
@@ -250,6 +251,7 @@ export async function scrollScreenshot(
       await joinImagesVertically(
         screenshotsPath,
         resultImagePath,
+        rowsPrCrop,
       );
       return resultImagePath;
     } catch (err) {
