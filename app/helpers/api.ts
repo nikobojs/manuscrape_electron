@@ -132,6 +132,13 @@ export async function uploadObservationImage(
     const fullFname = fname + extension;
     const mimetype = ['jpg', 'jpeg'].includes(extension.toLowerCase()) ? 'image/jpg' : 'image/png';
     const blob = new Blob([buffer], {type: mimetype});
+
+    if (blob.size === 0) {
+        const e = new Error('The observation image is not saved correctly');
+        console.error('File looks empty:', filePath);
+        throw e;
+    }
+
     form.append('file', blob, fullFname);
 
     try {
@@ -162,6 +169,13 @@ export async function uploadVideoToObservation(
     const form = new FormData();
     const buffer = fs.readFileSync(filePath);
     const blob = new Blob([buffer], {type: 'video/webm'});
+
+    if (blob.size === 0) {
+        const e = new Error('The observation image is not saved correctly');
+        console.error('File looks empty:', filePath);
+        throw e;
+    }
+
     form.append('file', blob, path.basename(filePath));
 
     try {
