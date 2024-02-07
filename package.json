@@ -10,9 +10,10 @@
     "start": "tsc && electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
     "package": "tsc && electron-forge package",
     "make": "tsc && electron-forge make -- --webrtc-max-cpu-consumption-percentage=100",
-    "pyinstall": "cd python && . env/bin/activate && pip install -r requirements.txt && deactivate",
+    "pyinstall": "npm run delete-venv && cd python && . env/bin/activate && pip3 install -r requirements.txt && deactivate",
     "pyinstall-win": "cd python && env\\Scripts\\activate && pip install -r requirements.txt && deactivate",
-    "pyfreeze": "cd python && . env/bin/activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python/src/main.py && deactivate",
+    "delete-venv": "rm -rf python/env && (cd python && python3 -m venv env)",
+    "pyfreeze": "cd python && . env/bin/activate && pyinstaller -F --distpath ./python/dist -n chatjoiner src/main.py && deactivate",
     "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python\\src\\main.py && deactivate",
     "build-tailwindcss": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
   },
