@@ -14,6 +14,7 @@ export const quitIcon = loadImage(path.join(__dirname, "../../assets/icons/quit.
 export const folderIcon = loadImage(path.join(__dirname, "../../assets/icons/folder.png"));
 export const bugReportIcon = loadImage(path.join(__dirname, "../../assets/icons/bug_report.png"));
 export const openInNewIcon = loadImage(path.join(__dirname, "../../assets/icons/open_in_new.png"));
+export const settingsIcon = loadImage(path.join(__dirname, "../../assets/icons/settings.png"));
 
 export const errorIcon = loadImage(path.join(__dirname, "../../assets/icons/error.png"));
 export const warningIcon = loadImage(path.join(__dirname, "../../assets/icons/warning.png"));

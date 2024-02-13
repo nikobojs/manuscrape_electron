@@ -28,7 +28,7 @@ export function ensurePythonAvail(): void {
 export function joinImagesVertically(
     imagesDir: string,
     outputPath: string,
-    rowsPrCrop: number,
+    settings: ScrollshotSettings,
 ): Promise<void> {
     console.log('starting to join images...');
     return new Promise((resolve, reject) => {
@@ -38,11 +38,28 @@ export function joinImagesVertically(
         const args = [
             imagesDir,
             '--n_rows_in_crop',
-            '' + rowsPrCrop,
+            '' + settings.rowsPrCrop,
+            '--n_cols_in_crop',
+            '' + settings.colsPrCrop,
+            '--denoising_factor',
+            '' + settings.denoisingFactor,
+            '--match_score_threshold',
+            '' + settings.matchScoreThreshold,
+            '--left_crop_from',
+            '' + settings.leftCropFrom,
+            '--right_crop_from',
+            '' + settings.rightCropFrom,
+            '--left_crop_to',
+            '' + settings.leftCropTo,
+            '--right_crop_to',
+            '' + settings.rightCropTo,
             '-o',
             outputPath,
         ];
         const python = spawn(chatjoinerPath, args);
+
+        const debugCmd = chatjoinerPath + args.join(' ');
+        console.info('> ' + debugCmd)
     
         python.stdout.on("data", function (data: string) {
             console.info(data)

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, desktopCapturer } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
 // console.log('version:', process.env.npm_package_version) (THIS WORKS)
 
@@ -27,10 +27,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.once('sign-up-error', callbackError)
     ipcRenderer.send('sign-up', signInBody);
   },
+  updateSettings: (
+    settingsBody: ISettings,
+    callback: UpdateSettingsCallback,
+    callbackError: UpdateSettingsCallback,
+  ) => {
+    ipcRenderer.once('update-settings-ok', callback)
+    ipcRenderer.once('update-settings-error', callbackError)
+    ipcRenderer.send('update-settings', settingsBody);
+  },
   defaultHostValue: (callback: HostValueCallback) => {
     ipcRenderer.once('default-host-value', callback);
-    ipcRenderer.once('ask-for-default-host-value', callback);
+    ipcRenderer.once('ask-for-default-host-value', callback); // TODO: is this one needed?
     ipcRenderer.send('ask-for-default-host-value');
+  },
+  getSettings: (callback: HostValueCallback) => {
+    ipcRenderer.once('get-settings-response', callback);
+    ipcRenderer.send('get-settings-request');
+  },
+  getDefaultSettings: (callback: HostValueCallback) => {
+    ipcRenderer.once('get-default-settings-response', callback);
+    ipcRenderer.send('get-default-settings-request');
   },
   onStatus: (callback: MarkAreaStatusCallback) => {
     ipcRenderer.removeAllListeners('mark-area-status');
