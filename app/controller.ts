@@ -1,13 +1,14 @@
 import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
 import path from 'path';
 import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow, createDraftsWindow } from './helpers/browserWindows';
+import { createOverlayWindow, createSettingsWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow, createDraftsWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, errorIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage, uploadVideoToObservation } from './helpers/api';
 import { yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
 import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
+import { initializeSettings, saveSettingsToFile, validateSettings } from './helpers/settings';
 import fs from 'fs';
 
 
@@ -16,12 +17,12 @@ export class ManuScrapeController {
   public allDisplays: Array<Electron.Display>
   public activeProjectId: number | undefined;
   public activeDisplayIndex: number;
-  public rowsPrCrop: number;
 
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow | undefined;
   private authWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
+  private settingsWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
   private tray: Tray | undefined;
@@ -29,10 +30,12 @@ export class ManuScrapeController {
   private apiHost: string | undefined;
   private tokenPath: string;
   private hostPath: string;
+  private settingsPath: string;
   private user: IUser | undefined;
   private contextMenu: Menu | undefined;
   private useEncryption: boolean;
   private cancelOperation: boolean;
+  private settings: ISettings;
 
   constructor(trayWindow: BrowserWindow, useEncryption: boolean) {
     this.app = app;
@@ -40,10 +43,11 @@ export class ManuScrapeController {
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.cancelOperation = false;
-    this.rowsPrCrop = 25;
     this.tokenPath = path.join(app.getPath('userData'), 'token.txt.enc');
     this.hostPath = path.join(app.getPath('userData'), 'host.txt.enc');
+    this.settingsPath = path.join(app.getPath('userData'), 'settings.txt.enc');
     this.useEncryption = useEncryption;
+    this.settings = initializeSettings(this.settingsPath);
 
     trayWindow.on('ready-to-show', () => {
       // setup tray app
@@ -91,6 +95,10 @@ export class ManuScrapeController {
   public getActiveDisplay(): Electron.Display {
     const activeDisplay = this.allDisplays[this.activeDisplayIndex];
     return activeDisplay;
+  }
+
+  public getSettings(): ISettings {
+    return this.settings;
   }
 
   //  //logged in helper
@@ -243,7 +251,7 @@ export class ManuScrapeController {
        (area, activeDisplay, activeDisplayIndex, isCancelled) =>
         scrollScreenshot(
           area,
-          this.rowsPrCrop,
+          this.settings.scrollshot,
           activeDisplay,
           activeDisplayIndex,
           isCancelled,
@@ -697,6 +705,45 @@ export class ManuScrapeController {
     event.reply('sign-in-ok'); // TODO: use enum
   }
 
+  // update local settings based on patch event via ipc
+  private async updateSettingsHandler(
+    event: Electron.IpcMainEvent,
+    patch: ISettings,
+  ): Promise<void> {
+    // TODO: use deep merge instead
+    const patchedSettings = {
+      ...this.settings,
+      scrollshot: {
+        ...this.settings.scrollshot,
+        ...patch.scrollshot,
+      }
+    };
+    const errors = validateSettings(patchedSettings);
+
+    if (errors.length > 0) {
+      return event.reply(
+        'update-settings-error',
+        errors.join('\n')
+      ) // TODO: use enum
+    }
+
+    // no errors, lets patch it
+    this.settings = patchedSettings;
+
+    // TODO: save to disk???
+    saveSettingsToFile(this.settingsPath, this.settings);
+
+    // show success notification
+    new Notification({
+      title: 'ManuScrape',
+      body: 'Settings updated successfully',
+      icon: successIcon,
+    }).show();
+
+    // reply to frontend that the patch went well
+    event.reply('update-settings-ok', patchedSettings);
+  }
+
 
   private async signUpHandler(
     event: Electron.IpcMainEvent,
@@ -798,6 +845,27 @@ export class ManuScrapeController {
   }
 
 
+  public openSettingsWindow() {
+    if (!this.apiHost) {
+      throw new Error('Api host is not defined');
+      // TODO: report error
+    }
+
+    // navigate automatically if window is open
+    if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
+      // focus the authWindow if its already open
+      this.settingsWindow.focus();
+    } else {
+      // create new sign in window
+      this.settingsWindow = createSettingsWindow(
+        this.apiHost,
+        () => this.getSettings(),
+        (event, patch) => this.updateSettingsHandler(event, patch),
+      );
+    }
+  }
+
+
   // opens webapp (hopefully authorized always!)
   // TODO: refactor
   public async openCreateProjectWindow(): Promise<void> {
@@ -871,12 +939,6 @@ export class ManuScrapeController {
     );
     this.nuxtWindow = win;
   }
-
-  public setRowsPrCrop(n: number) {
-    this.rowsPrCrop = n;
-    this.refreshContextMenu();
-  }
-
 
   // reset hardcoded global shortcuts
   private refreshShortcuts(): void {

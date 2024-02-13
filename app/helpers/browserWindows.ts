@@ -1,5 +1,6 @@
-import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron';
+import { BrowserWindow, ipcMain, type BrowserWindowConstructorOptions } from 'electron';
 import path from 'path';
+import { defaultSettings } from './settings';
 const isLinux = process.platform === 'linux';
 
 // generic nuxt app window factory - not meant to be exported
@@ -7,8 +8,9 @@ const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
   onReady = () => {},
-  width?: number | undefined,
-  height?: number | undefined,
+  minWidth?: number | undefined,
+  minHeight?: number | undefined,
+  maxWidth?: number | undefined,
 ): BrowserWindow => {
 
   const win = new BrowserWindow({
@@ -25,12 +27,16 @@ const createNuxtAppWindow = (
     useContentSize: true,
     backgroundColor: '#1c1b22',
     ...(
-      typeof width === 'number' ?
-      { minWidth: width } : {}
+      typeof minWidth === 'number' ?
+      { minWidth } : {}
     ),
     ...(
-      typeof height === 'number' ?
-      { minHeight: height } : {}
+      typeof minHeight === 'number' ?
+      { minHeight } : {}
+    ),
+    ...(
+      typeof maxWidth === 'number' ?
+      { maxWidth } : {}
     ),
   })
 
@@ -138,6 +144,55 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
   return win;
 }
 
+export const createSettingsWindow = (
+  apiHost: string,
+  getSettings: () => ISettings,
+  updateHandler: (
+    event: Electron.IpcMainEvent,
+    patch: ISettings,
+  ) => Promise<void>,
+) => {
+  // cleanup and use best ipc practices
+  ipcMain.removeAllListeners('update-settings');
+  ipcMain.removeAllListeners('get-settings-request');
+  ipcMain.removeAllListeners('get-default-settings-request');
+  ipcMain.removeAllListeners('ask-for-default-host-value');
+
+  // attach new event listeners
+  ipcMain.on(
+    'update-settings', // TODO: use enum
+    (event, body) => updateHandler(event, body),
+  );
+  ipcMain.on(
+    'get-settings-request', // TODO: use enum
+    (event) => {
+      const settings = getSettings();
+      event.reply('get-settings-response', settings)
+    },
+  );
+  ipcMain.on(
+    'get-default-settings-request', // TODO: use enum
+    (event) => {
+      event.reply('get-default-settings-response', defaultSettings);
+    },
+  );
+
+  const win = createNuxtAppWindow(
+    `${apiHost}/user?electron=1`,
+    () => {
+      // onClose event
+    },
+    () => {
+      // onReady event
+    },
+    402,
+    560,
+    492
+  )
+
+  return win;
+}
+
 
 export const createAddObservationWindow = (
   apiHost: string,
@@ -178,7 +233,7 @@ export const createAddProjectWindow = (
     `${apiHost}/projects/new?electron=1`,
     onClose,
     () => {},
-    904,
+    1080,
     530,
   )
 
