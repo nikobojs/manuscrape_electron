@@ -1,4 +1,8 @@
-import { BrowserWindow, ipcMain, type BrowserWindowConstructorOptions } from 'electron';
+import {
+  BrowserWindow,
+  ipcMain,
+  type BrowserWindowConstructorOptions,
+} from 'electron';
 import path from 'path';
 import { defaultSettings } from './settings';
 const isLinux = process.platform === 'linux';
@@ -10,11 +14,10 @@ const createNuxtAppWindow = (
   onReady = () => {},
   minWidth?: number | undefined,
   minHeight?: number | undefined,
-  maxWidth?: number | undefined,
+  maxWidth?: number | undefined
 ): BrowserWindow => {
-
   const win = new BrowserWindow({
-    title: "ManuScrape",
+    title: 'ManuScrape',
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
@@ -26,19 +29,10 @@ const createNuxtAppWindow = (
     },
     useContentSize: true,
     backgroundColor: '#1c1b22',
-    ...(
-      typeof minWidth === 'number' ?
-      { minWidth } : {}
-    ),
-    ...(
-      typeof minHeight === 'number' ?
-      { minHeight } : {}
-    ),
-    ...(
-      typeof maxWidth === 'number' ?
-      { maxWidth } : {}
-    ),
-  })
+    ...(typeof minWidth === 'number' ? { minWidth } : {}),
+    ...(typeof minHeight === 'number' ? { minHeight } : {}),
+    ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
+  });
 
   win.loadURL(url);
 
@@ -52,12 +46,11 @@ const createNuxtAppWindow = (
   win.show();
 
   return win;
-}
-
+};
 
 export function createTrayWindow(): BrowserWindow {
   const trayWindow = new BrowserWindow({
-    title: "ManuScrape",
+    title: 'ManuScrape',
     width: 0,
     height: 0,
     show: false,
@@ -71,10 +64,13 @@ export function createTrayWindow(): BrowserWindow {
   return trayWindow;
 }
 
+export const createOverlayWindow = (
+  activeDisplay: Electron.Display
+): BrowserWindow => {
+  const isMac = process.platform === 'darwin';
 
-export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWindow => {
   const win = new BrowserWindow({
-    title: "ManuScrape - Mark area overlay",
+    title: 'ManuScrape - Mark area overlay',
     // remove the default frame around the window
     frame: false,
     // hide Electron’s default menu
@@ -89,11 +85,12 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
     closable: false,
     movable: false,
     focusable: false,
-    fullscreen: true,
+    fullscreen: isMac ? false : true,
     hiddenInMissionControl: true,
     thickFrame: false,
 
-    // EXPERIMENTAL: makes overlay work on gnome 3
+    // Sets width and height for non fullscreen
+    // Makes overlay work on gnome 3
     x: activeDisplay.bounds.x,
     y: activeDisplay.bounds.y,
     width: activeDisplay.workArea.width,
@@ -104,20 +101,21 @@ export const createOverlayWindow = (activeDisplay: Electron.Display): BrowserWin
       backgroundThrottling: false,
       webgl: true,
     },
-  })
+  });
 
   win.loadFile('windows/markArea.html');
-  win.setBounds(activeDisplay.workArea)
+  win.setBounds(activeDisplay.workArea);
   win.show();
   // win.webContents.openDevTools();
 
   return win;
-}
+};
 
-
-export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => {
+export const createAuthorizationWindow = (
+  openSignUp = false
+): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
-    title: "ManuScrape",
+    title: 'ManuScrape',
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
@@ -130,7 +128,7 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
-  }
+  };
 
   const file = openSignUp ? 'windows/signUp.html' : 'windows/signIn.html';
   const win = new BrowserWindow(opts);
@@ -142,15 +140,15 @@ export const createAuthorizationWindow = (openSignUp = false): BrowserWindow => 
   });
 
   return win;
-}
+};
 
 export const createSettingsWindow = (
   apiHost: string,
   getSettings: () => ISettings,
   updateHandler: (
     event: Electron.IpcMainEvent,
-    patch: ISettings,
-  ) => Promise<void>,
+    patch: ISettings
+  ) => Promise<void>
 ) => {
   // cleanup and use best ipc practices
   ipcMain.removeAllListeners('update-settings');
@@ -161,20 +159,20 @@ export const createSettingsWindow = (
   // attach new event listeners
   ipcMain.on(
     'update-settings', // TODO: use enum
-    (event, body) => updateHandler(event, body),
+    (event, body) => updateHandler(event, body)
   );
   ipcMain.on(
     'get-settings-request', // TODO: use enum
     (event) => {
       const settings = getSettings();
-      event.reply('get-settings-response', settings)
-    },
+      event.reply('get-settings-response', settings);
+    }
   );
   ipcMain.on(
     'get-default-settings-request', // TODO: use enum
     (event) => {
       event.reply('get-default-settings-response', defaultSettings);
-    },
+    }
   );
 
   const win = createNuxtAppWindow(
@@ -188,11 +186,10 @@ export const createSettingsWindow = (
     402,
     560,
     492
-  )
+  );
 
   return win;
-}
-
+};
 
 export const createAddObservationWindow = (
   apiHost: string,
@@ -201,29 +198,30 @@ export const createAddObservationWindow = (
   onClose: () => void,
   onReady?: undefined | (() => void),
   uploading: boolean = true,
-  electronTheme: boolean = true,
+  electronTheme: boolean = true
 ): BrowserWindow => {
   const flags: Record<string, boolean> = {
-    'uploading': uploading,
-    'electron': electronTheme,
+    uploading: uploading,
+    electron: electronTheme,
   };
 
-  const query = Object.entries(flags).reduce((params, [key, val]) => {
-    if (val) params.push(`${key}=1`);
-    return params;
-  }, [] as string[]).join('&');
+  const query = Object.entries(flags)
+    .reduce((params, [key, val]) => {
+      if (val) params.push(`${key}=1`);
+      return params;
+    }, [] as string[])
+    .join('&');
 
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
     onClose,
     onReady,
     1080,
-    560,
-  )
+    560
+  );
 
   return win;
-}
-
+};
 
 export const createAddProjectWindow = (
   apiHost: string,
@@ -234,12 +232,11 @@ export const createAddProjectWindow = (
     onClose,
     () => {},
     1080,
-    530,
-  )
+    530
+  );
 
   return win;
-}
-
+};
 
 export const createDraftsWindow = (
   apiHost: string,
@@ -251,10 +248,8 @@ export const createDraftsWindow = (
     onClose,
     () => {},
     1080,
-    560,
-  )
+    560
+  );
 
   return win;
-}
-
-
+};
