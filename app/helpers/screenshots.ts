@@ -1,4 +1,4 @@
-import { desktopCapturer, app, Notification, ipcMain, globalShortcut, BrowserWindow } from 'electron';
+import { desktopCapturer, app, Notification, ipcMain, globalShortcut } from 'electron';
 import path from 'path';
 import { sleepAsync } from './utils';
 import { joinImagesVertically } from './pythonBridge';

@@ -1,4 +1,4 @@
-import { type MessageBoxOptions, dialog, safeStorage, Notification } from "electron";
+import { type MessageBoxOptions, dialog, safeStorage, Notification, systemPreferences } from "electron";
 import { warningIcon } from "./icons";
 
 
@@ -36,4 +36,21 @@ export function yesOrNo(
   const response = dialog.showMessageBoxSync(options);
 
   return response == 0; // Yes button is pressed
+}
+
+// This is important for macOS 10.15 Catalina or higher
+export function warnIfScreenIsNotAccessible(): boolean {
+  const screenAccessGranted = systemPreferences.getMediaAccessStatus('screen');
+  const isScreenAccessible = screenAccessGranted === "granted"
+  
+  if (!isScreenAccessible) {
+    const err = new Error('Go to System Preferences and give app screen recording permission');
+    new Notification({
+      title: 'ManuScrape',
+      body: err.message,
+      icon: warningIcon,
+    }).show();
+  }  
+  
+  return isScreenAccessible
 }

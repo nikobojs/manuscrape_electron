@@ -4,7 +4,7 @@ import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/s
 import { createOverlayWindow, createSettingsWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow, createDraftsWindow } from './helpers/browserWindows';
 import { trayIcon, successIcon, errorIcon } from './helpers/icons';
 import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage, uploadVideoToObservation } from './helpers/api';
-import { yesOrNo } from './helpers/utils';
+import { warnIfScreenIsNotAccessible, yesOrNo } from './helpers/utils';
 import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
 import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
@@ -229,6 +229,8 @@ export class ManuScrapeController {
     if (!confirmed) {
       return;
     }
+    
+    warnIfScreenIsNotAccessible()
 
     // generate callback function that utilizes quickScreenshot
     this.useOnMarkedAreaCallback(quickScreenshot)
@@ -245,6 +247,8 @@ export class ManuScrapeController {
     if (!confirmed) {
       return;
     }
+
+    warnIfScreenIsNotAccessible()
 
     // generate callback function that utilizes scrollScreenshot
     this.useOnMarkedAreaCallback(
