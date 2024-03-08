@@ -93,6 +93,8 @@ Not strict in any way. Make your contributions the way you think works best. Pul
 3. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
 4. Start Electron app: `cd manuscrape_electron && npm start`
 
+5. For MacOS: If you have problems with taking screenshots go to System Preferences -> Privacy & Security -> Screen Recording, and give app permission
+
 #### Setup on Windows:
 
 _NOTE: Development ennvironment for windows is not actively maintained or tested_
@@ -119,3 +121,4 @@ If they don't work, try installing and compiling the python program manually (in
 - [@jakobdemant](https://github.com/jakobdemant)
 - [@nabojens](https://github.com/nabojens)
 - [@nikobojs](https://github.com/nikobojs)
+- [@samuelhimmelstrup](https://github.com/samuelhimmelstrup)
