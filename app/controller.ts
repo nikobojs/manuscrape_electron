@@ -1,20 +1,64 @@
-import { app, Notification, screen, Tray, ipcMain, Menu, globalShortcut, BrowserWindow, type IpcMainEvent } from 'electron';
+import {
+  app,
+  Notification,
+  screen,
+  Tray,
+  ipcMain,
+  Menu,
+  globalShortcut,
+  BrowserWindow,
+  type IpcMainEvent,
+} from 'electron';
 import path from 'path';
-import { quickScreenshot, saveAndCropVideo, scrollScreenshot } from './helpers/screenshots';
-import { createOverlayWindow, createSettingsWindow, createAuthorizationWindow, createAddProjectWindow, createAddObservationWindow, createDraftsWindow } from './helpers/browserWindows';
+import {
+  quickScreenshot,
+  saveAndCropVideo,
+  scrollScreenshot,
+} from './helpers/screenshots';
+import {
+  createOverlayWindow,
+  createSettingsWindow,
+  createAuthorizationWindow,
+  createAddProjectWindow,
+  createAddObservationWindow,
+  createDraftsWindow,
+} from './helpers/browserWindows';
 import { trayIcon, successIcon, errorIcon } from './helpers/icons';
-import { fetchUser, logout, signIn, addObservation, signUp, parseHostUrl, uploadObservationImage, uploadVideoToObservation } from './helpers/api';
-import { yesOrNo } from './helpers/utils';
-import { authCookieExists, getInvalidationCookie, readTokenFromCookie, removeAuthCookies, renewCookieFromToken } from './helpers/cookies';
+import {
+  fetchUser,
+  logout,
+  signIn,
+  addObservation,
+  signUp,
+  parseHostUrl,
+  uploadObservationImage,
+  uploadVideoToObservation,
+} from './helpers/api';
+import { warnIfScreenIsNotAccessible, yesOrNo } from './helpers/utils';
+import {
+  authCookieExists,
+  getInvalidationCookie,
+  readTokenFromCookie,
+  removeAuthCookies,
+  renewCookieFromToken,
+} from './helpers/cookies';
 import { generateContextMenu } from './helpers/contextMenu';
-import { fileExists, readFile, saveFile, deleteFile, } from './helpers/safeStorage';
-import { initializeSettings, saveSettingsToFile, validateSettings } from './helpers/settings';
+import {
+  fileExists,
+  readFile,
+  saveFile,
+  deleteFile,
+} from './helpers/safeStorage';
+import {
+  initializeSettings,
+  saveSettingsToFile,
+  validateSettings,
+} from './helpers/settings';
 import fs from 'fs';
-
 
 export class ManuScrapeController {
   public isMarkingArea: boolean;
-  public allDisplays: Array<Electron.Display>
+  public allDisplays: Array<Electron.Display>;
   public activeProjectId: number | undefined;
   public activeDisplayIndex: number;
 
@@ -24,7 +68,9 @@ export class ManuScrapeController {
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private settingsWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
-  private onAreaMarkedListener: ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
+  private onAreaMarkedListener:
+    | ((event: IpcMainEvent, ...args: any[]) => Promise<void>)
+    | undefined;
   private tray: Tray | undefined;
   private loginToken: string | undefined;
   private apiHost: string | undefined;
@@ -52,12 +98,12 @@ export class ManuScrapeController {
     trayWindow.on('ready-to-show', () => {
       // setup tray app
       this.tray = new Tray(trayIcon);
-      this.tray.setToolTip("ManuScrape");
+      this.tray.setToolTip('ManuScrape');
       this.tray.setIgnoreDoubleClickEvents(true);
 
       // add open menu event listeners
-      this.tray.on("click", () => this.openMenu());
-      this.tray.on("right-click", () => this.openMenu());
+      this.tray.on('click', () => this.openMenu());
+      this.tray.on('right-click', () => this.openMenu());
 
       // save hidden tray window to state
       // NOTE: this is required to avoid the tray app getting garbage collected
@@ -68,28 +114,27 @@ export class ManuScrapeController {
     });
   }
 
-
   // open context menu
   public openMenu(): void {
     if (this.tray) {
       if (this.contextMenu) {
-        this.tray.setContextMenu(this.contextMenu)
+        this.tray.setContextMenu(this.contextMenu);
       } else {
-        throw new Error('Tray menu cannot open without menu items')
+        throw new Error('Tray menu cannot open without menu items');
       }
       this.tray.popUpContextMenu();
     } else {
-      throw new Error('Unable to open context menu, when tray app is not running');
+      throw new Error(
+        'Unable to open context menu, when tray app is not running'
+      );
     }
   }
-
 
   // choose display where the overlay will appear
   public useDisplay(displayIndex: number): void {
     this.activeDisplayIndex = displayIndex;
     this.refreshContextMenu();
   }
-
 
   // helper function that returns the active display
   public getActiveDisplay(): Electron.Display {
@@ -106,7 +151,6 @@ export class ManuScrapeController {
     return !!this.loginToken;
   }
 
-
   // log out function
   public async logOut(): Promise<void> {
     if (!this.trayWindow) {
@@ -119,29 +163,28 @@ export class ManuScrapeController {
     }
   }
 
-
   // update activeProjectId and refresh menu
   public chooseProject(id: number) {
     this.activeProjectId = id;
     this.refreshContextMenu();
   }
 
-
   // create video capture and upload automatically
   private async createVideoCapture(
     event: IpcMainEvent,
-    projectId: number,  // TODO: remove this param (use this.activeProject)
-    observationId: number,
+    projectId: number, // TODO: remove this param (use this.activeProject)
+    observationId: number
   ) {
     // callback function when area is marked
-    const onMarkedHandler = async (
-      _event: IpcMainEvent,
-      area: Square
-    ) => {
-      if (typeof this.apiHost !== 'string') throw new Error('Something went terribly wrong')
-      if (typeof this.loginToken !== 'string') throw new Error('Something went terribly wrong')
-      if (typeof this.activeProjectId !== 'number') throw new Error('Something went terribly wrong')
-      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.()) throw new Error('Overlay window does not exist');
+    const onMarkedHandler = async (_event: IpcMainEvent, area: Square) => {
+      if (typeof this.apiHost !== 'string')
+        throw new Error('Something went terribly wrong');
+      if (typeof this.loginToken !== 'string')
+        throw new Error('Something went terribly wrong');
+      if (typeof this.activeProjectId !== 'number')
+        throw new Error('Something went terribly wrong');
+      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
+        throw new Error('Overlay window does not exist');
 
       // make mouse events "go through" this current window (always-on-top)
       this.overlayWindow?.setIgnoreMouseEvents?.(true);
@@ -151,21 +194,23 @@ export class ManuScrapeController {
 
       if (!this.nuxtWindow) {
         // TODO: report error
-        throw new Error('Nuxt window is not defined')
+        throw new Error('Nuxt window is not defined');
       }
 
       globalShortcut.unregister('Alt+S');
       globalShortcut.register('Alt+S', () => {
-        this.nuxtWindow?.webContents.send('stop-video-capture')
+        this.nuxtWindow?.webContents.send('stop-video-capture');
       });
 
-      const fullWidth = this.allDisplays.reduce((sum, cur) => sum + cur.size.width, 0);
-      const fullHeight = this.allDisplays.reduce((sum, cur) => sum + cur.size.height, 0);
-      event.reply(
-        'video-capture',
-        fullWidth,
-        fullHeight,
+      const fullWidth = this.allDisplays.reduce(
+        (sum, cur) => sum + cur.size.width,
+        0
       );
+      const fullHeight = this.allDisplays.reduce(
+        (sum, cur) => sum + cur.size.height,
+        0
+      );
+      event.reply('video-capture', fullWidth, fullHeight);
 
       this.overlayWindow?.webContents.send('mark-area-status', {
         statusText: 'Recording...',
@@ -186,7 +231,7 @@ export class ManuScrapeController {
             video,
             this.getActiveDisplay(),
             this.allDisplays,
-            area,
+            area
           );
           this.overlayWindow?.webContents.send('mark-area-status', {
             statusText: 'Uploading video...',
@@ -195,13 +240,21 @@ export class ManuScrapeController {
           });
 
           // upload file on path
-          if (!this.apiHost) throw new Error('Something very bad just happened... :(');
-          if (!this.loginToken) throw new Error('Something very bad just happened... :(');
-          await uploadVideoToObservation(this.apiHost, this.loginToken, observationId, projectId, path);
+          if (!this.apiHost)
+            throw new Error('Something very bad just happened... :(');
+          if (!this.loginToken)
+            throw new Error('Something very bad just happened... :(');
+          await uploadVideoToObservation(
+            this.apiHost,
+            this.loginToken,
+            observationId,
+            projectId,
+            path
+          );
           fs.unlinkSync(path);
           this.nuxtWindow?.webContents.send('refresh-uploaded-files');
           this.nuxtWindow?.restore();
-        } catch(err: any) {
+        } catch (err: any) {
           // TODO: report error
           console.error(err);
           new Notification({
@@ -212,7 +265,7 @@ export class ManuScrapeController {
           this.cancelOverlay();
         }
       });
-    }
+    };
 
     this.nuxtWindow?.minimize();
     this.setOnAreaMarkedListener(onMarkedHandler);
@@ -221,55 +274,56 @@ export class ManuScrapeController {
     this.openMarkAreaOverlay();
   }
 
-
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
     // ensure there is not already an observation being made
-    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
 
+    warnIfScreenIsNotAccessible();
+
     // generate callback function that utilizes quickScreenshot
-    this.useOnMarkedAreaCallback(quickScreenshot)
+    this.useOnMarkedAreaCallback(quickScreenshot);
 
     // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
   }
 
-
   // create new scroll screenshot
   public async createScrollScreenshot(): Promise<void> {
     // ensure there is not already an observation being made
-    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
 
+    warnIfScreenIsNotAccessible();
+
     // generate callback function that utilizes scrollScreenshot
     this.useOnMarkedAreaCallback(
-       (area, activeDisplay, activeDisplayIndex, isCancelled) =>
+      (area, activeDisplay, activeDisplayIndex, isCancelled) =>
         scrollScreenshot(
           area,
           this.settings.scrollshot,
           activeDisplay,
           activeDisplayIndex,
-          isCancelled,
+          isCancelled
         ),
       'Recording scrollshot...',
       'Cancel: Alt+C   Save: Alt+S',
-      true,
-    )
+      true
+    );
 
     // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
   }
 
-
   private uploadObservationImage(
     observationId: number,
     filePath: string,
-    projectId: number | undefined = this.activeProjectId,
+    projectId: number | undefined = this.activeProjectId
   ) {
     // TODO: make sure errors are handled in caller function
     if (!this.apiHost) throw new Error('Api host is not defined');
@@ -281,27 +335,30 @@ export class ManuScrapeController {
       this.loginToken,
       observationId,
       projectId,
-      filePath,
+      filePath
     );
   }
-
 
   private useOnMarkedAreaCallback(
     callback: (
       area: any,
       activeDisplay: Electron.Display,
       activeDisplayIndex: number,
-      isCancelled: () => boolean,
+      isCancelled: () => boolean
     ) => Promise<string>,
     statusText?: string,
     statusDescription?: string,
     hideArea = false
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
-      if (typeof this.apiHost !== 'string') throw new Error('Something went terribly wrong')
-      if (typeof this.loginToken !== 'string') throw new Error('Something went terribly wrong')
-      if (typeof this.activeProjectId !== 'number') throw new Error('Something went terribly wrong')
-      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.()) throw new Error('Overlay window does not exist');
+      if (typeof this.apiHost !== 'string')
+        throw new Error('Something went terribly wrong');
+      if (typeof this.loginToken !== 'string')
+        throw new Error('Something went terribly wrong');
+      if (typeof this.activeProjectId !== 'number')
+        throw new Error('Something went terribly wrong');
+      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
+        throw new Error('Overlay window does not exist');
 
       // define here so we can delete it after upload in the finally block
       let filePath: undefined | string;
@@ -326,7 +383,7 @@ export class ManuScrapeController {
         const { id: obsId } = await addObservation(
           this.apiHost,
           this.loginToken,
-          this.activeProjectId,
+          this.activeProjectId
         );
 
         // take scrollshot/screenshot ('callback' argument)
@@ -334,7 +391,7 @@ export class ManuScrapeController {
           area,
           this.getActiveDisplay(),
           this.activeDisplayIndex,
-          () => this.cancelOperation,
+          () => this.cancelOperation
         );
 
         // close overlay now that saving is done
@@ -345,8 +402,11 @@ export class ManuScrapeController {
         await this.openCreateObservationWindow(obsId, true);
 
         // upload the image
-        await this.uploadObservationImage(obsId, filePath, this.activeProjectId);
-
+        await this.uploadObservationImage(
+          obsId,
+          filePath,
+          this.activeProjectId
+        );
       } catch (e: any) {
         // TODO: report errors
         // TODO: handle errors better
@@ -377,24 +437,23 @@ export class ManuScrapeController {
     this.setOnAreaMarkedListener(handler);
   }
 
-
   public async openEmptyDraftWindow() {
     // make typescript linters happy
     // NOTE: none of these errors should ever happen
     // TODO: report errors
     if (!this.activeProjectId) {
-      console.error('no project id')
-      throw new Error('activeProjectId is not set')
+      console.error('no project id');
+      throw new Error('activeProjectId is not set');
     } else if (!this.apiHost) {
-      console.error('no api host')
-      throw new Error('apiHost is not set')
+      console.error('no api host');
+      throw new Error('apiHost is not set');
     } else if (!this.loginToken) {
-      console.error('no login token')
+      console.error('no login token');
       throw new Error('loginToken not attached to controller instance');
     }
 
     // return early if user mistakenly opens one more window
-    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
@@ -411,7 +470,6 @@ export class ManuScrapeController {
     return this.openCreateObservationWindow(observationId, false);
   }
 
-
   private async openCreateObservationWindow(
     observationId: number,
     automaticImageUpload: boolean
@@ -420,13 +478,13 @@ export class ManuScrapeController {
     // NOTE: none of these errors should ever happen
     // TODO: report errors
     if (!this.activeProjectId) {
-      console.error('no project id')
-      throw new Error('activeProjectId is not set')
+      console.error('no project id');
+      throw new Error('activeProjectId is not set');
     } else if (!this.apiHost) {
-      console.error('no api host')
-      throw new Error('apiHost is not set')
+      console.error('no api host');
+      throw new Error('apiHost is not set');
     } else if (!this.loginToken) {
-      console.error('no login token')
+      console.error('no login token');
       throw new Error('loginToken not attached to controller instance');
     }
 
@@ -438,16 +496,12 @@ export class ManuScrapeController {
       () => this.onExternalWindowClose(),
       undefined,
       automaticImageUpload,
-      true,
+      true
     );
 
     ipcMain.on(
       'begin-video-capture',
-      async (
-        event: IpcMainEvent,
-        projectId: number,
-        observationId: number,
-      ) => {
+      async (event: IpcMainEvent, projectId: number, observationId: number) => {
         await this.createVideoCapture(event, projectId, observationId);
       }
     );
@@ -472,14 +526,15 @@ export class ManuScrapeController {
     this.nuxtWindow = win;
   }
 
-
   // ensure not more than one app window
   private async confirmCloseNuxtWindowIfAny(): Promise<boolean> {
     if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
       this.nuxtWindow.webContents.focus();
-      const yes = yesOrNo('Are you sure you want to close the existing window?');
+      const yes = yesOrNo(
+        'Are you sure you want to close the existing window?'
+      );
       if (yes) {
-        this.cancelNuxtWindow()
+        this.cancelNuxtWindow();
         await new Promise((r) => setTimeout(r, 200));
       }
       return yes;
@@ -487,7 +542,6 @@ export class ManuScrapeController {
       return true;
     }
   }
-
 
   // function that tries to authorize using files and cookies
   private async init() {
@@ -519,7 +573,7 @@ export class ManuScrapeController {
       // TODO: report errors?
       // TODO: test for specific errors
       console.warn('Ignoring error when authorizing intially:');
-      console.warn(err)
+      console.warn(err);
 
       // TODO: report specific errors to user (os notifications?)
       if (/fetch\ failed/i.test(err?.message)) {
@@ -534,18 +588,16 @@ export class ManuScrapeController {
       try {
         // use retrieved 'host' and 'token' to renew cookie and fetch user
         if (host && token) {
-          await renewCookieFromToken(host, token).catch(() => { });
+          await renewCookieFromToken(host, token).catch(() => {});
           await this.refreshUser(host, token);
           this.refreshContextMenu();
         }
         if (!this.isLoggedIn()) {
           // show login window if not logged in by now
           this.openAuthorizationWindow(false);
-
         } else if (this.user?.projectAccess.length === 0) {
           // if no projects available for user, open createProjects window
           await this.openCreateProjectWindow();
-
         }
       } catch (e: any) {
         // show login window if there was some kind of error
@@ -555,7 +607,6 @@ export class ManuScrapeController {
     }
   }
 
-
   // try to reset state by removing listeners and closing overlay
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
@@ -564,7 +615,6 @@ export class ManuScrapeController {
       this.overlayWindow.webContents.close();
     }
   }
-
 
   // try to reset state by removing listeners and closing overlay
   public cancelNuxtWindow() {
@@ -577,17 +627,15 @@ export class ManuScrapeController {
     }
   }
 
-
   // function that will always be called after an area has been marked
   private onMarkAreaDone() {
     this.isMarkingArea = false;
     this.refreshContextMenu();
   }
 
-
   // fetch fresh user object and save it to state
   private async refreshUser(host: string, token: string) {
-    // whether same credentials are already defined in instance properties    
+    // whether same credentials are already defined in instance properties
     let freshLogin = host !== this.apiHost || token !== this.loginToken;
 
     // try fetch user with token
@@ -619,7 +667,6 @@ export class ManuScrapeController {
     }
   }
 
-
   // reset auth session and update UI accordingly
   private async resetAuth() {
     // call logout api
@@ -635,7 +682,6 @@ export class ManuScrapeController {
     this.loginToken = undefined;
     this.refreshContextMenu();
 
-
     // remove authorization cookies
     // NOTE: it skips silently if there is none
     await removeAuthCookies();
@@ -650,9 +696,7 @@ export class ManuScrapeController {
       body: 'Signed out successfully.',
       icon: successIcon,
     }).show();
-
   }
-
 
   // open markArea overlay. IPC listeners should have be added beforehand
   private openMarkAreaOverlay() {
@@ -662,8 +706,8 @@ export class ManuScrapeController {
     this.isMarkingArea = true;
     this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
     this.refreshContextMenu();
-    globalShortcut.unregister('Alt+C')
-    globalShortcut.unregister('Esc')
+    globalShortcut.unregister('Alt+C');
+    globalShortcut.unregister('Esc');
     globalShortcut.register('Alt+C', () => {
       this.cancelOverlay();
       this.cancelOperation = true;
@@ -674,10 +718,9 @@ export class ManuScrapeController {
     });
   }
 
-
   private async signInHandler(
     event: Electron.IpcMainEvent,
-    { email, password, host }: ISignInBody,
+    { email, password, host }: ISignInBody
   ): Promise<void> {
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
@@ -693,10 +736,7 @@ export class ManuScrapeController {
 
       // return `error` to client, so error can be rendered
     } catch (err: any) {
-      return event.reply(
-        'sign-in-error',
-        err?.message || 'Unknown error'
-      ) // TODO: use enum
+      return event.reply('sign-in-error', err?.message || 'Unknown error'); // TODO: use enum
     }
 
     await this.updateAuthSession(host, token);
@@ -708,7 +748,7 @@ export class ManuScrapeController {
   // update local settings based on patch event via ipc
   private async updateSettingsHandler(
     event: Electron.IpcMainEvent,
-    patch: ISettings,
+    patch: ISettings
   ): Promise<void> {
     // TODO: use deep merge instead
     const patchedSettings = {
@@ -716,15 +756,12 @@ export class ManuScrapeController {
       scrollshot: {
         ...this.settings.scrollshot,
         ...patch.scrollshot,
-      }
+      },
     };
     const errors = validateSettings(patchedSettings);
 
     if (errors.length > 0) {
-      return event.reply(
-        'update-settings-error',
-        errors.join('\n')
-      ) // TODO: use enum
+      return event.reply('update-settings-error', errors.join('\n')); // TODO: use enum
     }
 
     // no errors, lets patch it
@@ -744,10 +781,9 @@ export class ManuScrapeController {
     event.reply('update-settings-ok', patchedSettings);
   }
 
-
   private async signUpHandler(
     event: Electron.IpcMainEvent,
-    { email, password, host }: ISignUpBody,
+    { email, password, host }: ISignUpBody
   ): Promise<void> {
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
@@ -763,10 +799,7 @@ export class ManuScrapeController {
 
       // return `error` to client, so error can be rendered
     } catch (err: any) {
-      return event.reply(
-        'sign-up-error',
-        err?.message || 'Unknown error'
-      ) // TODO: use enum
+      return event.reply('sign-up-error', err?.message || 'Unknown error'); // TODO: use enum
     }
 
     await this.updateAuthSession(host, token);
@@ -807,7 +840,6 @@ export class ManuScrapeController {
   public openAuthorizationWindow(openSignUp = false) {
     // navigate automatically if window is open
     if (this.authWindow && !this.authWindow.isDestroyed()) {
-
       // get html file url
       const url = this.authWindow.webContents.getURL();
 
@@ -829,21 +861,20 @@ export class ManuScrapeController {
       // TODO: cleanup and use best ipc practices
       ipcMain.on(
         'sign-in', // TODO: use enum
-        (event, body) => this.signInHandler(event, body),
+        (event, body) => this.signInHandler(event, body)
       );
       ipcMain.on(
         'sign-up', // TODO: use enum
-        (event, body) => this.signUpHandler(event, body),
+        (event, body) => this.signUpHandler(event, body)
       );
       ipcMain.on('ask-for-default-host-value', (event) => {
-        event.reply('default-host-value', this?.apiHost || '')
-      })
+        event.reply('default-host-value', this?.apiHost || '');
+      });
 
       // create new sign in window
       this.authWindow = createAuthorizationWindow(openSignUp);
     }
   }
-
 
   public openSettingsWindow() {
     if (!this.apiHost) {
@@ -860,20 +891,19 @@ export class ManuScrapeController {
       this.settingsWindow = createSettingsWindow(
         this.apiHost,
         () => this.getSettings(),
-        (event, patch) => this.updateSettingsHandler(event, patch),
+        (event, patch) => this.updateSettingsHandler(event, patch)
       );
     }
   }
-
 
   // opens webapp (hopefully authorized always!)
   // TODO: refactor
   public async openCreateProjectWindow(): Promise<void> {
     if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window')
+      throw new Error('Api host not set when opening external browser window');
     }
 
-    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
@@ -897,46 +927,41 @@ export class ManuScrapeController {
       }
     });
 
-    const win = createAddProjectWindow(this.apiHost, () => this.onExternalWindowClose());
+    const win = createAddProjectWindow(this.apiHost, () =>
+      this.onExternalWindowClose()
+    );
     this.nuxtWindow = win;
   }
-
 
   // opens observation drafts window
   public async openObservationDraftsWindow(): Promise<void> {
     if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window')
+      throw new Error('Api host not set when opening external browser window');
     } else if (!this.activeProjectId) {
-      throw new Error('Project id not set when opening external browser window')
+      throw new Error(
+        'Project id not set when opening external browser window'
+      );
     }
 
     // support video capture (if navigating from draft list into draft details)
     ipcMain.on(
       'begin-video-capture',
-      async (
-        event: IpcMainEvent,
-        projectId: number,
-        observationId: number,
-      ) => {
+      async (event: IpcMainEvent, projectId: number, observationId: number) => {
         await this.createVideoCapture(event, projectId, observationId);
       }
     );
 
     // close nuxt window if existing
-    const confirmed = await this.confirmCloseNuxtWindowIfAny()
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
 
     // open drafts window
-    const win = createDraftsWindow(
-      this.apiHost,
-      this.activeProjectId,
-      () => {
-        this.onExternalWindowClose();
-        ipcMain.removeAllListeners('begin-video-capture')
-      }
-    );
+    const win = createDraftsWindow(this.apiHost, this.activeProjectId, () => {
+      this.onExternalWindowClose();
+      ipcMain.removeAllListeners('begin-video-capture');
+    });
     this.nuxtWindow = win;
   }
 
@@ -945,10 +970,10 @@ export class ManuScrapeController {
     globalShortcut.unregisterAll();
     globalShortcut.register('Alt+Q', () => {
       console.info('caught exit shortcut. will exit now');
-      this.app.exit(0)
-    })
+      this.app.exit(0);
+    });
     globalShortcut.register('Alt+N', async () => {
-      const confirmed = await this.confirmCloseNuxtWindowIfAny()
+      const confirmed = await this.confirmCloseNuxtWindowIfAny();
       if (!confirmed) {
         return;
       }
@@ -956,9 +981,9 @@ export class ManuScrapeController {
         this.overlayWindow?.webContents.close();
       }
       return this.createQuickScreenshot();
-    })
+    });
     globalShortcut.register('Alt+S', async () => {
-      const confirmed = await this.confirmCloseNuxtWindowIfAny()
+      const confirmed = await this.confirmCloseNuxtWindowIfAny();
       if (!confirmed) {
         return;
       }
@@ -966,34 +991,32 @@ export class ManuScrapeController {
         this.overlayWindow?.webContents.close();
       }
       return this.createScrollScreenshot();
-    })
+    });
   }
-
 
   // overwrites area-marked listener if it is already defined
   private setOnAreaMarkedListener(
-    listener: (event: IpcMainEvent, ...args: any[]) => Promise<void>,
+    listener: (event: IpcMainEvent, ...args: any[]) => Promise<void>
   ) {
     if (this.onAreaMarkedListener) {
       ipcMain.removeListener('area-marked', this.onAreaMarkedListener);
     }
 
     this.onAreaMarkedListener = listener;
-    ipcMain.addListener('area-marked', listener)
+    ipcMain.addListener('area-marked', listener);
   }
-
 
   // ensure auth state and contextmenu is ok and synced when nuxt window closes
   private async onExternalWindowClose() {
     if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window')
+      throw new Error('Api host not set when opening external browser window');
     }
-    const invalidationCookie = await getInvalidationCookie(this.apiHost)
+    const invalidationCookie = await getInvalidationCookie(this.apiHost);
 
     ipcMain.removeAllListeners('begin-video-capture');
 
     if (invalidationCookie) {
-      console.info('caught signed out in browser window')
+      console.info('caught signed out in browser window');
       await this.resetAuth();
     } else if (this.isLoggedIn() && this.loginToken) {
       await this.refreshUser(this.apiHost, this.loginToken);
@@ -1002,11 +1025,12 @@ export class ManuScrapeController {
     }
   }
 
-
   // refresh the context menu ui based on state of current ManuController instance
   private refreshContextMenu(): void {
     if (!this.tray) {
-      throw new Error('Cannot refresh contextmenu, when tray app is not running')
+      throw new Error(
+        'Cannot refresh contextmenu, when tray app is not running'
+      );
     }
     this.contextMenu = generateContextMenu(this, this.user);
     this.tray.setContextMenu(this.contextMenu);

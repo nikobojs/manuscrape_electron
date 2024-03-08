@@ -1,0 +1,22 @@
+{
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "vim.handleKeys": {
+    "<C-p>": false
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "prettier.printWidth": 80,
+  "prettier.singleQuote": true,
+  "prettier.semi": true
+}

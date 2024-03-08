@@ -1,15 +1,15 @@
-const isLinux = process.platform === 'linux';
+const isWindows = process.platform === 'win32';
 const path = require('path');
 
 function pythonEntryBin() {
   const binDir = `./python/dist/`;
-  const binFilename = `chatjoiner${isLinux ? '' : '.exe'}`;
+  const binFilename = `chatjoiner${isWindows ? '.exe' : ''}`;
   return binDir + binFilename;
 }
 
 function ffmpegEntryBin() {
   const binDir = `./bin/`;
-  const binFilename = `ffmpeg${isLinux ? '' : '.exe'}`;
+  const binFilename = `ffmpeg${isWindows ? '.exe' : ''}`;
   return binDir + binFilename;
 }
 
@@ -27,39 +27,35 @@ module.exports = {
     //        file "../../../../../usr/bin/python3.11" links out of the package
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
-    ignore: [
-      /python\//,
-      /python3\.\d+$/,
-      /python$/
-    ],
+    ignore: [/python\//, /python3\.\d+$/, /python$/],
   },
-  rebuildConfig: {
-  },
+  rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
       config: (arch) => ({
-        // NOTE: EXPERIMENTAL
         setupExe: `manuscrape-setup-${arch}.exe`,
         noMsi: true,
         title: 'ManuScrape',
 
-        setupIcon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
+        setupIcon: path.resolve(
+          __dirname,
+          'assets',
+          'icons',
+          'desktop-icon.ico'
+        ),
         icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.ico'),
-        //
-        // TODO: add certificate
-        // certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
-        // certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD
       }),
     },
-    // {
-    //   name: '@electron-forge/maker-zip',
-    //   platforms: ['darwin'],
-    // },
-    // {
-    //   name: '@electron-forge/maker-deb',
-    //   config: {},
-    // },
+    {
+      name: '@electron-forge/maker-dmg',
+      config: {
+        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.png'),
+        format: 'ULFO',
+        name: 'ManuScrape',
+        overwrite: true,
+      },
+    },
     {
       name: '@electron-forge/maker-rpm',
       executableName: 'manuscrape_electron',
@@ -76,10 +72,16 @@ module.exports = {
     },
   ],
   hooks: {
-    packageAfterCopy: async (config, buildPath, electronVersion, platform, arch) => {
-      console.log('Copying files is done! Current dirname is:\n', __dirname)
-      console.log({ platform, arch, buildPath, electronVersion })
+    packageAfterCopy: async (
+      config,
+      buildPath,
+      electronVersion,
+      platform,
+      arch
+    ) => {
+      console.log('Copying files is done! Current dirname is:\n', __dirname);
+      console.log({ platform, arch, buildPath, electronVersion });
       console.log(JSON.stringify(config, null, 4));
-    }
-  }
+    },
+  },
 };
