@@ -1,4 +1,10 @@
-import { desktopCapturer, app, Notification, ipcMain, globalShortcut } from 'electron';
+import {
+  desktopCapturer,
+  app,
+  Notification,
+  ipcMain,
+  globalShortcut,
+} from 'electron';
 import path from 'path';
 import { sleepAsync } from './utils';
 import { joinImagesVertically } from './pythonBridge';
@@ -8,10 +14,9 @@ import { blockhashData, hammingDistance } from './blockhash-js';
 import jpeg from 'jpeg-js';
 import fs from 'fs';
 
-
 function getScreenshotFromSource(
   source: Electron.DesktopCapturerSource,
-  areaRect: Square,
+  areaRect: Square
 ): IScreenshot {
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
@@ -23,19 +28,25 @@ function getScreenshotFromSource(
     size,
     sizeKb,
     buffer,
-    source
+    source,
   };
 
-  console.log('Captured screenshot: len=' + sizeKb + 'kb, size=' + size.width + 'x' + size.height);
+  console.log(
+    'Captured screenshot: len=' +
+      sizeKb +
+      'kb, size=' +
+      size.width +
+      'x' +
+      size.height
+  );
 
   return screenshot;
 }
 
-
 function findCapturerSourceByDisplay(
   sources: Electron.DesktopCapturerSource[],
   targetDisplay: Electron.Display,
-  targetDisplayIndex: number,
+  targetDisplayIndex: number
 ): Electron.DesktopCapturerSource {
   let screen = sources.find((s) => s.display_id == targetDisplay.id.toString());
   if (screen) {
@@ -43,15 +54,14 @@ function findCapturerSourceByDisplay(
   } else if (!screen && sources.length - 1 >= targetDisplayIndex) {
     return sources[targetDisplayIndex];
   } else {
-    throw new Error('Screen was not found')
+    throw new Error('Screen was not found');
   }
 }
-
 
 async function captureScreenshot(
   areaRect: Square,
   activeScreen: Electron.Display,
-  activeDisplayIndex: number,
+  activeDisplayIndex: number
 ): Promise<IScreenshot> {
   const fullsize = activeScreen.bounds;
 
@@ -61,19 +71,19 @@ async function captureScreenshot(
     fetchWindowIcons: false,
   });
   // register in shortcuts: videoStream.stop()
-  const displaySource = findCapturerSourceByDisplay(sources, activeScreen, activeDisplayIndex);
+  const displaySource = findCapturerSourceByDisplay(
+    sources,
+    activeScreen,
+    activeDisplayIndex
+  );
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
   return screenshot;
 }
 
-
 // returns true of other displays has negative x bounds
-function primaryDisplayIsRight(
-  allDisplays: Electron.Display[]
-): boolean {
+function primaryDisplayIsRight(allDisplays: Electron.Display[]): boolean {
   return !!allDisplays.find((d) => d.bounds.x < 0);
 }
-
 
 function getTempPath(): string {
   const fullPath = path.join(app.getPath('temp'), 'manuscrape');
@@ -83,15 +93,22 @@ function getTempPath(): string {
   return fullPath;
 }
 
-
 export async function saveAndCropVideo(
   video: ArrayBuffer,
   display: Electron.Display,
   allDisplays: Electron.Display[],
-  area: Square,
+  area: Square
 ): Promise<string> {
-  const path = getTempPath() + '/capture_' + new Date().toISOString().replace(/\:/g, '') + '.temp.webm';
-  const resultPath = getTempPath() + '/capture_' + new Date().toISOString().replace(/\:/g, '') + '.webm';
+  const path =
+    getTempPath() +
+    '/capture_' +
+    new Date().toISOString().replace(/\:/g, '') +
+    '.temp.webm';
+  const resultPath =
+    getTempPath() +
+    '/capture_' +
+    new Date().toISOString().replace(/\:/g, '') +
+    '.webm';
   const displayIsRight = primaryDisplayIsRight(allDisplays);
 
   // save raw video (containing lots of stuff)
@@ -99,7 +116,10 @@ export async function saveAndCropVideo(
 
   // crop file
   ipcMain.removeAllListeners('video-capture-done');
-  console.log('incorporating display bounds in area value. Original area:', area)
+  console.log(
+    'incorporating display bounds in area value. Original area:',
+    area
+  );
 
   // Handles x bounds for multi monitor setups.
   //
@@ -109,26 +129,25 @@ export async function saveAndCropVideo(
     area.x = display.workArea.x + area.x;
     area.y = display.workArea.y + area.y;
   } else if (displayIsRight && allDisplays.length > 1) {
-    const leftScreen = allDisplays.find((d) => d.id !== display.id && d.bounds.x < display.bounds.x);
+    const leftScreen = allDisplays.find(
+      (d) => d.id !== display.id && d.bounds.x < display.bounds.x
+    );
     if (leftScreen) {
       const leftScreenWidth = leftScreen?.bounds.width;
       area.x += leftScreenWidth;
     }
   }
 
-  await cropVideoFile(path, resultPath, area)
+  await cropVideoFile(path, resultPath, area);
 
-  return resultPath
+  return resultPath;
 }
-
-
 
 export async function saveScreenshot(
   filename: string,
   buffer: string | NodeJS.ArrayBufferView,
-  directory?: string | undefined,
+  directory?: string | undefined
 ): Promise<string> {
-
   let basepath = getTempPath();
 
   if (directory) {
@@ -138,35 +157,30 @@ export async function saveScreenshot(
 
   const filepath = path.join(
     basepath,
-    filename +
-    '.' +
-    new Date().toISOString().replace(/\:/g, '') +
-    '.jpg'
+    filename + '.' + new Date().toISOString().replace(/\:/g, '') + '.jpg'
   );
   fs.writeFileSync(filepath, buffer);
-  console.log('Saved screenshot to file \'' + filepath + '\'');
+  console.log("Saved screenshot to file '" + filepath + "'");
   return filepath;
 }
-
 
 export async function quickScreenshot(
   area: Square,
   display: Electron.Display,
   displayIndex: number,
-  _isCancelled: () => boolean,
+  _isCancelled: () => boolean
 ): Promise<string> {
   const screenshot = await captureScreenshot(area, display, displayIndex);
   const path = await saveScreenshot(screenshot.source.name, screenshot.buffer);
   return path;
 }
 
-
 export async function scrollScreenshot(
   area: Square,
   settings: ScrollshotSettings,
   display: Electron.Display,
   displayIndex: number,
-  isCancelled: () => boolean,
+  isCancelled: () => boolean
 ): Promise<string> {
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 50;
@@ -185,7 +199,7 @@ export async function scrollScreenshot(
 
   // change shortcut so it saves instead of initiating a scrollshot
   globalShortcut.unregister('Alt+S');
-  globalShortcut.register('Alt+S', () => userIsDone = true);
+  globalShortcut.register('Alt+S', () => (userIsDone = true));
 
   // run loop until canceled/finished by user or maximum screenshots reached
   while (totalScreenshots < maxScreenshots && !isCancelled()) {
@@ -202,10 +216,10 @@ export async function scrollScreenshot(
     const { source, buffer } = await captureScreenshot(
       area,
       display,
-      displayIndex);
+      displayIndex
+    );
     const data = jpeg.decode(buffer);
     const imageHash = blockhashData(data, 128, 2);
-
 
     // get the distance to the last image captured
     let imageDiff;
@@ -227,7 +241,10 @@ export async function scrollScreenshot(
     if (userIsDone || repeatedScreenshots > maxRepeatedScreenshots) {
       // is max screenshots are reached or user finished the scrollshots, break loop
       break;
-    } else if (!lastImageHash || (imageDiff && imageDiff > hammeringDiffThreshold)) {
+    } else if (
+      !lastImageHash ||
+      (imageDiff && imageDiff > hammeringDiffThreshold)
+    ) {
       // if first image or hammer distance is above threshold, save screenshot and update state
       repeatedScreenshots = 0;
       lastSavePath = await saveScreenshot(source.name, buffer, dirname);
@@ -248,18 +265,14 @@ export async function scrollScreenshot(
     const screenshotsPath = path.join(getTempPath(), dirname);
 
     try {
-      await joinImagesVertically(
-        screenshotsPath,
-        resultImagePath,
-        settings,
-      );
+      await joinImagesVertically(screenshotsPath, resultImagePath, settings);
       return resultImagePath;
     } catch (err) {
       new Notification({
         title: 'Unable to process scrollshot :(',
         body: 'Please scroll slowly either up or down',
         icon: errorIcon,
-      }).show()
+      }).show();
       throw new Error('Unable to join scrollshot images to one single image');
       // TODO: report error
     } finally {
