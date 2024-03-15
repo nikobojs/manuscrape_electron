@@ -50,7 +50,7 @@ module.exports = {
     {
       name: '@electron-forge/maker-dmg',
       config: {
-        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.png'),
+        icon: path.resolve(__dirname, 'assets', 'icons', 'desktop-icon.icns'),
         format: 'ULFO',
         name: 'ManuScrape',
         overwrite: true,

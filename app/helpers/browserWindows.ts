@@ -5,6 +5,7 @@ import {
 } from 'electron';
 import path from 'path';
 import { defaultSettings } from './settings';
+import { getMainIconPathBasedOnOS } from './icons';
 const isLinux = process.platform === 'linux';
 
 // generic nuxt app window factory - not meant to be exported
@@ -23,7 +24,7 @@ const createNuxtAppWindow = (
     closable: true,
     movable: true,
     show: false,
-    icon: path.join(__dirname, '../../assets/icons/desktop-icon.png'),
+    icon: getMainIconPathBasedOnOS(),
     webPreferences: {
       preload: path.join(__dirname, '../preload.js'),
     },
