@@ -175,24 +175,25 @@ export async function quickScreenshot(
   return path;
 }
 
-export async function scrollScreenshot(
+export async function captureScrollshot(
   area: Square,
-  settings: ScrollshotSettings,
   display: Electron.Display,
   displayIndex: number,
   isCancelled: () => boolean
-): Promise<string> {
+): Promise<{
+  dirname: string;
+  lastSavePath: string;
+  totalScreenshots: number;
+}> {
   const maxScreenshots = 512;
   const maxRepeatedScreenshots = 50;
   const minimumCaptureDelay = 428;
   const hammeringDiffThreshold = 1000;
   const scrollShotId = new Date().getTime();
   const dirname = scrollShotId.toString();
-  const resultImageDir = path.join(app.getPath('userData'), dirname, 'output');
-  const resultImagePath = path.join(resultImageDir, 'result.png');
 
   let repeatedScreenshots = 0;
-  let lastSavePath: string | null = null;
+  let lastSavePath: string = '';
   let userIsDone = false;
   let lastImageHash = null;
   let totalScreenshots = 0;
@@ -257,10 +258,23 @@ export async function scrollScreenshot(
     await sleepAsync(delay);
   }
 
+  return { dirname, lastSavePath, totalScreenshots };
+}
+
+export async function processScrollshot(
+  dirname: string,
+  lastSavePath: string,
+  totalScreenshots: number,
+  settings: ScrollshotSettings,
+  isCancelled: () => boolean
+): Promise<string> {
+  const resultImageDir = path.join(app.getPath('userData'), dirname, 'output');
+  const resultImagePath = path.join(resultImageDir, 'result.png');
+
   // create directory for the joined image
   fs.mkdirSync(resultImageDir, { recursive: true });
 
-  // if there are more than one screenshot, join the images to one big and return path
+  // if there are more than one screenshot, join the images and return path
   if (totalScreenshots > 1) {
     const screenshotsPath = path.join(getTempPath(), dirname);
 
@@ -279,14 +293,13 @@ export async function scrollScreenshot(
       // remove all the single screenshots no matter if it went well joining them
       fs.rmSync(screenshotsPath, { recursive: true });
     }
-  } else if (lastSavePath) {
-    // else if there is only one image, return its path
+  }
+  // else if there is only one image, return its path
+  else if (totalScreenshots === 1 && lastSavePath) {
     return lastSavePath;
+  } else if (isCancelled()) {
+    throw new Error('Cancelled');
   } else {
-    if (isCancelled()) {
-      throw new Error('Cancelled');
-    } else {
-      throw new Error('Unable to save scroll shot!');
-    }
+    throw new Error('Unable to save scroll shot!');
   }
 }

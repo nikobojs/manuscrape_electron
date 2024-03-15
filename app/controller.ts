@@ -13,7 +13,8 @@ import path from 'path';
 import {
   quickScreenshot,
   saveAndCropVideo,
-  scrollScreenshot,
+  captureScrollshot,
+  processScrollshot,
 } from './helpers/screenshots';
 import {
   createOverlayWindow,
@@ -146,7 +147,7 @@ export class ManuScrapeController {
     return this.settings;
   }
 
-  //  //logged in helper
+  // logged in helper
   public isLoggedIn(): boolean {
     return !!this.loginToken;
   }
@@ -301,23 +302,116 @@ export class ManuScrapeController {
 
     warnIfScreenIsNotAccessible();
 
-    // generate callback function that utilizes scrollScreenshot
-    this.useOnMarkedAreaCallback(
-      (area, activeDisplay, activeDisplayIndex, isCancelled) =>
-        scrollScreenshot(
-          area,
+    // define callback function
+    const scrollshotHandler = async (event: IpcMainEvent, area: any) => {
+      const defaultMsg = 'Something went terribly wrong';
+      if (typeof this.apiHost !== 'string')
+        throw new Error(`${defaultMsg}: apiHost not properly defined`);
+      if (typeof this.loginToken !== 'string')
+        throw new Error(`${defaultMsg}: loginToken not properly defined`);
+      if (typeof this.activeProjectId !== 'number')
+        throw new Error(`${defaultMsg}: activeProjectId not properly defined`);
+      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
+        throw new Error('Overlay window does not exist');
+
+      // define here so we can delete it after upload in the finally block
+      let filePath: undefined | string;
+
+      // make mouse events "go through" this current window (always-on-top)
+      this.overlayWindow?.setIgnoreMouseEvents?.(true);
+
+      // call the cleanup and refresh context function
+      this.onMarkAreaDone();
+
+      try {
+        // first, create new observation draft, to obtain observation id
+        const { id: obsId } = await addObservation(
+          this.apiHost,
+          this.loginToken,
+          this.activeProjectId
+        );
+
+        // emit primary status text
+        this.overlayWindow?.webContents.send('mark-area-status', {
+          statusText: 'Recording scrollshot...',
+          statusDescription: 'Cancel: Alt+C   Save: Alt+S',
+          hideArea: true,
+        });
+
+        const { dirname, lastSavePath, totalScreenshots } =
+          await captureScrollshot(
+            area,
+            this.getActiveDisplay(),
+            this.activeDisplayIndex,
+            () => this.cancelOperation
+          );
+
+        this.overlayWindow?.webContents.send('mark-area-status', {
+          statusText: 'Processing scrollshot...',
+          statusDescription: 'This will take a few seconds',
+          hideArea: true,
+        });
+
+        const filePath = await processScrollshot(
+          dirname,
+          lastSavePath,
+          totalScreenshots,
           this.settings.scrollshot,
-          activeDisplay,
-          activeDisplayIndex,
-          isCancelled
-        ),
-      'Recording scrollshot...',
-      'Cancel: Alt+C   Save: Alt+S',
-      true
-    );
+          () => this.cancelOperation
+        );
+
+        // close overlay now that saving is done
+        this.cancelOverlay();
+
+        // TODO: the two promises don't work in parallel :/
+        // open observation form window
+        await this.openCreateObservationWindow(obsId, true);
+
+        // upload the image
+        await this.uploadObservationImage(
+          obsId,
+          filePath,
+          this.activeProjectId
+        );
+      } catch (e: any) {
+        this.handleScreenshotError(e);
+      } finally {
+        this.wrapUpScreenshot(filePath);
+      }
+    };
+
+    // add listener to state so it can be removed later
+    // NOTE: removeEventListener requires a reference to the function
+    this.setOnAreaMarkedListener(scrollshotHandler);
 
     // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
+  }
+
+  private handleScreenshotError(e: any) {
+    // TODO: report errors
+    // TODO: handle errors better
+    if (e?.message !== 'Cancelled') {
+      console.error(e);
+      new Notification({
+        title: 'ManuScrape',
+        body: e?.message || 'Unknown error :(',
+        icon: errorIcon,
+      }).show();
+    }
+
+    this.cancelOperation = true;
+    this.cancelNuxtWindow();
+    this.cancelOverlay();
+  }
+
+  private wrapUpScreenshot(filePath?: string) {
+    // remove temp file
+    if (filePath) {
+      fs.rmSync(filePath);
+    }
+    this.cancelOperation = false;
+    this.refreshShortcuts();
   }
 
   private uploadObservationImage(
@@ -351,12 +445,13 @@ export class ManuScrapeController {
     hideArea = false
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
+      const defaultMsg = 'Something went terribly wrong';
       if (typeof this.apiHost !== 'string')
-        throw new Error('Something went terribly wrong');
+        throw new Error(`${defaultMsg}: apiHost not properly defined`);
       if (typeof this.loginToken !== 'string')
-        throw new Error('Something went terribly wrong');
+        throw new Error(`${defaultMsg}: loginToken not properly defined`);
       if (typeof this.activeProjectId !== 'number')
-        throw new Error('Something went terribly wrong');
+        throw new Error(`${defaultMsg}: activeProjectId not properly defined`);
       if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
         throw new Error('Overlay window does not exist');
 
@@ -408,27 +503,9 @@ export class ManuScrapeController {
           this.activeProjectId
         );
       } catch (e: any) {
-        // TODO: report errors
-        // TODO: handle errors better
-        if (e?.message !== 'Cancelled') {
-          console.error(e);
-          new Notification({
-            title: 'ManuScrape',
-            body: e?.message || 'Unknown error :(',
-            icon: errorIcon,
-          }).show();
-        }
-
-        this.cancelOperation = true;
-        this.cancelNuxtWindow();
-        this.cancelOverlay();
+        this.handleScreenshotError(e);
       } finally {
-        // remove temp file
-        if (filePath) {
-          fs.rmSync(filePath);
-        }
-        this.cancelOperation = false;
-        this.refreshShortcuts();
+        this.wrapUpScreenshot(filePath);
       }
     };
 
