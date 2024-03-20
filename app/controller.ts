@@ -584,8 +584,13 @@ export class ManuScrapeController {
     );
 
     // add observation-created listener
-    ipcMain.once('observation-created', (res) => {
-      if (this.nuxtWindow?.isDestroyed() === false) {
+    ipcMain.once('observation-created', (event) => {
+      // This ensures that the events corresponding window always closes
+      const webContents = event.sender;
+      webContents.close();
+
+      // I think this can be removed
+      if (!this.nuxtWindow?.isDestroyed()) {
         this.nuxtWindow?.webContents.close();
       }
       if (this.overlayWindow?.isDestroyed() === false) {
