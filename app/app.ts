@@ -4,7 +4,7 @@ import { app, globalShortcut } from 'electron';
 // if OS supports it, app will quit if launched as second instance
 const obtainedLock = app.requestSingleInstanceLock();
 if (!obtainedLock) {
-  console.error('ManuScrape is already running. Will quit :/')
+  console.error('ManuScrape is already running. Will quit :/');
   app.quit();
 }
 
@@ -35,18 +35,18 @@ app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
 
 // seems like the best thing to do
 // NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
-  app.disableHardwareAcceleration();
+app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
-      app.quit()
+      app.quit();
     }
   });
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
-  })
+  });
 
   // ensure compiled python executable is available
   // NOTE: this is required for both development and production environments
@@ -69,6 +69,6 @@ app.whenReady().then(() => {
 });
 
 process.on('unhandledRejection', function (err) {
-   console.error(err);
-   process.exit(1);
+  console.error(err);
+  process.exit(1);
 });
