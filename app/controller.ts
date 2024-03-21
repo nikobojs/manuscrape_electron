@@ -178,12 +178,6 @@ export class ManuScrapeController {
   ) {
     // callback function when area is marked
     const onMarkedHandler = async (_event: IpcMainEvent, area: Square) => {
-      if (typeof this.apiHost !== 'string')
-        throw new Error('Something went terribly wrong');
-      if (typeof this.loginToken !== 'string')
-        throw new Error('Something went terribly wrong');
-      if (typeof this.activeProjectId !== 'number')
-        throw new Error('Something went terribly wrong');
       if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
         throw new Error('Overlay window does not exist');
 
@@ -240,14 +234,11 @@ export class ManuScrapeController {
             hideArea: true,
           });
 
-          // upload file on path
-          if (!this.apiHost)
-            throw new Error('Something very bad just happened... :(');
-          if (!this.loginToken)
-            throw new Error('Something very bad just happened... :(');
+          const { apiHost, loginToken } = this.checkPropertiesIsNotNull();
+
           await uploadVideoToObservation(
-            this.apiHost,
-            this.loginToken,
+            apiHost,
+            loginToken,
             observationId,
             projectId,
             path
@@ -304,15 +295,8 @@ export class ManuScrapeController {
 
     // define callback function
     const scrollshotHandler = async (event: IpcMainEvent, area: any) => {
-      const defaultMsg = 'Something went terribly wrong';
-      if (typeof this.apiHost !== 'string')
-        throw new Error(`${defaultMsg}: apiHost not properly defined`);
-      if (typeof this.loginToken !== 'string')
-        throw new Error(`${defaultMsg}: loginToken not properly defined`);
-      if (typeof this.activeProjectId !== 'number')
-        throw new Error(`${defaultMsg}: activeProjectId not properly defined`);
-      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
-        throw new Error('Overlay window does not exist');
+      const { activeProjectId, apiHost, loginToken } =
+        this.checkPropertiesIsNotNull();
 
       // define here so we can delete it after upload in the finally block
       let filePath: undefined | string;
@@ -326,9 +310,9 @@ export class ManuScrapeController {
       try {
         // first, create new observation draft, to obtain observation id
         const { id: obsId } = await addObservation(
-          this.apiHost,
-          this.loginToken,
-          this.activeProjectId
+          apiHost,
+          loginToken,
+          activeProjectId
         );
 
         // emit primary status text
@@ -368,11 +352,7 @@ export class ManuScrapeController {
         await this.openCreateObservationWindow(obsId, true);
 
         // upload the image
-        await this.uploadObservationImage(
-          obsId,
-          filePath,
-          this.activeProjectId
-        );
+        await this.uploadObservationImage(obsId, filePath, activeProjectId);
       } catch (e: any) {
         this.handleScreenshotError(e);
       } finally {
@@ -445,13 +425,9 @@ export class ManuScrapeController {
     hideArea = false
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
-      const defaultMsg = 'Something went terribly wrong';
-      if (typeof this.apiHost !== 'string')
-        throw new Error(`${defaultMsg}: apiHost not properly defined`);
-      if (typeof this.loginToken !== 'string')
-        throw new Error(`${defaultMsg}: loginToken not properly defined`);
-      if (typeof this.activeProjectId !== 'number')
-        throw new Error(`${defaultMsg}: activeProjectId not properly defined`);
+      const { apiHost, activeProjectId, loginToken } =
+        this.checkPropertiesIsNotNull();
+
       if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
         throw new Error('Overlay window does not exist');
 
@@ -476,9 +452,9 @@ export class ManuScrapeController {
       try {
         // first, create new observation draft, to obtain observation id
         const { id: obsId } = await addObservation(
-          this.apiHost,
-          this.loginToken,
-          this.activeProjectId
+          apiHost,
+          loginToken,
+          activeProjectId
         );
 
         // take scrollshot/screenshot ('callback' argument)
@@ -497,11 +473,7 @@ export class ManuScrapeController {
         await this.openCreateObservationWindow(obsId, true);
 
         // upload the image
-        await this.uploadObservationImage(
-          obsId,
-          filePath,
-          this.activeProjectId
-        );
+        await this.uploadObservationImage(obsId, filePath, activeProjectId);
       } catch (e: any) {
         this.handleScreenshotError(e);
       } finally {
@@ -515,19 +487,8 @@ export class ManuScrapeController {
   }
 
   public async openEmptyDraftWindow() {
-    // make typescript linters happy
-    // NOTE: none of these errors should ever happen
-    // TODO: report errors
-    if (!this.activeProjectId) {
-      console.error('no project id');
-      throw new Error('activeProjectId is not set');
-    } else if (!this.apiHost) {
-      console.error('no api host');
-      throw new Error('apiHost is not set');
-    } else if (!this.loginToken) {
-      console.error('no login token');
-      throw new Error('loginToken not attached to controller instance');
-    }
+    const { activeProjectId, apiHost, loginToken } =
+      this.checkPropertiesIsNotNull();
 
     // return early if user mistakenly opens one more window
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
@@ -536,11 +497,7 @@ export class ManuScrapeController {
     }
 
     // add empty observation and use returned id to modify observation
-    const res = await addObservation(
-      this.apiHost,
-      this.loginToken,
-      this.activeProjectId
-    );
+    const res = await addObservation(apiHost, loginToken, activeProjectId);
     const observationId = res.id;
 
     // open observation window without waiting for manual image upload
@@ -551,30 +508,7 @@ export class ManuScrapeController {
     observationId: number,
     automaticImageUpload: boolean
   ) {
-    // makes typescript linters happy
-    // NOTE: none of these errors should ever happen
-    // TODO: report errors
-    if (!this.activeProjectId) {
-      console.error('no project id');
-      throw new Error('activeProjectId is not set');
-    } else if (!this.apiHost) {
-      console.error('no api host');
-      throw new Error('apiHost is not set');
-    } else if (!this.loginToken) {
-      console.error('no login token');
-      throw new Error('loginToken not attached to controller instance');
-    }
-
-    // create add observation window using observation id
-    const win = createAddObservationWindow(
-      this.apiHost,
-      this.activeProjectId,
-      observationId,
-      () => this.onExternalWindowClose(),
-      undefined,
-      automaticImageUpload,
-      true
-    );
+    const { activeProjectId, apiHost } = this.checkPropertiesIsNotNull();
 
     ipcMain.on(
       'begin-video-capture',
@@ -584,8 +518,13 @@ export class ManuScrapeController {
     );
 
     // add observation-created listener
-    ipcMain.once('observation-created', (res) => {
-      if (this.nuxtWindow?.isDestroyed() === false) {
+    ipcMain.once('observation-created', (event) => {
+      // This ensures that the window of the event closes
+      const webContents = event.sender;
+      webContents.close();
+
+      // I think this can be safely removed
+      if (!this.nuxtWindow?.isDestroyed()) {
         this.nuxtWindow?.webContents.close();
       }
       if (this.overlayWindow?.isDestroyed() === false) {
@@ -598,6 +537,23 @@ export class ManuScrapeController {
         icon: successIcon,
       }).show();
     });
+
+    const onWindowClose = () => {
+      ipcMain.removeAllListeners('begin-video-capture');
+      ipcMain.removeAllListeners('observation-created');
+      this.syncAuthStateAndMenu();
+    };
+
+    // create add observation window using observation id
+    const win = createAddObservationWindow(
+      apiHost,
+      activeProjectId,
+      observationId,
+      onWindowClose,
+      undefined,
+      automaticImageUpload,
+      true
+    );
 
     // safe window in instance state
     this.nuxtWindow = win;
@@ -697,8 +653,6 @@ export class ManuScrapeController {
   public cancelNuxtWindow() {
     if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
       ipcMain.removeAllListeners('area-marked');
-      ipcMain.removeAllListeners('observation-created');
-      ipcMain.removeAllListeners('project-created');
       this.onMarkAreaDone();
       this.nuxtWindow.webContents.close();
     }
@@ -954,10 +908,7 @@ export class ManuScrapeController {
   }
 
   public openSettingsWindow() {
-    if (!this.apiHost) {
-      throw new Error('Api host is not defined');
-      // TODO: report error
-    }
+    const { apiHost } = this.checkPropertiesIsNotNull();
 
     // navigate automatically if window is open
     if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
@@ -966,7 +917,7 @@ export class ManuScrapeController {
     } else {
       // create new sign in window
       this.settingsWindow = createSettingsWindow(
-        this.apiHost,
+        apiHost,
         () => this.getSettings(),
         (event, patch) => this.updateSettingsHandler(event, patch)
       );
@@ -976,9 +927,7 @@ export class ManuScrapeController {
   // opens webapp (hopefully authorized always!)
   // TODO: refactor
   public async openCreateProjectWindow(): Promise<void> {
-    if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window');
-    }
+    const { apiHost } = this.checkPropertiesIsNotNull();
 
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
@@ -986,39 +935,36 @@ export class ManuScrapeController {
     }
 
     // TODO: when project is created, client should send project id to this func
-    // through IPC. this will allow the newly created project to be choosed automatically,
-    // without string matching project names
+    // through IPC. this will allow the newly created project to be chosen automatically
     ipcMain.once('project-created', async () => {
       if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
         this.nuxtWindow.webContents.close();
+
         new Notification({
           title: 'ManuScrape',
           body: 'Project created successfully',
           icon: successIcon,
         }).show();
-        if (!this.apiHost || !this.loginToken) {
-          throw new Error('Api host or login token is missing');
-        }
-        await this.refreshUser(this.apiHost, this.loginToken);
+
+        const { apiHost, loginToken } = this.checkPropertiesIsNotNull();
+        await this.refreshUser(apiHost, loginToken);
+
         this.refreshContextMenu();
       }
     });
 
-    const win = createAddProjectWindow(this.apiHost, () =>
-      this.onExternalWindowClose()
-    );
+    const onWindowClose = () => {
+      this.syncAuthStateAndMenu();
+      ipcMain.removeAllListeners('project-created');
+    };
+
+    const win = createAddProjectWindow(apiHost, onWindowClose);
     this.nuxtWindow = win;
   }
 
   // opens observation drafts window
   public async openObservationDraftsWindow(): Promise<void> {
-    if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window');
-    } else if (!this.activeProjectId) {
-      throw new Error(
-        'Project id not set when opening external browser window'
-      );
-    }
+    const { apiHost, activeProjectId } = this.checkPropertiesIsNotNull();
 
     // support video capture (if navigating from draft list into draft details)
     ipcMain.on(
@@ -1034,41 +980,14 @@ export class ManuScrapeController {
       return;
     }
 
-    // open drafts window
-    const win = createDraftsWindow(this.apiHost, this.activeProjectId, () => {
-      this.onExternalWindowClose();
+    const onWindowClose = () => {
+      this.syncAuthStateAndMenu();
       ipcMain.removeAllListeners('begin-video-capture');
-    });
-    this.nuxtWindow = win;
-  }
+    };
 
-  // reset hardcoded global shortcuts
-  private refreshShortcuts(): void {
-    globalShortcut.unregisterAll();
-    globalShortcut.register('Alt+Q', () => {
-      console.info('caught exit shortcut. will exit now');
-      this.app.exit(0);
-    });
-    globalShortcut.register('Alt+N', async () => {
-      const confirmed = await this.confirmCloseNuxtWindowIfAny();
-      if (!confirmed) {
-        return;
-      }
-      if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.webContents.close();
-      }
-      return this.createQuickScreenshot();
-    });
-    globalShortcut.register('Alt+S', async () => {
-      const confirmed = await this.confirmCloseNuxtWindowIfAny();
-      if (!confirmed) {
-        return;
-      }
-      if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.webContents.close();
-      }
-      return this.createScrollScreenshot();
-    });
+    // open drafts window
+    const win = createDraftsWindow(apiHost, activeProjectId, onWindowClose);
+    this.nuxtWindow = win;
   }
 
   // overwrites area-marked listener if it is already defined
@@ -1083,20 +1002,15 @@ export class ManuScrapeController {
     ipcMain.addListener('area-marked', listener);
   }
 
-  // ensure auth state and contextmenu is ok and synced when nuxt window closes
-  private async onExternalWindowClose() {
-    if (!this.apiHost) {
-      throw new Error('Api host not set when opening external browser window');
-    }
-    const invalidationCookie = await getInvalidationCookie(this.apiHost);
-
-    ipcMain.removeAllListeners('begin-video-capture');
+  private async syncAuthStateAndMenu() {
+    const { apiHost, loginToken } = this.checkPropertiesIsNotNull();
+    const invalidationCookie = await getInvalidationCookie(apiHost);
 
     if (invalidationCookie) {
       console.info('caught signed out in browser window');
       await this.resetAuth();
-    } else if (this.isLoggedIn() && this.loginToken) {
-      await this.refreshUser(this.apiHost, this.loginToken);
+    } else if (this.isLoggedIn() && loginToken) {
+      await this.refreshUser(apiHost, loginToken);
       this.refreshContextMenu();
       this.refreshShortcuts();
     }
@@ -1112,4 +1026,56 @@ export class ManuScrapeController {
     this.contextMenu = generateContextMenu(this, this.user);
     this.tray.setContextMenu(this.contextMenu);
   }
+
+  // reset hardcoded global shortcuts
+  private refreshShortcuts(): void {
+    globalShortcut.unregisterAll();
+    globalShortcut.register('Alt+Q', () => {
+      console.info('caught exit shortcut. will exit now');
+      this.app.exit(0);
+    });
+
+    globalShortcut.register('Alt+N', async () => {
+      const confirmed = await this.confirmCloseNuxtWindowIfAny();
+      if (!confirmed) {
+        return;
+      }
+      if (!this.overlayWindow?.isDestroyed?.()) {
+        this.overlayWindow?.webContents.close();
+      }
+      return this.createQuickScreenshot();
+    });
+
+    globalShortcut.register('Alt+S', async () => {
+      const confirmed = await this.confirmCloseNuxtWindowIfAny();
+      if (!confirmed) {
+        return;
+      }
+      if (!this.overlayWindow?.isDestroyed?.()) {
+        this.overlayWindow?.webContents.close();
+      }
+      return this.createScrollScreenshot();
+    });
+  }
+
+  private checkPropertiesIsNotNull = () => {
+    if (!this.activeProjectId) {
+      console.error('No active project id');
+      throw new Error('activeProjectId is not set');
+    }
+    if (!this.apiHost) {
+      console.error('No api host');
+      throw new Error('apiHost is not set');
+    }
+    if (!this.loginToken) {
+      console.error('No login token');
+      throw new Error('loginToken not attached to controller instance');
+    }
+
+    return {
+      activeProjectId: this.activeProjectId,
+      apiHost: this.apiHost,
+      loginToken: this.loginToken,
+    };
+  };
 }

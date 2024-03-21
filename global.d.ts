@@ -1,12 +1,17 @@
-import { IpcRendererEvent } from "electron";
+import { IpcRendererEvent } from 'electron';
 
 export interface IElectronAPI {
-  areaMarked(rect: { x: number; y: number; width: number; height: number; }): unknown;
+  areaMarked(rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): unknown;
 }
 
 declare global {
   interface Window {
-    electronAPI: IElectronAPI
+    electronAPI: IElectronAPI;
   }
 
   interface IScreenshot {
@@ -44,7 +49,6 @@ declare global {
     scrollshot: ScrollshotSettings;
   }
 
-
   interface IUser {
     id: number;
     email: string;
@@ -80,11 +84,17 @@ declare global {
 
   type SignInCallback = (event: IpcRendererEvent, ...args: any[]) => void;
   type SignUpCallback = (event: IpcRendererEvent, ...args: any[]) => void;
-  type UpdateSettingsCallback = (event: IpcRendererEvent, ...args: any[]) => void;
+  type UpdateSettingsCallback = (
+    event: IpcRendererEvent,
+    ...args: any[]
+  ) => void;
   type HostValueCallback = (event: IpcRendererEvent, ...args: any[]) => void;
-  type ImageUploadedCallback = (event: IpcRendererEvent, ...args: any[]) => void;
+  type ImageUploadedCallback = (
+    event: IpcRendererEvent,
+    ...args: any[]
+  ) => void;
   type MarkAreaStatusCallback = (
     event: IpcRendererEvent,
-    status: {statusText: string; statusDescription: string}
+    status: { statusText: string; statusDescription: string }
   ) => void;
 }
