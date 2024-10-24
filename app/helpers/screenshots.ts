@@ -8,7 +8,6 @@ import {
 import path from 'path';
 import { sleepAsync } from './utils';
 import { joinImagesVertically } from './pythonBridge';
-import { cropVideoFile } from './ffmpegBridge';
 import { errorIcon } from './icons';
 import { blockhashData, hammingDistance } from './blockhash-js';
 import jpeg from 'jpeg-js';
@@ -70,7 +69,6 @@ async function captureScreenshot(
     thumbnailSize: fullsize,
     fetchWindowIcons: false,
   });
-  // register in shortcuts: videoStream.stop()
   const displaySource = findCapturerSourceByDisplay(
     sources,
     activeScreen,
@@ -91,56 +89,6 @@ function getTempPath(): string {
     fs.mkdirSync(fullPath);
   }
   return fullPath;
-}
-
-export async function saveAndCropVideo(
-  video: ArrayBuffer,
-  display: Electron.Display,
-  allDisplays: Electron.Display[],
-  area: Square
-): Promise<string> {
-  const path =
-    getTempPath() +
-    '/capture_' +
-    new Date().toISOString().replace(/\:/g, '') +
-    '.temp.webm';
-  const resultPath =
-    getTempPath() +
-    '/capture_' +
-    new Date().toISOString().replace(/\:/g, '') +
-    '.webm';
-  const displayIsRight = primaryDisplayIsRight(allDisplays);
-
-  // save raw video (containing lots of stuff)
-  fs.writeFileSync(path, Buffer.from(video));
-
-  // crop file
-  ipcMain.removeAllListeners('video-capture-done');
-  console.log(
-    'incorporating display bounds in area value. Original area:',
-    area
-  );
-
-  // Handles x bounds for multi monitor setups.
-  //
-  // NOTE: as full recording captures one video with all screens, we are only interested
-  // in adjusting the horizontal crop position
-  if (!displayIsRight && allDisplays.length > 1) {
-    area.x = display.workArea.x + area.x;
-    area.y = display.workArea.y + area.y;
-  } else if (displayIsRight && allDisplays.length > 1) {
-    const leftScreen = allDisplays.find(
-      (d) => d.id !== display.id && d.bounds.x < display.bounds.x
-    );
-    if (leftScreen) {
-      const leftScreenWidth = leftScreen?.bounds.width;
-      area.x += leftScreenWidth;
-    }
-  }
-
-  await cropVideoFile(path, resultPath, area);
-
-  return resultPath;
 }
 
 export async function saveScreenshot(

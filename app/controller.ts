@@ -12,7 +12,6 @@ import {
 import path from 'path';
 import {
   quickScreenshot,
-  saveAndCropVideo,
   captureScrollshot,
   processScrollshot,
 } from './helpers/screenshots';
@@ -33,7 +32,6 @@ import {
   signUp,
   parseHostUrl,
   uploadObservationImage,
-  uploadVideoToObservation,
 } from './helpers/api';
 import { warnIfScreenIsNotAccessible, yesOrNo } from './helpers/utils';
 import {
@@ -168,103 +166,6 @@ export class ManuScrapeController {
   public chooseProject(id: number) {
     this.activeProjectId = id;
     this.refreshContextMenu();
-  }
-
-  // create video capture and upload automatically
-  private async createVideoCapture(
-    event: IpcMainEvent,
-    projectId: number, // TODO: remove this param (use this.activeProject)
-    observationId: number
-  ) {
-    // callback function when area is marked
-    const onMarkedHandler = async (_event: IpcMainEvent, area: Square) => {
-      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
-        throw new Error('Overlay window does not exist');
-
-      // make mouse events "go through" this current window (always-on-top)
-      this.overlayWindow?.setIgnoreMouseEvents?.(true);
-
-      // call the cleanup and refresh context function
-      this.onMarkAreaDone();
-
-      if (!this.nuxtWindow) {
-        // TODO: report error
-        throw new Error('Nuxt window is not defined');
-      }
-
-      globalShortcut.unregister('Alt+S');
-      globalShortcut.register('Alt+S', () => {
-        this.nuxtWindow?.webContents.send('stop-video-capture');
-      });
-
-      const fullWidth = this.allDisplays.reduce(
-        (sum, cur) => sum + cur.size.width,
-        0
-      );
-      const fullHeight = this.allDisplays.reduce(
-        (sum, cur) => sum + cur.size.height,
-        0
-      );
-      event.reply('video-capture', fullWidth, fullHeight);
-
-      this.overlayWindow?.webContents.send('mark-area-status', {
-        statusText: 'Recording...',
-        statusDescription: 'Alt+S:  Stop recording',
-        hideArea: false,
-      });
-
-      ipcMain.once('video-capture-done', async (event, video: ArrayBuffer) => {
-        this.overlayWindow?.webContents.send('mark-area-status', {
-          statusText: 'Processing video...',
-          statusDescription: '',
-          hideArea: true,
-        });
-
-        try {
-          // save and crop video
-          const path = await saveAndCropVideo(
-            video,
-            this.getActiveDisplay(),
-            this.allDisplays,
-            area
-          );
-          this.overlayWindow?.webContents.send('mark-area-status', {
-            statusText: 'Uploading video...',
-            statusDescription: '',
-            hideArea: true,
-          });
-
-          const apiHost = this.requireApiHost();
-          const loginToken = this.requireLoginToken();
-
-          await uploadVideoToObservation(
-            apiHost,
-            loginToken,
-            observationId,
-            projectId,
-            path
-          );
-          fs.unlinkSync(path);
-          this.nuxtWindow?.webContents.send('refresh-uploaded-files');
-          this.nuxtWindow?.restore();
-        } catch (err: any) {
-          // TODO: report error
-          console.error(err);
-          new Notification({
-            title: 'Failed to capture, save or upload video :(',
-            icon: errorIcon,
-          }).show();
-        } finally {
-          this.cancelOverlay();
-        }
-      });
-    };
-
-    this.nuxtWindow?.minimize();
-    this.setOnAreaMarkedListener(onMarkedHandler);
-
-    // now once listeners are attached, open mark area overlay
-    this.openMarkAreaOverlay();
   }
 
   // create new quick screenshot
@@ -515,13 +416,6 @@ export class ManuScrapeController {
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
 
-    ipcMain.on(
-      'begin-video-capture',
-      async (event: IpcMainEvent, projectId: number, observationId: number) => {
-        await this.createVideoCapture(event, projectId, observationId);
-      }
-    );
-
     // add observation-created listener
     ipcMain.once('observation-created', (event) => {
       // This ensures that the window of the event closes
@@ -544,7 +438,6 @@ export class ManuScrapeController {
     });
 
     const onWindowClose = () => {
-      ipcMain.removeAllListeners('begin-video-capture');
       ipcMain.removeAllListeners('observation-created');
       this.syncAuthStateAndMenu();
     };
@@ -979,14 +872,6 @@ export class ManuScrapeController {
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
 
-    // support video capture (if navigating from draft list into draft details)
-    ipcMain.on(
-      'begin-video-capture',
-      async (event: IpcMainEvent, projectId: number, observationId: number) => {
-        await this.createVideoCapture(event, projectId, observationId);
-      }
-    );
-
     // close nuxt window if existing
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
@@ -995,7 +880,6 @@ export class ManuScrapeController {
 
     const onWindowClose = () => {
       this.syncAuthStateAndMenu();
-      ipcMain.removeAllListeners('begin-video-capture');
     };
 
     // open drafts window
