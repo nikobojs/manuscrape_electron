@@ -13,11 +13,11 @@ The algorithm is divided into three sections:
 - Image matching
 - Image joining
 
-### Image preprocessing
+#### Image preprocessing
 
 In the image preprocessing step we load images and identify what parts of the image are part of the frame of the images, and what parts are the actual content of the images. After this boundary is identified, we crop the images to only contain the content.
 
-### Image matching
+#### Image matching
 
 The first part of image matching is determining whether the user has scrolled up or down when recording images. This is done by comparing the first image to the second image. If the first image is higher than the second image, the user has scrolled up. If the first image is lower than the second image, the user has scrolled down. If the images are the same height, the user has not scrolled.
 
@@ -27,17 +27,28 @@ When the scroll direction has been determined, we can match each image with the 
 
 Once image matching has concluded we know the indices of where each image should be stiched together. The joining is performed by creating a new empty image and inserting each image in its appropriate location. Finally the sides that were cropped in the beginning are added back to the new image.
 
-## Installation
+## Virtual environment (venv)
 
-The following snippets creates a virtual environment and installs the appropriate packages, after which the code can be compiled, and later bundled into the electron application.
+The following bash commands creates a virtual environment for the python utility we want to embed inside the Electron application. 
 
+#### Change directory to python dir:
 ```cd manuscrape_electron/python```
-
+  
+#### Create virtual python environment:
 ```python3 -m venv env```
 
-```source env/bin/activate```
+#### Activate environment
+- Bash: `source env/bin/activate`
+- Windows cmd: `env\\Scripts\\activate`
+
+## Install PyPi dependencies
 
 ```pip3 install -r requirements.txt```
+
+## Compilation
+The command utility `pyinstaller` should work cross platform.
+
+```pyinstaller -F --distpath ./dist -n chatjoiner src/main.py```
 
 ## Usage
 
