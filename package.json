@@ -15,15 +15,15 @@
     "delete-venv": "rm -rf python/env && (cd python && python3 -m venv env)",
     "pyfreeze": "cd python && . env/bin/activate && pyinstaller -F --distpath ./dist -n chatjoiner src/main.py && deactivate",
     "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./dist -n chatjoiner python\\src\\main.py && deactivate",
-    "build-tailwindcss": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
+    "build-tailwind": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
   },
   "author": "Københavns Universitet",
   "license": "MIT",
   "devDependencies": {
     "@electron-forge/cli": "7.6.0",
+    "@electron-forge/maker-dmg": "7.6.0",
     "@electron-forge/maker-rpm": "7.6.0",
     "@electron-forge/maker-squirrel": "7.6.0",
-    "@electron-forge/maker-dmg": "7.6.0",
     "@electron-forge/plugin-auto-unpack-natives": "7.6.0",
     "@types/cookie": "0.6.0",
     "@types/p5": "1.7.6",
