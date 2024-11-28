@@ -65,7 +65,11 @@ app.whenReady().then(() => {
   const encryptionSupport = warnIfEncryptionUnavailable();
 
   // initialize controller object
-  controller = new ManuScrapeController(trayWindow, encryptionSupport);
+  controller = new ManuScrapeController(
+    trayWindow,
+    encryptionSupport,
+    app.getVersion()
+  );
 });
 
 process.on('unhandledRejection', function (err) {

@@ -1,10 +1,16 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, app } from 'electron';
 // console.log('version:', process.env.npm_package_version) (THIS WORKS)
 
 contextBridge.exposeInMainWorld('electronAPI', {
   node: () => process.versions.node,
   chrome: () => process.versions.chrome,
   electron: () => process.versions.electron,
+  version: (callback: VersionCallback) => {
+    ipcRenderer.once('get-version-response', (event, version) => {
+      callback(version);
+    });
+    ipcRenderer.send('get-version-request');
+  },
   projectCreated: (project: any) => {
     ipcRenderer.send('project-created', project);
   },

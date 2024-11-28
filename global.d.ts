@@ -89,6 +89,7 @@ declare global {
     ...args: any[]
   ) => void;
   type HostValueCallback = (event: IpcRendererEvent, ...args: any[]) => void;
+  type VersionCallback = (version: string) => void;
   type ImageUploadedCallback = (
     event: IpcRendererEvent,
     ...args: any[]

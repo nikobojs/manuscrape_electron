@@ -60,6 +60,7 @@ export class ManuScrapeController {
   public allDisplays: Array<Electron.Display>;
   public activeProjectId: number | undefined;
   public activeDisplayIndex: number;
+  public version: string;
 
   private app: Electron.App;
   private trayWindow: Electron.BrowserWindow | undefined;
@@ -82,7 +83,11 @@ export class ManuScrapeController {
   private cancelOperation: boolean;
   private settings: ISettings;
 
-  constructor(trayWindow: BrowserWindow, useEncryption: boolean) {
+  constructor(
+    trayWindow: BrowserWindow,
+    useEncryption: boolean,
+    version: string
+  ) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
     this.activeDisplayIndex = 0;
@@ -93,6 +98,13 @@ export class ManuScrapeController {
     this.settingsPath = path.join(app.getPath('userData'), 'settings.txt.enc');
     this.useEncryption = useEncryption;
     this.settings = initializeSettings(this.settingsPath);
+    this.version = version;
+
+    console.info(`Initializing ManuScrape Client v${version}...\n`);
+
+    ipcMain.on('get-version-request', (event) => {
+      event.reply('get-version-response', this.version);
+    });
 
     trayWindow.on('ready-to-show', () => {
       // setup tray app
