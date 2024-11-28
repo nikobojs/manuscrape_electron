@@ -81,7 +81,7 @@ module.exports = {
     ) => {
       console.log('Copying files is done! Current dirname is:\n', __dirname);
       console.log({ platform, arch, buildPath, electronVersion });
-      console.log(JSON.stringify(config, null, 4));
+      console.log('\nUsed following config:', JSON.stringify(config, null, 4));
     },
   },
 };

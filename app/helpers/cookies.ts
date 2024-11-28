@@ -11,6 +11,7 @@ export function parseAuthCookie(
   if (!cookieVal) {
     throw new Error("The response headers does not include 'Set-Cookie'");
   }
+
   const parsed = cookie.parse(cookieVal);
   const expires = parsed['Expires'];
   if (!expires) {
@@ -21,6 +22,7 @@ export function parseAuthCookie(
   if (isNaN(expireDate.getTime())) {
     throw new Error('The cookie has invalid `Expires` value');
   }
+
   const hostUrl = new URL(host);
   const newCookie: CookiesSetDetails = {
     value: parsed.authcookie,
