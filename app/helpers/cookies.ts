@@ -3,31 +3,44 @@ import * as cookie from 'cookie';
 import { renewCookie } from './api';
 
 // read auth cookie from response object and throw if its bad
-export function parseAuthCookie(host: string, res: Response): CookiesSetDetails {
+export function parseAuthCookie(
+  host: string,
+  res: Response
+): CookiesSetDetails {
   const cookieVal = res.headers.get('Set-Cookie');
   if (!cookieVal) {
-    throw new Error('The response headers does not include \'Set-Cookie\'');
+    throw new Error("The response headers does not include 'Set-Cookie'");
   }
   const parsed = cookie.parse(cookieVal);
+  const expires = parsed['Expires'];
+  if (!expires) {
+    console.log(parsed);
+    throw new Error('The cookie has no field with name `Expires`');
+  }
+  const expireDate = new Date(expires);
+  if (isNaN(expireDate.getTime())) {
+    throw new Error('The cookie has invalid `Expires` value');
+  }
   const hostUrl = new URL(host);
   const newCookie: CookiesSetDetails = {
     value: parsed.authcookie,
-    expirationDate: new Date(parsed.Expires).getTime(),
+    expirationDate: expireDate.getTime(),
     path: '/',
-    sameSite: 'strict' as "strict" | "unspecified" | "no_restriction" | "lax",
+    sameSite: 'strict' as 'strict' | 'unspecified' | 'no_restriction' | 'lax',
     url: host,
     name: 'authcookie',
     httpOnly: true,
     secure: false, // TODO,
-    domain: hostUrl.hostname
+    domain: hostUrl.hostname,
   };
   return newCookie;
 }
 
-
 // Some small cookie helpers
 export async function readAuthCookies(): Promise<Electron.Cookie[]> {
-  const cookies = await session.defaultSession.cookies.get({ name: 'authcookie' })
+  const cookies = await session.defaultSession.cookies.get({
+    name: 'authcookie',
+  });
   return cookies;
 }
 export async function authCookieExists(): Promise<boolean> {
@@ -38,12 +51,17 @@ export async function removeAuthCookies(): Promise<void> {
   const cookiesExist = await authCookieExists();
   if (cookiesExist) {
     const opts: Electron.ClearStorageDataOptions = {
-      storages: ['cookies', 'localstorage', 'indexdb', 'websql', 'serviceworkers'],
+      storages: [
+        'cookies',
+        'localstorage',
+        'indexdb',
+        'websql',
+        'serviceworkers',
+      ],
     };
-    await session.defaultSession.clearStorageData(opts)
+    await session.defaultSession.clearStorageData(opts);
   }
 }
-
 
 // async function that returns token from first auth cookie
 // and throws if none found
@@ -53,31 +71,33 @@ export async function readTokenFromCookie(): Promise<string> {
     const val = cookies[0].value;
     return val;
   } else {
-    throw new Error('Cannot read cookie when it is not defined')
+    throw new Error('Cannot read cookie when it is not defined');
   }
 }
-
 
 // renew cookie from host and token
 // - calls endpoint that returns a cookie based on a token
 // - sets session cookie and saves it on client machine
-export async function renewCookieFromToken(host: string, token: string): Promise<void> {
+export async function renewCookieFromToken(
+  host: string,
+  token: string
+): Promise<void> {
   const res = await renewCookie(host, token);
   const newCookie = parseAuthCookie(host, res);
   session.defaultSession.cookies.set(newCookie);
 }
 
-
 // find and return invalidation cookies saved in session if any
 export async function getInvalidationCookie(
   host: string
 ): Promise<Cookie | undefined> {
-    const hostUrl = new URL(host);
-    const cookies = await readAuthCookies();
-    const invalidationCookie = cookies.find((cookie) => 
+  const hostUrl = new URL(host);
+  const cookies = await readAuthCookies();
+  const invalidationCookie = cookies.find(
+    (cookie) =>
       cookie.domain == hostUrl.hostname &&
       cookie.name === 'authcookie' &&
       cookie.value === ''
-    );
-    return invalidationCookie;
+  );
+  return invalidationCookie;
 }
