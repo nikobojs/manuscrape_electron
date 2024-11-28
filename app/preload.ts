@@ -64,4 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('mark-area-status');
     ipcRenderer.on('mark-area-status', callback);
   },
+  onDeprecatedClientError: (callback: DeprecatedClientErrorCallback) => {
+    ipcRenderer.removeAllListeners('client-is-deprecated');
+    ipcRenderer.on('client-is-deprecated', callback);
+  },
 });

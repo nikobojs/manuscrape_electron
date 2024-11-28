@@ -32,6 +32,7 @@ import {
   signUp,
   parseHostUrl,
   uploadObservationImage,
+  isClientDeprecationError,
 } from './helpers/api';
 import { warnIfScreenIsNotAccessible, yesOrNo } from './helpers/utils';
 import {
@@ -683,6 +684,9 @@ export class ManuScrapeController {
 
       // return `error` to client, so error can be rendered
     } catch (err: any) {
+      if (isClientDeprecationError(err)) {
+        event.reply('client-is-deprecated', err?.message);
+      }
       return event.reply('sign-in-error', err?.message || 'Unknown error'); // TODO: use enum
     }
 

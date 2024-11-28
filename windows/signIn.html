@@ -66,6 +66,16 @@
                 >Sign in</button>
                 <span class="text-red-600 text-sm block" id="error-message">&nbsp;</span>
             </div>
+
+            <div class="hidden" id="client-deprecation-error">
+              <a
+                class="underline text-sky-600 text-sm block mt-3"
+                target="_blank"
+                href="https://github.com/nikobojs/manuscrape_electron/releases/latest"
+              >
+                Download the newest version
+              </a>
+            </div>
         </form>
     </div>
 
@@ -75,6 +85,11 @@
             if (host) {
                 document.querySelector('#input-host').value = host;
             }
+        });
+
+        window.electronAPI.onDeprecatedClientError(() => {
+          const elem = document.querySelector('#client-deprecation-error');
+          elem.classList.remove('hidden');
         });
 
         function login(event) {

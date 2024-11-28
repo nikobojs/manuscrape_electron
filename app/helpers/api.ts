@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { app } from 'electron';
 
 type ReqBodyVal =
   | string
@@ -8,6 +9,11 @@ type ReqBodyVal =
   | { [key: string]: ReqBodyVal }
   | ReqBodyVal[];
 type ReqBody = { [key: string]: ReqBodyVal };
+const USER_AGENT = `ManuScrape/${app.getVersion()}`;
+
+export function isClientDeprecationError(err: Error): boolean {
+  return err?.message?.includes('is too old');
+}
 
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
 // NOTE: there is no runtime validation against the generic type
@@ -26,6 +32,7 @@ async function req<T>(
       method,
       headers: {
         Accept: 'application/json',
+        'User-Agent': USER_AGENT,
       },
       credentials: 'include',
     };
@@ -106,7 +113,7 @@ async function req<T>(
     }
 
     // TODO: catch json parse errors
-    console.error('req() UNCAUGHT ERROR:', {
+    console.error('req() error:', {
       path,
       method,
       body,
@@ -162,6 +169,7 @@ export async function uploadObservationImage(
         body: form,
         headers: {
           Authentication: token,
+          'User-Agent': USER_AGENT,
         },
       }
     );
