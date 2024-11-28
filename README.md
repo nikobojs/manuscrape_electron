@@ -50,7 +50,7 @@ The _project manager_ can export the entire project into to different formats, i
 
 ## Installation on Windows
 
-Before you start installing, you need to decide where you want to put your data. As of now, you can temporarily use [manuscrape.org](https://manuscrape.org) for free, which is also the default option in the signup flow.
+Before you start installing, you need to decide where you want to put your data. As of now, you can temporarily use [app.manuscrape.org](https://app.manuscrape.org) for free, which is also the default option in the signup flow.
 
 You can download a compiled windows installer, that will either install or update ManuScrape to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
 <br />

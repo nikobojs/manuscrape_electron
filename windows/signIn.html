@@ -52,7 +52,7 @@
                     <input
                         class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
                         id="input-host"
-                        placeholder="manuscrape.org"
+                        placeholder="app.manuscrape.org"
                         type="text"
                     />
                 </div>
@@ -100,7 +100,7 @@
             document.querySelector('#input-submit').value = 'Signing in...'
             const email = document.querySelector('#input-email').value;
             const password = document.querySelector('#input-password').value;
-            const host = document.querySelector('#input-host').value || 'https://manuscrape.org';
+            const host = document.querySelector('#input-host').value || 'https://app.manuscrape.org';
 
             window.electronAPI.signIn({ email, password, host }, () => {
                 window.close();
