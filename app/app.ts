@@ -1,4 +1,4 @@
-import { app, globalShortcut } from 'electron';
+import { app, globalShortcut, dialog } from 'electron';
 
 // ask OS for a "single instance lock"
 // if OS supports it, app will quit if launched as second instance
@@ -10,14 +10,21 @@ if (!obtainedLock) {
 
 // https://github.com/electron/windows-installer
 const squirrelEvent = process.argv[1];
-const isSquirrel = squirrelEvent && squirrelEvent.indexOf('--squirrel') != -1;
+const isSquirrel =
+  require('electron-squirrel-startup') ||
+  (squirrelEvent && squirrelEvent.indexOf('--squirrel') != -1);
 
-// run this as early in the main process as possible
+// TODO: remove if update/installer handling experiment goes well...
 // https://www.electronforge.io/config/makers/squirrel.windows
-if (require('electron-squirrel-startup') || isSquirrel) {
-  console.debug('closing app because of squirrel event:', squirrelEvent);
-  app.quit();
-}
+// if (require('electron-squirrel-startup') || isSquirrel) {
+//   console.debug('closing app because of squirrel event:', squirrelEvent);
+//   console.log('argv: ', process.argv);
+//   dialog.showMessageBox({
+//     title: 'Squirrel event detected :-)',
+//     message: JSON.stringify({ squirrelEvent, argv: process.argv }),
+//   });
+//   app.quit();
+// }
 
 import { ManuScrapeController } from './controller';
 import { ensurePythonAvail } from './helpers/pythonBridge';
@@ -27,17 +34,31 @@ import { ensureFfmpegAvail } from './helpers/ffmpegBridge';
 
 let controller: ManuScrapeController | undefined;
 
-// force dark mode in chrome
-app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+if (!isSquirrel) {
+  // force dark mode in chrome
+  app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
-// enable screen capturing using navigator.mediaDevices.getUserMedia
-app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
+  // enable screen capturing using navigator.mediaDevices.getUserMedia
+  app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
 
-// seems like the best thing to do
-// NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
-app.disableHardwareAcceleration();
+  // seems like the best thing to do
+  // NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
+  app.disableHardwareAcceleration();
+}
 
 app.whenReady().then(() => {
+  // run this as early in the main process as possible
+  // https://www.electronforge.io/config/makers/squirrel.windows
+  if (isSquirrel) {
+    console.log('argv: ', process.argv);
+    const res = dialog.showMessageBoxSync({
+      title: 'Squirrel event detected :-)',
+      message: JSON.stringify({ squirrelEvent, argv: process.argv }),
+    });
+    app.quit();
+    return;
+  }
+
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') {
       app.quit();
