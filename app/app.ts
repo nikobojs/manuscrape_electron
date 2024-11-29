@@ -8,33 +8,23 @@ if (!obtainedLock) {
   app.quit();
 }
 
-// https://github.com/electron/windows-installer
-const squirrelEvent = process.argv[1];
-const isSquirrel =
-  require('electron-squirrel-startup') ||
-  (squirrelEvent && squirrelEvent.indexOf('--squirrel') != -1);
-
-// TODO: remove if update/installer handling experiment goes well...
-// https://www.electronforge.io/config/makers/squirrel.windows
-// if (require('electron-squirrel-startup') || isSquirrel) {
-//   console.debug('closing app because of squirrel event:', squirrelEvent);
-//   console.log('argv: ', process.argv);
-//   dialog.showMessageBox({
-//     title: 'Squirrel event detected :-)',
-//     message: JSON.stringify({ squirrelEvent, argv: process.argv }),
-//   });
-//   app.quit();
-// }
-
 import { ManuScrapeController } from './controller';
 import { ensurePythonAvail } from './helpers/pythonBridge';
 import { createTrayWindow } from './helpers/browserWindows';
-import { warnIfEncryptionUnavailable } from './helpers/utils';
+import {
+  parseSquirrelArgs,
+  warnIfEncryptionUnavailable,
+} from './helpers/utils';
 import { ensureFfmpegAvail } from './helpers/ffmpegBridge';
+
+// https://github.com/electron/windows-installer
+// https://www.electronforge.io/config/makers/squirrel.windows
+// `squirrelEvent` will be defined if squirrel args could be detected and parsed
+const squirrelEvent = parseSquirrelArgs(process.argv);
 
 let controller: ManuScrapeController | undefined;
 
-if (!isSquirrel) {
+if (!squirrelEvent) {
   // force dark mode in chrome
   app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
 
@@ -46,17 +36,38 @@ if (!isSquirrel) {
   app.disableHardwareAcceleration();
 }
 
+const appName = `ManuScrape v${app.getVersion()}`;
+
 app.whenReady().then(() => {
-  // run this as early in the main process as possible
+  // add dialogs when install/update/uninstall
+  // TODO: test on windows
   // https://www.electronforge.io/config/makers/squirrel.windows
-  if (isSquirrel) {
-    console.log('argv: ', process.argv);
-    const res = dialog.showMessageBoxSync({
-      title: 'Squirrel event detected :-)',
-      message: JSON.stringify({ squirrelEvent, argv: process.argv }),
-    });
-    app.quit();
-    return;
+  if (squirrelEvent) {
+    if (squirrelEvent === 'install') {
+      dialog.showMessageBoxSync({
+        title: 'Install/update status',
+        message: `${appName} was successfully updated/installed`,
+      });
+      app.quit();
+      return;
+    } else if (squirrelEvent === 'firstrun') {
+      // experiment to let this run
+      // TODO: revise on windows!
+    } else if (squirrelEvent === 'uninstall') {
+      dialog.showMessageBoxSync({
+        title: 'Install/update status',
+        message: `${appName} was successfully uninstalled`,
+      });
+      app.quit();
+      return;
+    } else {
+      dialog.showMessageBoxSync({
+        title: 'Error',
+        message: `There is no handling of squirrel event: ${squirrelEvent}`,
+      });
+      app.quit();
+      return;
+    }
   }
 
   app.on('window-all-closed', function () {

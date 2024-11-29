@@ -99,4 +99,6 @@ declare global {
     event: IpcRendererEvent,
     status: { statusText: string; statusDescription: string }
   ) => void;
+
+  type SquirrelEvent = 'install' | 'uninstall' | 'firstrun';
 }

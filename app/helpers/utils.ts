@@ -61,3 +61,27 @@ export function warnIfScreenIsNotAccessible(): boolean {
 
   return isScreenAccessible;
 }
+
+const SquirrelEvents: SquirrelEvent[] = ['install', 'uninstall', 'firstrun'];
+
+// return squirrel argument string if it could be detected and parsed in `_args`
+export function parseSquirrelArgs(_args: string[]): SquirrelEvent | undefined {
+  // set `args` to `_args` except the first entry
+  const args: string[] = _args.filter((_, i) => i > 0);
+  let squirrelEvent: SquirrelEvent | undefined = undefined;
+
+  // iterate through all args and look for "--squirrel-"
+  for (const arg of args) {
+    if (arg.includes('--squirrel-')) {
+      const candidateEvent = arg.replace('--squirrel-', '');
+      // if argument string is in `SquirrelEvents`, break loop and return the argument string
+      if (SquirrelEvents.includes(candidateEvent as SquirrelEvent)) {
+        squirrelEvent = candidateEvent as SquirrelEvent;
+        break;
+      } else {
+        console.warn('Unhandled squirrel event:', candidateEvent);
+      }
+    }
+  }
+  return squirrelEvent;
+}
