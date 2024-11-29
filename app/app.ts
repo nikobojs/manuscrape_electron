@@ -44,15 +44,15 @@ app.whenReady().then(() => {
   // https://www.electronforge.io/config/makers/squirrel.windows
   if (squirrelEvent) {
     if (squirrelEvent === 'install') {
-      dialog.showMessageBoxSync({
-        title: 'Install/update status',
-        message: `${appName} was successfully updated/installed`,
-      });
       app.quit();
       return;
     } else if (squirrelEvent === 'firstrun') {
       // experiment to let this run
       // TODO: revise on windows!
+      dialog.showMessageBoxSync({
+        title: 'Install/update status',
+        message: `${appName} was successfully updated/installed`,
+      });
     } else if (squirrelEvent === 'uninstall') {
       dialog.showMessageBoxSync({
         title: 'Install/update status',
