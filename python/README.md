@@ -38,7 +38,7 @@ The following bash commands creates a virtual environment for the python utility
 ```python3 -m venv env```
 
 #### Activate environment
-- Bash: `source env/bin/activate`
+- Bash/ZSH: `source env/bin/activate`
 - Windows cmd: `env\\Scripts\\activate`
 
 ## Install PyPi dependencies
