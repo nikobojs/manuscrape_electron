@@ -1,14 +1,14 @@
 import path from 'path';
 import { nativeImage } from 'electron';
 
+const isWindows = process.platform === 'win32';
+const isMac = process.platform === 'darwin';
+
 function loadImage(fullPath: string): Electron.NativeImage {
   return nativeImage.createFromPath(fullPath);
 }
 
 export function getMainIconPathBasedOnOS() {
-  const isWindows = process.platform === 'win32';
-  const isMac = process.platform === 'darwin';
-
   if (isWindows) {
     return path.join(__dirname, '../../assets/icons/desktop-icon.ico');
   } else if (isMac) {
@@ -21,8 +21,11 @@ export function getMainIconPathBasedOnOS() {
 export const addIcon = loadImage(
   path.join(__dirname, '../../assets/icons/add.png')
 );
+
+// NOTE: image is way to large
+// TODO: Fix for windows & GNOME
 export const trayIcon = loadImage(
-  path.join(__dirname, '../../assets/tray.png')
+  path.join(__dirname, '../../assets', isMac ? 'tray_20px.png' : 'tray.png')
 );
 export const loginIcon = loadImage(
   path.join(__dirname, '../../assets/icons/login.png')
