@@ -9,8 +9,8 @@
     "debug": "tsc && ELECTRON_ENABLE_LOGGING=true electron-forge start -i -- --webrtc-max-cpu-consumption-percentage=100",
     "start": "tsc && electron-forge start -- --webrtc-max-cpu-consumption-percentage=100",
     "package": "tsc && electron-forge package",
-    "make": "tsc && electron-forge make --arch x64 -- --webrtc-max-cpu-consumption-percentage=100",
-    "make-arm": "tsc && electron-forge make --arch arm64 -- --webrtc-max-cpu-consumption-percentage=100",
+    "make": "tsc && env-cmd electron-forge make --arch x64 -- --webrtc-max-cpu-consumption-percentage=100",
+    "make-arm": "tsc && env-cmd electron-forge make --arch arm64 -- --webrtc-max-cpu-consumption-percentage=100",
     "pyinstall": "npm run delete-venv && cd python && . env/bin/activate && pip3 install -r requirements.txt && deactivate",
     "pyinstall-win": "cd python && env\\Scripts\\activate && pip install -r requirements.txt && deactivate",
     "delete-venv": "rm -rf python/env && (cd python && python3 -m venv env)",
@@ -29,6 +29,7 @@
     "@types/cookie": "0.6.0",
     "@types/p5": "1.7.6",
     "electron": "33.2.1",
+    "env-cmd": "^10.1.0",
     "tailwindcss": "3.4.15",
     "typescript": "5.7.2"
   },

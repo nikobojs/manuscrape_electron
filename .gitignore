@@ -9,3 +9,4 @@ __pycache__
 python/chatjoiner.spec
 chatjoiner.spec
 .DS_Store
+.env
