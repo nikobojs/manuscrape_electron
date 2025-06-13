@@ -119,6 +119,7 @@ If they don't work, try installing and compiling the python program manually (in
 - [@SEilertsen](https://github.com/SEilertsen)
 - [@bjarke22](https://github.com/bjarke22)
 - [@jakobdemant](https://github.com/jakobdemant)
+- [@kdath](https://github.com/kdath)
 - [@nabojens](https://github.com/nabojens)
 - [@nikobojs](https://github.com/nikobojs)
 - [@samuelhimmelstrup](https://github.com/samuelhimmelstrup)
