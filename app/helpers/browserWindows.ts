@@ -1,12 +1,14 @@
+import jpeg from "jpeg-js";
 import {
   BrowserWindow,
   ipcMain,
   type BrowserWindowConstructorOptions,
-} from 'electron';
-import path from 'path';
-import { defaultSettings } from './settings';
-import { getMainIconPathBasedOnOS } from './icons';
-const isLinux = process.platform === 'linux';
+} from "electron";
+import path from "path";
+import { defaultSettings } from "./settings";
+import { getMainIconPathBasedOnOS } from "./icons";
+import fs from "fs";
+const isLinux = process.platform === "linux";
 
 // generic nuxt app window factory - not meant to be exported
 const createNuxtAppWindow = (
@@ -15,10 +17,10 @@ const createNuxtAppWindow = (
   onReady = () => {},
   minWidth?: number | undefined,
   minHeight?: number | undefined,
-  maxWidth?: number | undefined
+  maxWidth?: number | undefined,
 ): BrowserWindow => {
   const win = new BrowserWindow({
-    title: 'ManuScrape',
+    title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
@@ -26,23 +28,23 @@ const createNuxtAppWindow = (
     show: false,
     icon: getMainIconPathBasedOnOS(),
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
     },
     useContentSize: true,
-    backgroundColor: '#1c1b22',
-    ...(typeof minWidth === 'number' ? { minWidth } : {}),
-    ...(typeof minHeight === 'number' ? { minHeight } : {}),
-    ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
+    backgroundColor: "#1c1b22",
+    ...(typeof minWidth === "number" ? { minWidth } : {}),
+    ...(typeof minHeight === "number" ? { minHeight } : {}),
+    ...(typeof maxWidth === "number" ? { maxWidth } : {}),
   });
 
   win.loadURL(url);
 
-  win.once('show', () => {
+  win.once("show", () => {
     onReady();
     win.focus();
   });
 
-  win.once('close', () => onClose());
+  win.once("close", () => onClose());
 
   win.show();
 
@@ -51,7 +53,7 @@ const createNuxtAppWindow = (
 
 export function createTrayWindow(): BrowserWindow {
   const trayWindow = new BrowserWindow({
-    title: 'ManuScrape',
+    title: "ManuScrape",
     width: 0,
     height: 0,
     show: false,
@@ -61,17 +63,17 @@ export function createTrayWindow(): BrowserWindow {
     skipTaskbar: true,
     hasShadow: false,
   });
-  trayWindow.loadFile('windows/tray.html');
+  trayWindow.loadFile("windows/tray.html");
   return trayWindow;
 }
 
 export const createOverlayWindow = (
-  activeDisplay: Electron.Display
+  activeDisplay: Electron.Display,
 ): BrowserWindow => {
-  const isMac = process.platform === 'darwin';
+  const isMac = process.platform === "darwin";
 
   const win = new BrowserWindow({
-    title: 'ManuScrape - Mark area overlay',
+    title: "ManuScrape - Mark area overlay",
     // remove the default frame around the window
     frame: false,
     // hide Electron’s default menu
@@ -98,13 +100,13 @@ export const createOverlayWindow = (
     height: activeDisplay.workArea.height,
 
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
       webgl: true,
     },
   });
 
-  win.loadFile('windows/markArea.html');
+  win.loadFile("windows/markArea.html");
   win.setBounds(activeDisplay.workArea);
   win.show();
   // win.webContents.openDevTools();
@@ -113,30 +115,30 @@ export const createOverlayWindow = (
 };
 
 export const createAuthorizationWindow = (
-  openSignUp = false
+  openSignUp = false,
 ): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
-    title: 'ManuScrape',
+    title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
     movable: true,
     show: true,
     resizable: false,
-    icon: path.join(__dirname, '../../assets/icons/desktop-icon.png'),
+    icon: path.join(__dirname, "../../assets/icons/desktop-icon.png"),
     width: 320,
     height: isLinux ? 450 : 480, // TODO: needs adjustment on windows
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
     },
   };
 
-  const file = openSignUp ? 'windows/signUp.html' : 'windows/signIn.html';
+  const file = openSignUp ? "windows/signUp.html" : "windows/signIn.html";
   const win = new BrowserWindow(opts);
 
   win.loadFile(file);
 
-  win.once('show', () => {
+  win.once("show", () => {
     win.focus();
   });
 
@@ -148,32 +150,32 @@ export const createSettingsWindow = (
   getSettings: () => ISettings,
   updateHandler: (
     event: Electron.IpcMainEvent,
-    patch: ISettings
-  ) => Promise<void>
+    patch: ISettings,
+  ) => Promise<void>,
 ) => {
   // cleanup and use best ipc practices
-  ipcMain.removeAllListeners('update-settings');
-  ipcMain.removeAllListeners('get-settings-request');
-  ipcMain.removeAllListeners('get-default-settings-request');
-  ipcMain.removeAllListeners('ask-for-default-host-value');
+  ipcMain.removeAllListeners("update-settings");
+  ipcMain.removeAllListeners("get-settings-request");
+  ipcMain.removeAllListeners("get-default-settings-request");
+  ipcMain.removeAllListeners("ask-for-default-host-value");
 
   // attach new event listeners
   ipcMain.on(
-    'update-settings', // TODO: use enum
-    (event, body) => updateHandler(event, body)
+    "update-settings", // TODO: use enum
+    (event, body) => updateHandler(event, body),
   );
   ipcMain.on(
-    'get-settings-request', // TODO: use enum
+    "get-settings-request", // TODO: use enum
     (event) => {
       const settings = getSettings();
-      event.reply('get-settings-response', settings);
-    }
+      event.reply("get-settings-response", settings);
+    },
   );
   ipcMain.on(
-    'get-default-settings-request', // TODO: use enum
+    "get-default-settings-request", // TODO: use enum
     (event) => {
-      event.reply('get-default-settings-response', defaultSettings);
-    }
+      event.reply("get-default-settings-response", defaultSettings);
+    },
   );
 
   const win = createNuxtAppWindow(
@@ -186,23 +188,22 @@ export const createSettingsWindow = (
     },
     402,
     560,
-    492
+    492,
   );
 
   return win;
 };
 
-export const createAddObservationWindow = (
+export const createAddObservationWindow = async (
   apiHost: string,
   projectId: number,
   observationId: number,
   onClose: () => void,
   onReady?: undefined | (() => void),
-  uploading: boolean = true,
-  electronTheme: boolean = true
-): BrowserWindow => {
+  electronTheme: boolean = true,
+  imgFilePath?: string | undefined,
+): Promise<BrowserWindow> => {
   const flags: Record<string, boolean> = {
-    uploading: uploading,
     electron: electronTheme,
   };
 
@@ -211,29 +212,58 @@ export const createAddObservationWindow = (
       if (val) params.push(`${key}=1`);
       return params;
     }, [] as string[])
-    .join('&');
+    .join("&");
 
-  const win = createNuxtAppWindow(
-    `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
-    onClose,
-    onReady,
-    1080,
-    560
-  );
+  // image is not provided, just open the normal observation detail view
+  if (!imgFilePath) {
+    const win = createNuxtAppWindow(
+      `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
+      onClose,
+      onReady,
+      1080,
+      560,
+    );
+    return win;
+    // if img is provided, open /edit-image-new to provide image editing before upload
+  } else {
+    console.log("try create /edit-image-new window!");
+    const buffer = await fs.promises.readFile(imgFilePath);
+    const img = jpeg.decode(buffer);
+    img.data.toString("base64");
+    const imgBase64 = buffer.toString("base64");
+    const win = createNuxtAppWindow(
+      `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`,
+      onClose,
+      onReady,
+      Math.max(img.width - 200, 100),
+      img.height + 300,
+    );
 
-  return win;
+    console.log("execute javascript!");
+    win.webContents.executeJavaScript(`
+      sessionStorage.setItem(
+        "pendingImageFile",
+        JSON.stringify({
+          name: "image.jpg",
+          type: "image/jpeg",
+          data: "${imgBase64}",
+        }),
+      );
+    `);
+    return win;
+  }
 };
 
 export const createAddProjectWindow = (
   apiHost: string,
-  onClose: () => void
+  onClose: () => void,
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
     `${apiHost}/projects/new?electron=1`,
     onClose,
     () => {},
     1080,
-    530
+    530,
   );
 
   return win;
@@ -242,14 +272,14 @@ export const createAddProjectWindow = (
 export const createDraftsWindow = (
   apiHost: string,
   projectId: number,
-  onClose: () => void
+  onClose: () => void,
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/drafts?electron=1`,
     onClose,
     () => {},
     1080,
-    560
+    560,
   );
 
   return win;
