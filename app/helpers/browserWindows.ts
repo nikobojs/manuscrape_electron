@@ -226,20 +226,23 @@ export const createAddObservationWindow = async (
     return win;
     // if img is provided, open /edit-image-new to provide image editing before upload
   } else {
-    console.log("try create /edit-image-new window!");
     const buffer = await fs.promises.readFile(imgFilePath);
-    const img = jpeg.decode(buffer);
-    img.data.toString("base64");
+    let jpgImg;
+    try {
+      jpgImg = jpeg.decode(buffer, { });
+    } catch (e) {
+      // image is not jpg, dont try to read it but provide defaults for scrollshot (which is png)
+    }
     const imgBase64 = buffer.toString("base64");
     const win = createNuxtAppWindow(
       `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`,
       onClose,
       onReady,
-      Math.max(img.width - 200, 100),
-      img.height + 300,
+      jpgImg ? Math.max(jpgImg.width - 200, 100) : 600,
+      jpgImg ? jpgImg.height + 300 : 1080,
     );
 
-    console.log("execute javascript!");
+    // execute js in the window, to add img to the session storage (without requiring upload before editing)
     win.webContents.executeJavaScript(`
       sessionStorage.setItem(
         "pendingImageFile",
