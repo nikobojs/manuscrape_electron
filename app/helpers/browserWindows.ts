@@ -254,13 +254,6 @@ export const createAddObservationWindow = async (
       jpgImg ? Math.max(jpgImg.width - 200, 100) : 600,
       jpgImg ? jpgImg.height + 300 : 1080,
     );
-    // ipcMain.once(
-    //   "prepare-next-screenshot", // TODO: use enum
-    //   (event) => {
-    //     // save observation id to the next screenshot
-    //     win.close()
-    //   },
-    // );
 
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
     win.webContents.executeJavaScript(`
