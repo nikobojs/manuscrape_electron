@@ -913,9 +913,8 @@ export class ManuScrapeController {
       return;
     }
 
-    // TODO: when project is created, client should send project id to this func
-    // through IPC. this will allow the newly created project to be chosen automatically
-    ipcMain.once("project-created", async () => {
+    // handle when frontend emits project-created event, with a project id
+    ipcMain.once("project-created", async (_event, data: { id: number }) => {
       if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
         this.nuxtWindow.webContents.close();
 
@@ -928,9 +927,14 @@ export class ManuScrapeController {
         const apiHost = this.requireApiHost();
         const loginToken = this.requireLoginToken();
         await this.refreshUser(apiHost, loginToken);
-        this.activeObservationId = undefined;
 
-        this.refreshContextMenu();
+        // choose the project
+        if (typeof data?.id === "number") {
+          this.chooseProject(data.id); // also refreshes context manu
+        } else {
+          console.error("project-created event did not return a project id");
+          // TODO: report error
+        }
       }
     });
 
