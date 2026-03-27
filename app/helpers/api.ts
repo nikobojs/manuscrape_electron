@@ -136,58 +136,6 @@ export async function fetchUser(host: string, token: string): Promise<IUser> {
   return json;
 }
 
-export async function uploadObservationImage(
-  host: string,
-  token: string,
-  observationId: number,
-  projectId: number,
-  filePath: string
-): Promise<void> {
-  const form = new FormData();
-  const buffer = fs.readFileSync(filePath);
-  const fname = 'image';
-  const extension = '.' + filePath.split('.').reverse()[0];
-  const fullFname = fname + extension;
-  const mimetype = ['jpg', 'jpeg'].includes(extension.toLowerCase())
-    ? 'image/jpg'
-    : 'image/png';
-  const blob = new Blob([buffer], { type: mimetype });
-
-  if (blob.size === 0) {
-    const e = new Error('The observation image is not saved correctly');
-    console.error('File looks empty:', filePath);
-    throw e;
-  }
-
-  form.append('file', blob, fullFname);
-
-  try {
-    const res = await fetch(
-      `${host}/api/projects/${projectId}/observations/${observationId}/image`,
-      {
-        method: 'PUT',
-        body: form,
-        headers: {
-          Authentication: token,
-          'User-Agent': USER_AGENT,
-        },
-      }
-    );
-
-    if (res.status !== 200) {
-      const json = await res.json();
-      console.error('Server returned following error on image upload:');
-      console.error(json);
-      const msg =
-        json?.message || json?.statusMessage || json?.code || 'Unknown error';
-      throw new Error(msg);
-    }
-  } catch (e: any) {
-    console.error(e);
-    throw e;
-  }
-}
-
 export async function signUp(
   host: string,
   email: string,
@@ -273,6 +221,44 @@ export async function addObservation(
   } else {
     return { id: json['id'] };
   }
+}
+
+export async function getProject(
+  host: string,
+  token: string,
+  projectId: number
+): Promise<IGetProjectResponse> {
+  const { json } = await req<IGetProjectResponse>(
+    host,
+    'GET',
+    `/api/projects/${projectId}`,
+    token
+  );
+
+  // const json = await res.json();
+  if (typeof json['id'] !== 'number') {
+    console.error('Fetch project response:', { json });
+    throw new Error(
+      'Api did not respond as expected when creating observation'
+    );
+  } else {
+    return json;
+  }
+}
+
+export async function deleteObservation(
+  host: string,
+  token: string,
+  projectId: number,
+  observationId: number,
+) {
+  const { res, json } = await req(host, 'DELETE', `/api/projects/${projectId}/observations/${observationId}`, token);
+  if (res.status !== 200) {
+    console.error('Unable to delete observation', { json });
+    // TODO: report error
+  }
+
+  return json;
 }
 
 export function parseHostUrl(host: string): string {

@@ -1,5 +1,5 @@
-import { MenuItem, shell, screen, Menu } from 'electron';
-import type { ManuScrapeController } from '../controller';
+import { MenuItem, shell, screen, Menu } from "electron";
+import type { ManuScrapeController } from "../controller";
 import {
   loginIcon,
   addIcon,
@@ -10,11 +10,11 @@ import {
   folderIcon,
   openInNewIcon,
   settingsIcon,
-} from './icons';
+} from "./icons";
 
 export function generateMenuItems(
   controller: ManuScrapeController,
-  user: IUser | undefined
+  user: IUser | undefined,
 ): MenuItem[] {
   const menuItems = [] as MenuItem[];
   const activeDisplay = controller.getActiveDisplay();
@@ -22,91 +22,109 @@ export function generateMenuItems(
   if (!user) {
     menuItems.push(
       new MenuItem({
-        type: 'normal',
-        label: 'Sign in',
+        type: "normal",
+        label: "Sign in",
         click: () => {
           controller.openAuthorizationWindow();
         },
         icon: loginIcon,
-      })
+      }),
     );
     menuItems.push(
       new MenuItem({
-        type: 'normal',
-        label: 'Create account',
+        type: "normal",
+        label: "Create account",
         click: () => {
           controller.openAuthorizationWindow(true);
         },
         icon: loginIcon,
-      })
+      }),
     );
   } else if (controller.isMarkingArea) {
     menuItems.push(
       new MenuItem({
-        type: 'normal',
-        label: 'Overlay is currently open',
+        type: "normal",
+        label: "Overlay is currently open",
         enabled: false,
-      })
+      }),
     );
     menuItems.push(
       new MenuItem({
-        type: 'normal',
-        label: 'Cancel action',
+        type: "normal",
+        label: "Cancel action",
         click: () => {
           controller.cancelOverlay();
         },
-        accelerator: 'Alt+C',
-      })
+        accelerator: "Alt+C",
+      }),
     );
   } else if (user) {
     if (user.projectAccess?.length == 0) {
       menuItems.push(
         new MenuItem({
-          label: 'Create first project',
-          type: 'normal',
+          label: "Create first project",
+          type: "normal",
           click: () => {
             controller.openCreateProjectWindow();
           },
           icon: addIcon,
-        })
+        }),
       );
     } else {
+      if (controller.activeObservationId) {
+        menuItems.push(
+          new MenuItem({
+            label: "Modifying exiting observation",
+            type: "header",
+            enabled: false,
+          }),
+          new MenuItem({
+            label: "Cancel focus on observation",
+            type: "normal",
+            click: () => controller.cancelActiveObservation(),
+            icon: quitIcon,
+          }),
+          new MenuItem({
+            type: "separator",
+          }),
+        );
+      }
       menuItems.push(
         new MenuItem({
-          label: 'Take screenshot',
-          type: 'normal',
+          label: "Take screenshot",
+          type: "normal",
           click: () => controller.createQuickScreenshot(),
-          accelerator: 'Alt+N',
+          accelerator: "Alt+N",
           icon: addIcon,
-        })
+        }),
       );
 
       menuItems.push(
         new MenuItem({
-          label: 'Take scrollshot',
-          type: 'normal',
+          label: "Take scrollshot",
+          type: "normal",
           click: () => controller.createScrollScreenshot(),
-          accelerator: 'Alt+S',
+          accelerator: "Alt+S",
           icon: addIcon,
-        })
+        }),
       );
 
       menuItems.push(
         new MenuItem({
-          label: 'Create empty draft',
-          type: 'normal',
+          label: "Create empty draft",
+          type: "normal",
           click: () => controller.openEmptyDraftWindow(),
           icon: addIcon,
-        })
+        }),
       );
 
       menuItems.push(
         new MenuItem({
-          label: 'Open drafts',
-          type: 'normal',
+          label: "Open drafts",
+          type: "normal",
           click: () => controller.openObservationDraftsWindow(),
           icon: openInNewIcon,
-        })
+        }),
       );
     }
   }
@@ -114,17 +132,17 @@ export function generateMenuItems(
   // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
   menuItems.push(
     new MenuItem({
-      type: 'separator',
-    })
+      type: "separator",
+    }),
   );
 
   if (user) {
     // create new empty screens submenu
     const screenMenu = new MenuItem({
-      label: 'Choose monitor',
+      label: "Choose monitor",
       sublabel: activeDisplay.label,
       submenu: [],
-      type: 'submenu',
+      type: "submenu",
       icon: monitorIcon,
     });
 
@@ -139,7 +157,7 @@ export function generateMenuItems(
       const screenMenuItem = new MenuItem({
         label: display.label || `Screen #${display.id}`,
         id: display.id.toString(),
-        type: 'radio',
+        type: "radio",
         checked: display.id == activeDisplay.id,
         enabled: !controller.isMarkingArea,
         click: () => controller.useDisplay(i),
@@ -153,11 +171,11 @@ export function generateMenuItems(
     if (user.projectAccess?.length > 0) {
       // add projects to menuItems
       const projectMenu = new MenuItem({
-        label: 'Choose project',
+        label: "Choose project",
         submenu: [],
-        type: 'submenu',
+        type: "submenu",
         icon: folderIcon,
-        sublabel: '',
+        sublabel: "",
       });
 
       if (user.projectAccess.length > 0) {
@@ -168,20 +186,20 @@ export function generateMenuItems(
             new MenuItem({
               id: project.id.toString(),
               label: project.name,
-              type: 'radio',
+              type: "radio",
               checked: false,
               click: () => controller.chooseProject(project.id),
-            })
+            }),
           );
         }
       }
 
       const chosenMenuItem = projectMenu.submenu?.items.find(
-        (item) => item.id === controller.activeProjectId?.toString()
+        (item) => item.id === controller.activeProjectId?.toString(),
       );
 
       const activeProjectAccess = user.projectAccess.find(
-        (p) => p.project.id === controller.activeProjectId
+        (p) => p.project.id === controller.activeProjectId,
       );
 
       if (activeProjectAccess) {
@@ -197,18 +215,18 @@ export function generateMenuItems(
 
       projectMenu.submenu?.append(
         new MenuItem({
-          type: 'separator',
-        })
+          type: "separator",
+        }),
       );
       projectMenu.submenu?.append(
         new MenuItem({
-          label: 'Create project',
-          type: 'normal',
+          label: "Create project",
+          type: "normal",
           click: () => {
             controller.openCreateProjectWindow();
           },
           icon: addIcon,
-        })
+        }),
       );
 
       menuItems.push(projectMenu);
@@ -220,47 +238,47 @@ export function generateMenuItems(
     // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
     menuItems.push(
       new MenuItem({
-        type: 'separator',
-      })
+        type: "separator",
+      }),
     );
 
     // open settings window
     menuItems.push(
       new MenuItem({
-        label: 'Settings',
-        type: 'normal',
+        label: "Settings",
+        type: "normal",
         click: () => controller.openSettingsWindow(),
         icon: settingsIcon,
-      })
+      }),
     );
 
     menuItems.push(
       new MenuItem({
-        label: 'Log out',
-        type: 'normal',
+        label: "Log out",
+        type: "normal",
         click: () => controller.logOut(),
         icon: logoutIcon,
-      })
+      }),
     );
 
     menuItems.push(
       new MenuItem({
-        label: 'Report issue',
-        type: 'normal',
+        label: "Report issue",
+        type: "normal",
         click: () =>
           shell.openExternal(
-            'https://github.com/nikobojs/manuscrape_electron/issues'
+            "https://github.com/nikobojs/manuscrape_electron/issues",
           ),
         icon: bugReportIcon,
-      })
+      }),
     );
   }
 
   // exit context menu item
   const itemExit = new MenuItem({
-    label: 'Quit',
+    label: "Quit",
     enabled: !controller.isMarkingArea,
-    role: 'quit',
+    role: "quit",
     icon: quitIcon,
   });
 
@@ -272,7 +290,7 @@ export function generateMenuItems(
 
 export function generateContextMenu(
   controller: ManuScrapeController,
-  user: IUser | undefined
+  user: IUser | undefined,
 ) {
   const menuItems = generateMenuItems(controller, user);
   const menu = Menu.buildFromTemplate(menuItems);

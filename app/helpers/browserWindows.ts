@@ -202,20 +202,29 @@ export const createAddObservationWindow = async (
   onReady?: undefined | (() => void),
   electronTheme: boolean = true,
   imgFilePath?: string | undefined,
+  projectFieldId?: number | undefined,
 ): Promise<BrowserWindow> => {
   const flags: Record<string, boolean> = {
     electron: electronTheme,
   };
 
-  const query = Object.entries(flags)
+  // add flags to query
+  let query = Object.entries(flags)
     .reduce((params, [key, val]) => {
       if (val) params.push(`${key}=1`);
       return params;
     }, [] as string[])
     .join("&");
 
+  if ((imgFilePath && !projectFieldId) || (!imgFilePath && projectFieldId)) {
+    console.warn(
+      "Expected `imgFilePath` and `projectFieldId` to be both defined or undefined",
+    );
+    console.warn("Not opening image window");
+  }
+
   // image is not provided, just open the normal observation detail view
-  if (!imgFilePath) {
+  if (!imgFilePath || !projectFieldId) {
     const win = createNuxtAppWindow(
       `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
       onClose,
@@ -226,10 +235,14 @@ export const createAddObservationWindow = async (
     return win;
     // if img is provided, open /edit-image-new to provide image editing before upload
   } else {
+    // add projectFieldId to query
+    query += `&projectFieldId=${projectFieldId}`;
+
+    // load file
     const buffer = await fs.promises.readFile(imgFilePath);
     let jpgImg;
     try {
-      jpgImg = jpeg.decode(buffer, { });
+      jpgImg = jpeg.decode(buffer, {});
     } catch (e) {
       // image is not jpg, dont try to read it but provide defaults for scrollshot (which is png)
     }
@@ -241,6 +254,13 @@ export const createAddObservationWindow = async (
       jpgImg ? Math.max(jpgImg.width - 200, 100) : 600,
       jpgImg ? jpgImg.height + 300 : 1080,
     );
+    // ipcMain.once(
+    //   "prepare-next-screenshot", // TODO: use enum
+    //   (event) => {
+    //     // save observation id to the next screenshot
+    //     win.close()
+    //   },
+    // );
 
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
     win.webContents.executeJavaScript(`
@@ -265,8 +285,8 @@ export const createAddProjectWindow = (
     `${apiHost}/projects/new?electron=1`,
     onClose,
     () => {},
-    1080,
-    530,
+    1280,
+    760,
   );
 
   return win;
@@ -281,8 +301,8 @@ export const createDraftsWindow = (
     `${apiHost}/projects/${projectId}/drafts?electron=1`,
     onClose,
     () => {},
-    1080,
-    560,
+    1280,
+    760,
   );
 
   return win;

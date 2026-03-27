@@ -41,6 +41,21 @@ export function yesOrNo(message: string): boolean {
   return response == 0; // Yes button is pressed
 }
 
+export function selectProjectField(message: string, projectFields: SmallProjectFieldResponse[]): SmallProjectFieldResponse | null {
+  const buttons = projectFields.map(pf => `&Select "${pf.label}"`).concat(['Cancel']);
+  const options: MessageBoxOptions = {
+    title: 'Select project parameter',
+    buttons,
+    message,
+    type: 'warning',
+    normalizeAccessKeys: true,
+    cancelId: 2,
+  };
+
+  const response = dialog.showMessageBoxSync(options);
+  return response == buttons.length - 1 ? null : projectFields[response];
+}
+
 // This is important for macOS 10.15 Catalina or higher, but crashes Linux
 export function warnIfScreenIsNotAccessible(): boolean {
   const isMacOrWindows = ['darwin', 'win32'].includes(process.platform);

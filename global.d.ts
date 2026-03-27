@@ -75,6 +75,49 @@ declare global {
     id: number;
   }
 
+  type DynamicProjectFieldResponse = {
+    id: number;
+    label: string;
+    createdAt: string;
+    field0Id: number;
+    field1Id: number;
+    projectId: number;
+    operator: string;
+  }
+
+  type TagResponse = {
+    createdById: number;
+    id: number;
+    name: string;
+    projectId: number;
+  };
+
+  type SmallProjectFieldResponse = {
+    required: boolean;
+    type: "DATE" | "STRING" | "INT" | "FLOAT" | "DATETIME" | "BOOLEAN" | "CHOICE" | "MULTIPLE_CHOICE_ADD" | "AUTOCOMPLETE" | "AUTOCOMPLETE_ADD" | "TEXTAREA" | "IMAGE_SINGLE" | "IMAGE_MULTIPLE";
+    label: string;
+    index: number;
+    choices: string | null;
+    id: number;
+    projectId: number;
+    createdAt: Date;
+  };
+
+  interface IGetProjectResponse {
+    id: number;
+    name: string;
+    storageLimit: number;
+    createdAt: string | Date;
+    authorCanDelockObservations: boolean;
+    ownerCanDelockObservations: boolean;
+    contributorsCanReadAllObservations: boolean;
+    contributorsCanExport: boolean;
+    fields: SmallProjectFieldResponse[];
+    dynamicFields: DynamicProjectFieldResponse[];
+    tags: TagResponse[];
+    observationCount: number;
+  }
+
   interface Square {
     x: number;
     y: number;

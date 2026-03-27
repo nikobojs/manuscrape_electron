@@ -23,7 +23,7 @@ import {
   createAddObservationWindow,
   createDraftsWindow,
 } from "./helpers/browserWindows";
-import { trayIcon, successIcon, errorIcon } from "./helpers/icons";
+import { trayIcon, successIcon, errorIcon, warningIcon } from "./helpers/icons";
 import {
   fetchUser,
   logout,
@@ -31,10 +31,15 @@ import {
   addObservation,
   signUp,
   parseHostUrl,
-  uploadObservationImage,
   isClientDeprecationError,
+  getProject,
+  deleteObservation,
 } from "./helpers/api";
-import { warnIfScreenIsNotAccessible, yesOrNo } from "./helpers/utils";
+import {
+  selectProjectField,
+  warnIfScreenIsNotAccessible,
+  yesOrNo,
+} from "./helpers/utils";
 import {
   authCookieExists,
   getInvalidationCookie,
@@ -60,6 +65,7 @@ export class ManuScrapeController {
   public isMarkingArea: boolean;
   public allDisplays: Array<Electron.Display>;
   public activeProjectId: number | undefined;
+  public activeObservationId: number | undefined;
   public activeDisplayIndex: number;
   public version: string;
 
@@ -100,11 +106,16 @@ export class ManuScrapeController {
     this.useEncryption = useEncryption;
     this.settings = initializeSettings(this.settingsPath);
     this.version = version;
+    this.activeObservationId = undefined;
 
     console.info(`Initializing ManuScrape Client v${version}...\n`);
 
     ipcMain.on("get-version-request", (event) => {
       event.reply("get-version-response", this.version);
+    });
+
+    ipcMain.on("observation-image-uploaded", () => {
+      this.cancelActiveObservation();
     });
 
     trayWindow.on("ready-to-show", () => {
@@ -178,6 +189,7 @@ export class ManuScrapeController {
   // update activeProjectId and refresh menu
   public chooseProject(id: number) {
     this.activeProjectId = id;
+    this.activeObservationId = undefined;
     this.refreshContextMenu();
   }
 
@@ -256,15 +268,19 @@ export class ManuScrapeController {
         // close overlay now that saving is done
         this.cancelOverlay();
 
-        // create new observation draft, to obtain observation id
-        const { id: obsId } = await addObservation(
-          apiHost,
-          loginToken,
-          activeProjectId,
-        );
+        // create new observation draft, to obtain observation id, unless there is an active observation id
+        let obsId = this.activeObservationId;
+        if (!obsId) {
+          const newObs = await addObservation(
+            apiHost,
+            loginToken,
+            activeProjectId,
+          );
+          obsId = newObs.id;
+        }
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, filePath);
+        await this.openCreateObservationWindow(obsId, loginToken, filePath);
       } catch (e: any) {
         this.handleScreenshotError(e);
       } finally {
@@ -278,6 +294,11 @@ export class ManuScrapeController {
 
     // now once listeners are attached, open mark area overlay
     this.openMarkAreaOverlay();
+  }
+
+  public cancelActiveObservation() {
+    this.activeObservationId = undefined;
+    this.refreshContextMenu();
   }
 
   private handleScreenshotError(e: any) {
@@ -344,12 +365,16 @@ export class ManuScrapeController {
       }
 
       try {
-        // first, create new observation draft, to obtain observation id
-        const { id: obsId } = await addObservation(
-          apiHost,
-          loginToken,
-          activeProjectId,
-        );
+        // create new observation draft, to obtain observation id, unless there is an active observation id
+        let obsId = this.activeObservationId;
+        if (!obsId) {
+          const newObs = await addObservation(
+            apiHost,
+            loginToken,
+            activeProjectId,
+          );
+          obsId = newObs.id;
+        }
 
         // take scrollshot/screenshot ('callback' argument)
         filePath = await callback(
@@ -363,7 +388,7 @@ export class ManuScrapeController {
         this.cancelOverlay();
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, filePath);
+        await this.openCreateObservationWindow(obsId, loginToken, filePath);
       } catch (e: any) {
         console.log(e);
         this.handleScreenshotError(e);
@@ -393,15 +418,49 @@ export class ManuScrapeController {
     const observationId = res.id;
 
     // open observation window without waiting for manual image upload
-    return this.openCreateObservationWindow(observationId, undefined);
+    return this.openCreateObservationWindow(
+      observationId,
+      loginToken,
+      undefined,
+    );
   }
 
   private async openCreateObservationWindow(
     observationId: number,
+    accessToken: string,
     imgFilePath: string | undefined,
   ) {
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
+
+    // TODO: create project field parameter window
+    const project = await getProject(apiHost, accessToken, activeProjectId);
+
+    const imageProjectFields = project.fields.filter((f) =>
+      ["IMAGE_SINGLE", "IMAGE_MULTIPLE"].includes(f.type),
+    );
+
+    let chosenField: SmallProjectFieldResponse | null = null;
+    if (imageProjectFields.length === 0) {
+      // TODO: export + handle error
+    } else if (imageProjectFields.length === 1) {
+      chosenField = imageProjectFields[0];
+    } else if (imageProjectFields.length > 1) {
+      chosenField = selectProjectField(
+        "Select which project field you want to add the image to.",
+        imageProjectFields,
+      );
+    }
+
+    if (!chosenField) {
+      await deleteObservation(
+        apiHost,
+        accessToken,
+        activeProjectId,
+        observationId,
+      );
+      return;
+    }
 
     // add observation-created listener
     ipcMain.once("observation-created", (event) => {
@@ -422,10 +481,31 @@ export class ManuScrapeController {
         body: "Observation created successfully",
         icon: successIcon,
       }).show();
+
+      // reset active observation id if any
+      this.cancelActiveObservation();
     });
+
+    ipcMain.once(
+      "prepare-next-screenshot", // TODO: use enum
+      (event) => {
+        // close existing stuff
+        if (!this.nuxtWindow?.isDestroyed()) {
+          this.nuxtWindow?.webContents.close();
+        }
+        if (this.overlayWindow?.isDestroyed() === false) {
+          this.overlayWindow?.webContents.close();
+        }
+
+        // save observation id to the next screenshot
+        this.activeObservationId = observationId;
+        this.refreshContextMenu();
+      },
+    );
 
     const onWindowClose = () => {
       ipcMain.removeAllListeners("observation-created");
+      ipcMain.removeAllListeners("prepare-next-screenshot");
       this.syncAuthStateAndMenu();
     };
 
@@ -438,6 +518,7 @@ export class ManuScrapeController {
       undefined,
       true,
       imgFilePath,
+      chosenField.id,
     );
 
     // safe window in instance state
@@ -644,6 +725,10 @@ export class ManuScrapeController {
     event: Electron.IpcMainEvent,
     { email, password, host }: ISignInBody,
   ): Promise<void> {
+    // reset important state variables
+    this.activeObservationId = undefined;
+    this.activeProjectId = undefined;
+
     // define initial token (to keep it in scope outside try/catch block)
     let token: string | undefined;
 
@@ -843,6 +928,7 @@ export class ManuScrapeController {
         const apiHost = this.requireApiHost();
         const loginToken = this.requireLoginToken();
         await this.refreshUser(apiHost, loginToken);
+        this.activeObservationId = undefined;
 
         this.refreshContextMenu();
       }
@@ -859,6 +945,7 @@ export class ManuScrapeController {
 
   // opens observation drafts window
   public async openObservationDraftsWindow(): Promise<void> {
+    this.activeObservationId = undefined;
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
 
