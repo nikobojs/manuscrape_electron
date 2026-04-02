@@ -587,7 +587,7 @@ export class ManuScrapeController {
       try {
         // use retrieved 'host' and 'token' to renew cookie and fetch user
         if (host && token) {
-          await renewCookieFromToken(host, token).catch(() => {});
+          await renewCookieFromToken(host, token);
           await this.refreshUser(host, token);
           this.refreshContextMenu();
         }
@@ -601,7 +601,8 @@ export class ManuScrapeController {
       } catch (e: any) {
         // show login window if there was some kind of error
         // TODO: report error
-        this.openAuthorizationWindow(false);
+        const tooOld = isClientDeprecationError(e);
+        this.openAuthorizationWindow(false, tooOld);
       }
     }
   }
@@ -823,6 +824,7 @@ export class ManuScrapeController {
     ipcMain.removeAllListeners("sign-in");
     ipcMain.removeAllListeners("sign-up");
     ipcMain.removeAllListeners("ask-for-default-host-value");
+    ipcMain.removeAllListeners("ask-for-error-message");
   }
 
   private async updateAuthSession(host: string, token: string) {
@@ -847,7 +849,10 @@ export class ManuScrapeController {
     // TODO: also close existing open windows? maybe a reset windows method?
   }
 
-  public openAuthorizationWindow(openSignUp = false) {
+  public openAuthorizationWindow(
+    openSignUp = false,
+    clientIsTooOld = false,
+  ) {
     // navigate automatically if window is open
     if (this.authWindow && !this.authWindow.isDestroyed()) {
       // get html file url
@@ -880,6 +885,12 @@ export class ManuScrapeController {
       ipcMain.on("ask-for-default-host-value", (event) => {
         event.reply("default-host-value", this?.apiHost || "");
       });
+      ipcMain.on('ask-client-is-deprecated', (event) => {
+        if (clientIsTooOld) {
+          event.reply('client-is-deprecated')
+        }
+      });
+
 
       // create new sign in window
       this.authWindow = createAuthorizationWindow(openSignUp);

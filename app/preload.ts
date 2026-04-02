@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   onDeprecatedClientError: (callback: DeprecatedClientErrorCallback) => {
     ipcRenderer.removeAllListeners("client-is-deprecated");
-    ipcRenderer.on("client-is-deprecated", callback);
+    ipcRenderer.once("client-is-deprecated", callback);
+    ipcRenderer.send('ask-client-is-deprecated');
   },
 });

@@ -162,6 +162,7 @@ export const createSettingsWindow = (
   ipcMain.removeAllListeners('get-settings-request');
   ipcMain.removeAllListeners('get-default-settings-request');
   ipcMain.removeAllListeners('ask-for-default-host-value');
+  ipcMain.removeAllListeners('ask-for-error-message');
 
   // attach new event listeners
   ipcMain.on(
