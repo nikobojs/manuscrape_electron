@@ -13,20 +13,15 @@ ManuScrape is a solution for managing large amounts of observations (images mapp
 <br />
 <br />
 
-# ManuScrape Windows App
+## ManuScrape Client App
 
-This is the main ManuScrape repo which holds the native client side windows app and installation guide. <br />
+This is the main ManuScrape repo which holds the native client side windows/mac/linux app. <br />
 
-> If you are looking for the backend repo, go to the [manuscrape_nuxt repository](https://github.com/nikobojs/manuscrape_nuxt).
-
-<br />
-<br />
+> If you are looking for the backend repo, go to the [manuscrape_nuxt repository](https://github.com/nikobojs/manuscrape_nuxt).<br />
 
 ## Basic feature overview:
 
 There are two main actors: the _project manager_ and the _collaborator_.
-<br />
-<br />
 
 _Project managers_ can setup projects using the web app:
 
@@ -46,7 +41,6 @@ Whether you're a collaborator or project owner isn't bound to your ManuScrape us
 
 The _project manager_ can export the entire project into to different formats, including spreadsheets and zip files. Right now the export features are optimized to deliver formats, that are easy to import into [NVivo 14](https://lumivero.com/products/nvivo/).
 <br />
-<br />
 
 ## Installation on Windows
 
@@ -56,12 +50,10 @@ You can also use another instance of the manuscrape backend, either by a third p
 
 You can download a windows installer, that will either install or update the ManuScrape client to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
 <br />
-<br />
 
 ## Bug reports / Feature requests
 
 We intend to use GitHub Issues for all development tasks. If you experience bugs, or need features added or refactored, please [submit an issue](https://github.com/nikobojs/manuscrape_electron/issues), preferably in english.
-<br />
 <br />
 
 ## Contribute to the code ☕
@@ -76,9 +68,6 @@ This repo is an Electron app tested on Windows 11 and a couple Linux distributio
 #### Git conventions:
 
 Make your contributions the way you think works best. Please branch out from the branch named "unstable", which contains the newest version.<br />
-
-<br />
-<br />
 
 #### Setup development environment:
 
@@ -96,7 +85,6 @@ These instructions covers installation of a completely local setup, on all three
 5. Start Electron app: `cd manuscrape_electron && npm start`
 6. For MacOS: If you have problems with taking screenshots after the installation, go to System Preferences -> Privacy & Security -> Screen Recording, and give app permission
 
-<br />
 <br />
 
 ## Contributors 💥 🚀 😻
