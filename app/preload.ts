@@ -20,8 +20,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   areaMarked: (...args: any) => {
     ipcRenderer.send("area-marked", ...args);
   },
-  takeAnother: (projectFieldId: number) => {
-    ipcRenderer.send("prepare-next-screenshot", projectFieldId);
+  takeAnother: (observationId: number) => {
+    ipcRenderer.send("prepare-next-screenshot", observationId);
   },
   observationImageUploaded: () => {
     ipcRenderer.send("observation-image-uploaded");
@@ -73,6 +73,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onDeprecatedClientError: (callback: DeprecatedClientErrorCallback) => {
     ipcRenderer.removeAllListeners("client-is-deprecated");
     ipcRenderer.once("client-is-deprecated", callback);
-    ipcRenderer.send('ask-client-is-deprecated');
+    ipcRenderer.send("ask-client-is-deprecated");
   },
 });

@@ -488,7 +488,18 @@ export class ManuScrapeController {
 
     ipcMain.once(
       "prepare-next-screenshot", // TODO: use enum
-      (event) => {
+      (event, obsId: number) => {
+        // make sure observation id is a number
+        if (typeof obsId !== "number") {
+          // TODO: report error
+          new Notification({
+            title: "ManuScrape",
+            body: "Unable to use this feature",
+            icon: errorIcon,
+          }).show();
+          return;
+        }
+
         // close existing stuff
         if (!this.nuxtWindow?.isDestroyed()) {
           this.nuxtWindow?.webContents.close();
@@ -498,7 +509,7 @@ export class ManuScrapeController {
         }
 
         // save observation id to the next screenshot
-        this.activeObservationId = observationId;
+        this.activeObservationId = obsId;
         this.refreshContextMenu();
       },
     );
@@ -849,10 +860,7 @@ export class ManuScrapeController {
     // TODO: also close existing open windows? maybe a reset windows method?
   }
 
-  public openAuthorizationWindow(
-    openSignUp = false,
-    clientIsTooOld = false,
-  ) {
+  public openAuthorizationWindow(openSignUp = false, clientIsTooOld = false) {
     // navigate automatically if window is open
     if (this.authWindow && !this.authWindow.isDestroyed()) {
       // get html file url
@@ -885,12 +893,11 @@ export class ManuScrapeController {
       ipcMain.on("ask-for-default-host-value", (event) => {
         event.reply("default-host-value", this?.apiHost || "");
       });
-      ipcMain.on('ask-client-is-deprecated', (event) => {
+      ipcMain.on("ask-client-is-deprecated", (event) => {
         if (clientIsTooOld) {
-          event.reply('client-is-deprecated')
+          event.reply("client-is-deprecated");
         }
       });
-
 
       // create new sign in window
       this.authWindow = createAuthorizationWindow(openSignUp);
