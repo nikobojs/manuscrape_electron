@@ -52,61 +52,50 @@ The _project manager_ can export the entire project into to different formats, i
 
 Before you start installing, you need to decide where you want to put your data. As of now, you can temporarily use [app.manuscrape.org](https://app.manuscrape.org) for free, which is also the default option in the signup flow.
 
-You can download a compiled windows installer, that will either install or update ManuScrape to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
+You can also use another instance of the manuscrape backend, either by a third party provider, or in your own organization. You choose which backend to use, by specifying the URL in the sign-up and sign-in flow.
+
+You can download a windows installer, that will either install or update the ManuScrape client to the desired version. The latest .exe installer can be found [here](https://github.com/nikobojs/manuscrape_electron/releases).
 <br />
 <br />
 
 ## Bug reports / Feature requests
 
-After the launch of v1.0.0, we intend to use GitHub Issues for all development tasks. If you experience bugs, or need features added or refactored, please [submit an issue](https://github.com/nikobojs/manuscrape_electron/issues), preferably in english.
+We intend to use GitHub Issues for all development tasks. If you experience bugs, or need features added or refactored, please [submit an issue](https://github.com/nikobojs/manuscrape_electron/issues), preferably in english.
 <br />
 <br />
 
 ## Contribute to the code ☕
 
-You are more than welcome to contribute to the project in any way. Except donations. For now.
-
-#### TL;DR:
-
-Clone repositories, look for TODO-comments, make improvement, create feature branch (naming doesn't matter), commit, create PR, and done! The PR will be reviewed by the project maintainers.
-<br />
+You are more than welcome to contribute to the project in any way. Except donations. For now.<br />
 
 #### Repository overview:
 
-This repo is an Electron app tested on Windows 11 and a couple Linux distributions. The app provides some client-side native tools, that talks with the api of the online backend app. [Here is the backend repo](https://github.com/nikobojs/manuscrape_nuxt).
+This repo is an Electron app tested on Windows 11 and a couple Linux distributions. The app provides native client tools, that talks with the api of the Nuxt app. [Here is the Nuxt repo](https://github.com/nikobojs/manuscrape_nuxt).
 <br />
 
 #### Git conventions:
 
-Not strict in any way. Make your contributions the way you think works best. Pull requests (into "unstable" branch) on feature branches will be reviewed and merged by the current admins of the project.
+Make your contributions the way you think works best. Please branch out from the branch named "unstable", which contains the newest version.<br />
+
+<br />
 <br />
 
-#### Setup on Linux or Mac:
+#### Setup development environment:
 
-1. Install Electron repository:
+These instructions covers installation of a completely local setup, on all three major platforms. However, on Windows, the npm scripts will only work on Git Bash.<br />
+
+1. Install Python and NodeJS (and Git Bash on Windows)
+2. Install Electron repository:
    1. `git clone https://github.com/nikobojs/manuscrape_electron`
    2. `cd manuscrape_electron`
    3. `npm install`
-   4. `npm run pyinstall`
-   5. `npm run pyfreeze`
-2. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
-3. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
-4. Start Electron app: `cd manuscrape_electron && npm start`
+   4. `npm run pyinstall` (on Windows: `npm run pyinstall-win`)
+   5. `npm run pyfreeze` (on Windows: `npm run pyfreeze-win`)
+3. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
+4. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
+5. Start Electron app: `cd manuscrape_electron && npm start`
+6. For MacOS: If you have problems with taking screenshots after the installation, go to System Preferences -> Privacy & Security -> Screen Recording, and give app permission
 
-5. For MacOS: If you have problems with taking screenshots go to System Preferences -> Privacy & Security -> Screen Recording, and give app permission
-
-#### Setup on Windows:
-
-_NOTE: Development ennvironment for windows is not actively maintained or tested_
-<br />
-<br />
-It's possible to set up a development environment on windows. However, the solution is not actively tested on windows, and there is a known issue with the npm scripts sometimes not working in windows environments.
-
-The tricky part here is `virtualenv` from PyPi, which is the virtual python environment that incapsules a part of the scrollshot feature. `virtualenv` seems inconsistent in what paths it creates on windows on initialization. To compensate for that, there are two replacement npm scripts that might fix the python path bug:
-
-`npm run pyinstall-win` and `npm run pyfreeze-win`
-
-If they don't work, try installing and compiling the python program manually (in virtualenv). You can look at the existing scripts in `package.json` for inspiration. If you know of a consistent fix, please submit an issue!
 <br />
 <br />
 
