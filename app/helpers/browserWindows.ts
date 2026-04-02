@@ -234,8 +234,8 @@ export const createAddObservationWindow = async (
       `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
       onClose,
       onReady,
-      1080,
-      560,
+      1200,
+      790,
     );
     return win;
     // if img is provided, open /edit-image-new to provide image editing before upload
@@ -256,8 +256,8 @@ export const createAddObservationWindow = async (
       `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`,
       onClose,
       onReady,
-      jpgImg ? Math.max(jpgImg.width - 200, 100) : 600,
-      jpgImg ? jpgImg.height + 300 : 1080,
+      jpgImg ? Math.max(jpgImg.width - 200, 1080) : 790,
+      jpgImg ? Math.min(jpgImg.height + 300, 760) : 1200,
     );
 
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
