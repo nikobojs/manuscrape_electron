@@ -15,7 +15,7 @@
     "pyinstall-win": "cd python && env\\Scripts\\activate && pip install -r requirements.txt && deactivate",
     "delete-venv": "rm -rf python/env && (cd python && python3 -m venv env)",
     "pyfreeze": "cd python && . env/bin/activate && pyinstaller -F --distpath ./dist -n chatjoiner src/main.py && deactivate",
-    "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./dist -n chatjoiner python\\src\\main.py && deactivate",
+    "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python\\src\\main.py && deactivate",
     "build-tailwind": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
   },
   "author": "Code Collective ApS",
