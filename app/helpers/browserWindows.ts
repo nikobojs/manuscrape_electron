@@ -1,14 +1,14 @@
-import jpeg from 'jpeg-js';
+import jpeg from "jpeg-js";
 import {
   BrowserWindow,
   ipcMain,
   type BrowserWindowConstructorOptions,
-} from 'electron';
-import path from 'path';
-import { defaultSettings } from './settings';
-import { getMainIconPathBasedOnOS } from './icons';
-import fs from 'fs';
-const isLinux = process.platform === 'linux';
+} from "electron";
+import path from "path";
+import { defaultSettings } from "./settings";
+import { getMainIconPathBasedOnOS } from "./icons";
+import fs from "fs";
+const isLinux = process.platform === "linux";
 
 // generic nuxt app window factory - not meant to be exported
 const createNuxtAppWindow = (
@@ -20,7 +20,7 @@ const createNuxtAppWindow = (
   maxWidth?: number | undefined,
 ): BrowserWindow => {
   const win = new BrowserWindow({
-    title: 'ManuScrape',
+    title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
@@ -28,27 +28,27 @@ const createNuxtAppWindow = (
     show: false,
     icon: getMainIconPathBasedOnOS(),
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
     },
     useContentSize: true,
-    backgroundColor: '#1c1b22',
-    ...(typeof minWidth === 'number' ? { minWidth, width: minWidth } : {}),
-    ...(typeof minHeight === 'number' ? { minHeight, height: minHeight } : {}),
-    ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
+    backgroundColor: "#1c1b22",
+    ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
+    ...(typeof minHeight === "number" ? { minHeight, height: minHeight } : {}),
+    ...(typeof maxWidth === "number" ? { maxWidth } : {}),
   });
 
   win.loadURL(url);
 
-  win.once('show', () => {
+  win.once("show", () => {
     onReady();
     win.focus();
-    const isMac = process.platform === 'darwin';
+    const isMac = process.platform === "darwin";
     if (isMac) {
       win.setMinimumSize(minWidth, minHeight); // should help enforce bounds on some macs
     }
   });
 
-  win.once('close', () => onClose());
+  win.once("close", () => onClose());
 
   win.show();
 
@@ -57,7 +57,7 @@ const createNuxtAppWindow = (
 
 export function createTrayWindow(): BrowserWindow {
   const trayWindow = new BrowserWindow({
-    title: 'ManuScrape',
+    title: "ManuScrape",
     width: 0,
     height: 0,
     show: false,
@@ -67,17 +67,17 @@ export function createTrayWindow(): BrowserWindow {
     skipTaskbar: true,
     hasShadow: false,
   });
-  trayWindow.loadFile('windows/tray.html');
+  trayWindow.loadFile("windows/tray.html");
   return trayWindow;
 }
 
 export const createOverlayWindow = (
   activeDisplay: Electron.Display,
 ): BrowserWindow => {
-  const isMac = process.platform === 'darwin';
+  const isMac = process.platform === "darwin";
 
   const win = new BrowserWindow({
-    title: 'ManuScrape - Mark area overlay',
+    title: "ManuScrape - Mark area overlay",
     // remove the default frame around the window
     frame: false,
     // hide Electron’s default menu
@@ -104,13 +104,13 @@ export const createOverlayWindow = (
     height: activeDisplay.workArea.height,
 
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
       webgl: true,
     },
   });
 
-  win.loadFile('windows/markArea.html');
+  win.loadFile("windows/markArea.html");
   win.setBounds(activeDisplay.workArea);
   win.show();
   // win.webContents.openDevTools();
@@ -122,27 +122,27 @@ export const createAuthorizationWindow = (
   openSignUp = false,
 ): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
-    title: 'ManuScrape',
+    title: "ManuScrape",
     autoHideMenuBar: true,
     minimizable: false,
     closable: true,
     movable: true,
     show: true,
     resizable: false,
-    icon: path.join(__dirname, '../../assets/icons/desktop-icon.png'),
+    icon: path.join(__dirname, "../../assets/icons/desktop-icon.png"),
     width: 320,
     height: isLinux ? 450 : 480, // TODO: needs adjustment on windows
     webPreferences: {
-      preload: path.join(__dirname, '../preload.js'),
+      preload: path.join(__dirname, "../preload.js"),
     },
   };
 
-  const file = openSignUp ? 'windows/signUp.html' : 'windows/signIn.html';
+  const file = openSignUp ? "windows/signUp.html" : "windows/signIn.html";
   const win = new BrowserWindow(opts);
 
   win.loadFile(file);
 
-  win.once('show', () => {
+  win.once("show", () => {
     win.focus();
   });
 
@@ -158,28 +158,28 @@ export const createSettingsWindow = (
   ) => Promise<void>,
 ) => {
   // cleanup and use best ipc practices
-  ipcMain.removeAllListeners('update-settings');
-  ipcMain.removeAllListeners('get-settings-request');
-  ipcMain.removeAllListeners('get-default-settings-request');
-  ipcMain.removeAllListeners('ask-for-default-host-value');
-  ipcMain.removeAllListeners('ask-for-error-message');
+  ipcMain.removeAllListeners("update-settings");
+  ipcMain.removeAllListeners("get-settings-request");
+  ipcMain.removeAllListeners("get-default-settings-request");
+  ipcMain.removeAllListeners("ask-for-default-host-value");
+  ipcMain.removeAllListeners("ask-for-error-message");
 
   // attach new event listeners
   ipcMain.on(
-    'update-settings', // TODO: use enum
+    "update-settings", // TODO: use enum
     (event, body) => updateHandler(event, body),
   );
   ipcMain.on(
-    'get-settings-request', // TODO: use enum
+    "get-settings-request", // TODO: use enum
     (event) => {
       const settings = getSettings();
-      event.reply('get-settings-response', settings);
+      event.reply("get-settings-response", settings);
     },
   );
   ipcMain.on(
-    'get-default-settings-request', // TODO: use enum
+    "get-default-settings-request", // TODO: use enum
     (event) => {
-      event.reply('get-default-settings-response', defaultSettings);
+      event.reply("get-default-settings-response", defaultSettings);
     },
   );
 
@@ -219,13 +219,13 @@ export const createAddObservationWindow = async (
       if (val) params.push(`${key}=1`);
       return params;
     }, [] as string[])
-    .join('&');
+    .join("&");
 
   if ((imgFilePath && !projectFieldId) || (!imgFilePath && projectFieldId)) {
     console.warn(
-      'Expected `imgFilePath` and `projectFieldId` to be both defined or undefined',
+      "Expected `imgFilePath` and `projectFieldId` to be both defined or undefined",
     );
-    console.warn('Not opening image window');
+    console.warn("Not opening image window");
   }
 
   // image is not provided, just open the normal observation detail view
@@ -251,9 +251,10 @@ export const createAddObservationWindow = async (
     } catch (e) {
       // image is not jpg, dont try to read it but provide defaults for scrollshot (which is png)
     }
-    const imgBase64 = buffer.toString('base64');
+    const imgBase64 = buffer.toString("base64");
+    const url = `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`;
     const win = createNuxtAppWindow(
-      `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`,
+      url,
       onClose,
       onReady,
       jpgImg ? Math.max(jpgImg.width - 200, 1080) : 790,

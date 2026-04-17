@@ -18,6 +18,7 @@ export function generateMenuItems(
 ): MenuItem[] {
   const menuItems = [] as MenuItem[];
   const activeDisplay = controller.getActiveDisplay();
+  const projectAccess = controller.getActiveProject();
 
   if (!user) {
     menuItems.push(
@@ -70,7 +71,7 @@ export function generateMenuItems(
           icon: addIcon,
         }),
       );
-    } else {
+    } else if (projectAccess) {
       if (controller.activeObservationId) {
         menuItems.push(
           new MenuItem({
@@ -89,10 +90,29 @@ export function generateMenuItems(
           }),
         );
       }
+
+      // use `hasImageField` boolean to enable/disable helper text + take screenshot + take scrollshot
+      let hasImageField = false;
+      if (projectAccess) {
+        hasImageField = !!projectAccess.project.fields
+          .map((f) => f.type)
+          .find((t) => t.includes("IMAGE"));
+      }
+
+      if (!hasImageField) {
+        menuItems.push(
+          new MenuItem({
+            label: "Project has no image field(s)",
+            type: "header",
+            enabled: false,
+          }),
+        );
+      }
       menuItems.push(
         new MenuItem({
           label: "Take screenshot",
           type: "normal",
+          enabled: hasImageField,
           click: () => controller.createQuickScreenshot(),
           accelerator: "Alt+N",
           icon: addIcon,
@@ -103,6 +123,7 @@ export function generateMenuItems(
         new MenuItem({
           label: "Take scrollshot",
           type: "normal",
+          enabled: hasImageField,
           click: () => controller.createScrollScreenshot(),
           accelerator: "Alt+S",
           icon: addIcon,

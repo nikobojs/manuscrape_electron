@@ -193,6 +193,15 @@ export class ManuScrapeController {
     this.refreshContextMenu();
   }
 
+  public getActiveProject():
+    | { role: string; project: IGetProjectResponse }
+    | undefined {
+    if (!this.user || !this.activeProjectId) return undefined;
+    return this.user.projectAccess.find(
+      (p) => p.project.id === this.activeProjectId,
+    );
+  }
+
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
     // ensure there is not already an observation being made
@@ -452,14 +461,16 @@ export class ManuScrapeController {
       );
     }
 
-    if (!chosenField) {
-      await deleteObservation(
-        apiHost,
-        accessToken,
-        activeProjectId,
-        observationId,
-      );
-      return;
+    if (imageProjectFields.length) {
+      if (!chosenField) {
+        await deleteObservation(
+          apiHost,
+          accessToken,
+          activeProjectId,
+          observationId,
+        );
+        return;
+      }
     }
 
     // add observation-created listener
@@ -529,7 +540,7 @@ export class ManuScrapeController {
       undefined,
       true,
       imgFilePath,
-      chosenField.id,
+      chosenField?.id,
     );
 
     // safe window in instance state
