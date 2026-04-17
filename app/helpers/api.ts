@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import { app } from 'electron';
+import * as fs from "fs";
+import { app } from "electron";
 
 type ReqBodyVal =
   | string
@@ -12,29 +12,31 @@ type ReqBody = { [key: string]: ReqBodyVal };
 const USER_AGENT = `ManuScrape/${app.getVersion()}`;
 
 export function isClientDeprecationError(err: Error): boolean {
-  return err?.message?.includes('is too old');
+  return err?.message?.includes("is too old");
 }
 
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
 // NOTE: there is no runtime validation against the generic type
 async function req<T>(
   host: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: RequestInfo | URL,
   token?: string,
   body?: ReqBody | FormData,
-  headers?: HeadersInit
+  headers?: HeadersInit,
 ): Promise<{ res: Response; json: T }> {
-  console.log('REQUESTING ' + method + ' ' + host + path);
+  if (process.env.DEBUG && ["1", "true"].includes(process.env.DEBUG)) {
+    console.log("REQUESTING " + method + " " + host + path);
+  }
   try {
     // define initial request config
     const init: RequestInit = {
       method,
       headers: {
-        Accept: 'application/json',
-        'User-Agent': USER_AGENT,
+        Accept: "application/json",
+        "User-Agent": USER_AGENT,
       },
-      credentials: 'include',
+      credentials: "include",
     };
 
     // add json body and header if body is defined
@@ -42,7 +44,7 @@ async function req<T>(
       init.body = JSON.stringify(body);
       init.headers = {
         ...init.headers,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       };
     }
 
@@ -69,7 +71,7 @@ async function req<T>(
 
     // if api returns message or statusMessage, throw error with server message
     if (![200, 201].includes(res.status)) {
-      const msg = json?.message || json?.statusMessage || 'Unknown error';
+      const msg = json?.message || json?.statusMessage || "Unknown error";
       throw new Error(msg);
     }
 
@@ -81,39 +83,39 @@ async function req<T>(
     // TODO: improve error handling for more error cases
     if (err?.cause) {
       if (
-        ['EAI_AGAIN', 'ENOTFOUND', 'ECONNREFUSED'].includes(err.cause?.code)
+        ["EAI_AGAIN", "ENOTFOUND", "ECONNREFUSED"].includes(err.cause?.code)
       ) {
-        throw new Error('The host is invalid or not available');
-      } else if (err.cause?.code == 'ERR_SSL_WRONG_VERSION_NUMBER') {
+        throw new Error("The host is invalid or not available");
+      } else if (err.cause?.code == "ERR_SSL_WRONG_VERSION_NUMBER") {
         throw new Error(
-          'This kind of URL is invalid. Please specify the protocol.'
+          "This kind of URL is invalid. Please specify the protocol.",
         );
       }
     }
 
     // catch if server is not sending json
     if (
-      err?.name === 'SyntaxError' &&
-      err?.message?.includes?.('Unexpected token')
+      err?.name === "SyntaxError" &&
+      err?.message?.includes?.("Unexpected token")
     ) {
       // TODO: report this
       throw new Error(
-        'The server probably down! Please contact your software provider'
+        "The server probably down! Please contact your software provider",
       );
     }
 
     // filter out sensitive data from body that will be logged
-    if (!(body instanceof FormData) && typeof body === 'object') {
+    if (!(body instanceof FormData) && typeof body === "object") {
       if (body?.token) {
-        body.token = '<REDACTED>';
+        body.token = "<REDACTED>";
       }
       if (body?.password) {
-        body.password = '<REDACTED>';
+        body.password = "<REDACTED>";
       }
     }
 
     // TODO: catch json parse errors
-    console.error('req() error:', {
+    console.error("req() error:", {
       path,
       method,
       body,
@@ -132,26 +134,26 @@ async function req<T>(
 }
 
 export async function fetchUser(host: string, token: string): Promise<IUser> {
-  const { json } = await req<IUser>(host, 'GET', '/api/user', token);
+  const { json } = await req<IUser>(host, "GET", "/api/user", token);
   return json;
 }
 
 export async function signUp(
   host: string,
   email: string,
-  password: string
+  password: string,
 ): Promise<ITokenResponse> {
   const { json } = await req<ITokenResponse>(
     host,
-    'POST',
-    '/api/user',
+    "POST",
+    "/api/user",
     undefined,
-    { email, password }
+    { email, password },
   );
 
   // if we still dont have a token, we have to blame the api
-  if (!json?.token || typeof json?.token !== 'string') {
-    throw new Error('The server did not return the token.');
+  if (!json?.token || typeof json?.token !== "string") {
+    throw new Error("The server did not return the token.");
   }
   return json;
 }
@@ -159,19 +161,19 @@ export async function signUp(
 export async function signIn(
   host: string,
   email: string,
-  password: string
+  password: string,
 ): Promise<ITokenResponse> {
   const { json } = await req<ITokenResponse>(
     host,
-    'POST',
-    '/api/auth',
+    "POST",
+    "/api/auth",
     undefined,
-    { email, password }
+    { email, password },
   );
 
   // if we still dont have a token, we have to blame the api
-  if (!json?.token || typeof json?.token !== 'string') {
-    throw new Error('The server did not return the token.');
+  if (!json?.token || typeof json?.token !== "string") {
+    throw new Error("The server did not return the token.");
   }
   return json;
 }
@@ -179,23 +181,23 @@ export async function signIn(
 export async function logout(host: string, token: string): Promise<Response> {
   const { res } = await req<ISuccessResponse>(
     host,
-    'DELETE',
-    '/api/auth',
-    token
+    "DELETE",
+    "/api/auth",
+    token,
   );
   return res;
 }
 
 export async function renewCookie(
   host: string,
-  token: string
+  token: string,
 ): Promise<Response> {
   const { res } = await req<ISuccessResponse>(
     host,
-    'POST',
-    '/api/token_auth',
+    "POST",
+    "/api/token_auth",
     undefined,
-    { token }
+    { token },
   );
   return res;
 }
@@ -203,43 +205,43 @@ export async function renewCookie(
 export async function addObservation(
   host: string,
   token: string,
-  projectId: number
+  projectId: number,
 ): Promise<IObservationCreatedResponse> {
   const { json } = await req<IObservationCreatedResponse>(
     host,
-    'POST',
+    "POST",
     `/api/projects/${projectId}/observations`,
-    token
+    token,
   );
 
   // const json = await res.json();
-  if (typeof json['id'] !== 'number') {
-    console.error('Create observation response:', { json });
+  if (typeof json["id"] !== "number") {
+    console.error("Create observation response:", { json });
     throw new Error(
-      'Api did not respond as expected when creating observation'
+      "Api did not respond as expected when creating observation",
     );
   } else {
-    return { id: json['id'] };
+    return { id: json["id"] };
   }
 }
 
 export async function getProject(
   host: string,
   token: string,
-  projectId: number
+  projectId: number,
 ): Promise<IGetProjectResponse> {
   const { json } = await req<IGetProjectResponse>(
     host,
-    'GET',
+    "GET",
     `/api/projects/${projectId}`,
-    token
+    token,
   );
 
   // const json = await res.json();
-  if (typeof json['id'] !== 'number') {
-    console.error('Fetch project response:', { json });
+  if (typeof json["id"] !== "number") {
+    console.error("Fetch project response:", { json });
     throw new Error(
-      'Api did not respond as expected when creating observation'
+      "Api did not respond as expected when creating observation",
     );
   } else {
     return json;
@@ -252,9 +254,14 @@ export async function deleteObservation(
   projectId: number,
   observationId: number,
 ) {
-  const { res, json } = await req(host, 'DELETE', `/api/projects/${projectId}/observations/${observationId}`, token);
+  const { res, json } = await req(
+    host,
+    "DELETE",
+    `/api/projects/${projectId}/observations/${observationId}`,
+    token,
+  );
   if (res.status !== 200) {
-    console.error('Unable to delete observation', { json });
+    console.error("Unable to delete observation", { json });
     // TODO: report error
   }
 
@@ -263,27 +270,27 @@ export async function deleteObservation(
 
 export function parseHostUrl(host: string): string {
   // ensure host is thruthy and a string
-  if (!host || typeof host != 'string') {
-    throw new Error('Host parameter is required');
+  if (!host || typeof host != "string") {
+    throw new Error("Host parameter is required");
   }
 
   // if no scheme is set, default to https
   const hasProtocol = /^.+\:\/\//.test(host);
   if (!hasProtocol) {
-    host = 'https://' + host;
+    host = "https://" + host;
   }
 
   try {
     const parsedUrl = new URL(host);
 
     // only allow http and https
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       throw new Error(
-        'The host input field must begin with http:// or https://'
+        "The host input field must begin with http:// or https://",
       );
     }
   } catch {
-    throw new Error('Invalid host input value');
+    throw new Error("Invalid host input value");
   }
 
   // return host
