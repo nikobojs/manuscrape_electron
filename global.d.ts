@@ -1,4 +1,4 @@
-import { IpcRendererEvent } from 'electron';
+import { IpcRendererEvent } from "electron";
 
 export interface IElectronAPI {
   areaMarked(rect: {
@@ -55,11 +55,7 @@ declare global {
     createdAt: string;
     projectAccess: {
       role: string;
-      project: {
-        id: number;
-        createdAt: string;
-        name: string;
-      };
+      project: IGetProjectResponse;
     }[];
   }
 
@@ -83,7 +79,7 @@ declare global {
     field1Id: number;
     projectId: number;
     operator: string;
-  }
+  };
 
   type TagResponse = {
     createdById: number;
@@ -94,7 +90,20 @@ declare global {
 
   type SmallProjectFieldResponse = {
     required: boolean;
-    type: "DATE" | "STRING" | "INT" | "FLOAT" | "DATETIME" | "BOOLEAN" | "CHOICE" | "MULTIPLE_CHOICE_ADD" | "AUTOCOMPLETE" | "AUTOCOMPLETE_ADD" | "TEXTAREA" | "IMAGE_SINGLE" | "IMAGE_MULTIPLE";
+    type:
+      | "DATE"
+      | "STRING"
+      | "INT"
+      | "FLOAT"
+      | "DATETIME"
+      | "BOOLEAN"
+      | "CHOICE"
+      | "MULTIPLE_CHOICE_ADD"
+      | "AUTOCOMPLETE"
+      | "AUTOCOMPLETE_ADD"
+      | "TEXTAREA"
+      | "IMAGE_SINGLE"
+      | "IMAGE_MULTIPLE";
     label: string;
     index: number;
     choices: string | null;
@@ -140,8 +149,8 @@ declare global {
   ) => void;
   type MarkAreaStatusCallback = (
     event: IpcRendererEvent,
-    status: { statusText: string; statusDescription: string }
+    status: { statusText: string; statusDescription: string },
   ) => void;
 
-  type SquirrelEvent = 'install' | 'uninstall' | 'firstrun';
+  type SquirrelEvent = "install" | "uninstall" | "firstrun";
 }
