@@ -42,7 +42,7 @@ export function yesOrNo(message: string): boolean {
 }
 
 export function selectProjectField(message: string, projectFields: SmallProjectFieldResponse[]): SmallProjectFieldResponse | null {
-  const buttons = projectFields.map(pf => `&Select "${pf.label}"`).concat(['Cancel']);
+  const buttons = projectFields.map(pf => `&Select "${pf?.label || 'Unknown label'}"`).concat(['Cancel']);
   const options: MessageBoxOptions = {
     title: 'Select project parameter',
     buttons,

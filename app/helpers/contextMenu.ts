@@ -161,7 +161,7 @@ export function generateMenuItems(
     // create new empty screens submenu
     const screenMenu = new MenuItem({
       label: "Choose monitor",
-      sublabel: activeDisplay.label,
+      sublabel: activeDisplay?.label,
       submenu: [],
       type: "submenu",
       icon: monitorIcon,
@@ -176,7 +176,7 @@ export function generateMenuItems(
 
       // create screen submenu item
       const screenMenuItem = new MenuItem({
-        label: display.label || `Screen #${display.id}`,
+        label: display?.label || `Screen #${display.id}`,
         id: display.id.toString(),
         type: "radio",
         checked: display.id == activeDisplay.id,
