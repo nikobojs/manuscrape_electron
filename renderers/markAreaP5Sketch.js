@@ -56,7 +56,7 @@ function drawProcessing(p) {
   p.textSize(16);
   p.text(statusDescription, -50, 30)
   p.pop();
-  
+
   // create rotating spinner
   p.push();
   p.translate(p.windowWidth - 64, 32);

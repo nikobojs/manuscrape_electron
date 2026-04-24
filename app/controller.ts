@@ -697,7 +697,13 @@ export class ManuScrapeController {
 
     // call logout api
     if (this.apiHost && this.loginToken) {
-      await logout(this.apiHost, this.loginToken);
+      try {
+        await logout(this.apiHost, this.loginToken);
+      } catch (e) {
+        // TODO: report error
+        console.error("Unable to log out using the api");
+        console.error(e);
+      }
     } else {
       console.warn("Token was not present when calling log out endpoint");
       // TODO: report this error

@@ -260,6 +260,7 @@ export const createAddObservationWindow = async (
       jpgImg ? Math.max(jpgImg.width - 200, 1080) : 790,
       jpgImg ? Math.min(jpgImg.height + 300, 760) : 1200,
     );
+    // win.webContents.openDevTools();
 
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
     win.webContents.executeJavaScript(`
