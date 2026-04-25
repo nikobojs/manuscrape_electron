@@ -60,6 +60,8 @@ import {
   validateSettings,
 } from "./helpers/settings";
 import fs from "fs";
+import os from "os";
+import { hasMinimumMacVersion, isMac } from "./helpers/os";
 
 export class ManuScrapeController {
   public isMarkingArea: boolean;
@@ -357,6 +359,15 @@ export class ManuScrapeController {
       const apiHost = this.requireApiHost();
       const loginToken = this.requireLoginToken();
       const activeProjectId = this.requireActiveProjectId();
+
+      // adjust for MacOS tahoe not allowing a full overlay anymore
+      // offset the coordinate down
+      if (isMac()) {
+        if (hasMinimumMacVersion(26)) {
+          const topbarHeight = 30;
+          area.y += topbarHeight;
+        }
+      }
 
       if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
         throw new Error("Overlay window does not exist");

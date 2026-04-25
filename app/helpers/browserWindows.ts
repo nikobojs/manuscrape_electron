@@ -8,6 +8,7 @@ import path from "path";
 import { defaultSettings } from "./settings";
 import { getMainIconPathBasedOnOS } from "./icons";
 import fs from "fs";
+import { isMac } from "./os";
 const isLinux = process.platform === "linux";
 
 // generic nuxt app window factory - not meant to be exported
@@ -42,8 +43,7 @@ const createNuxtAppWindow = (
   win.once("show", () => {
     onReady();
     win.focus();
-    const isMac = process.platform === "darwin";
-    if (isMac) {
+    if (isMac()) {
       win.setMinimumSize(minWidth, minHeight); // should help enforce bounds on some macs
     }
   });
@@ -74,8 +74,6 @@ export function createTrayWindow(): BrowserWindow {
 export const createOverlayWindow = (
   activeDisplay: Electron.Display,
 ): BrowserWindow => {
-  const isMac = process.platform === "darwin";
-
   const win = new BrowserWindow({
     title: "ManuScrape - Mark area overlay",
     // remove the default frame around the window
@@ -92,7 +90,6 @@ export const createOverlayWindow = (
     closable: false,
     movable: false,
     focusable: false,
-    fullscreen: isMac ? false : true,
     hiddenInMissionControl: true,
     thickFrame: false,
 
@@ -109,6 +106,20 @@ export const createOverlayWindow = (
       webgl: true,
     },
   });
+
+  if (!isMac()) {
+    win.setFullScreen(true);
+  } else {
+    win.setMenu(null);
+    win.setBounds({
+      x: 0,
+      y: 0,
+      width: activeDisplay.size.width,
+      height: activeDisplay.size.height,
+    });
+    win.setAlwaysOnTop(true, "screen-saver");
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
 
   win.loadFile("windows/markArea.html");
   win.setBounds(activeDisplay.workArea);
