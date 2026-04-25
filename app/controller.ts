@@ -83,6 +83,7 @@ export class ManuScrapeController {
   private apiHost: string | undefined;
   private tokenPath: string;
   private hostPath: string;
+  private projectPath: string;
   private settingsPath: string;
   private user: IUser | undefined;
   private contextMenu: Menu | undefined;
@@ -102,11 +103,13 @@ export class ManuScrapeController {
     this.cancelOperation = false;
     this.tokenPath = path.join(app.getPath("userData"), "token.txt.enc");
     this.hostPath = path.join(app.getPath("userData"), "host.txt.enc");
+    this.projectPath = path.join(app.getPath("userData"), "project.txt.enc");
     this.settingsPath = path.join(app.getPath("userData"), "settings.txt.enc");
     this.useEncryption = useEncryption;
     this.settings = initializeSettings(this.settingsPath);
     this.version = version;
     this.activeObservationId = undefined;
+    this.activeProjectId = undefined;
 
     console.info(`Initializing ManuScrape Client v${version}...\n`);
 
@@ -189,6 +192,9 @@ export class ManuScrapeController {
   // update activeProjectId and refresh menu
   public chooseProject(id: number) {
     this.activeProjectId = id;
+    if (this.useEncryption) {
+      saveFile(id.toString(), this.projectPath);
+    }
     this.activeObservationId = undefined;
     this.refreshContextMenu();
   }
@@ -569,15 +575,26 @@ export class ManuScrapeController {
     const hasAuthCookie = await authCookieExists();
     const tokenExists = fileExists(this.tokenPath);
     const hostExists = fileExists(this.hostPath);
+    const projectExists = fileExists(this.projectPath);
 
     // define initial host and token values to be used for authorization
-    let host, token;
+    let host, token, projectId;
 
     try {
       // if host and token files exists, try authorizing with them
       if (hostExists) {
         this.apiHost = readFile(this.hostPath);
         host = this.apiHost;
+      }
+
+      // choose last project if exists, else first project
+      if (projectExists) {
+        projectId = parseInt(readFile(this.projectPath));
+        if (isNaN(projectId)) {
+          projectId = undefined;
+          // TODO: report error
+          console.error("Unable to parse projectPath contents as number");
+        }
       }
 
       // sign in with token if host and token files exist
@@ -610,7 +627,18 @@ export class ManuScrapeController {
         // use retrieved 'host' and 'token' to renew cookie and fetch user
         if (host && token) {
           await renewCookieFromToken(host, token);
-          await this.refreshUser(host, token);
+          const _user = await this.refreshUser(host, token);
+          if (projectId) {
+            console.log("choosing last used project", projectId);
+            this.chooseProject(projectId);
+          } else {
+            if (_user) {
+              const firstProjectId = _user.projectAccess[0]?.project?.id;
+              if (firstProjectId) {
+                this.chooseProject(firstProjectId);
+              }
+            }
+          }
           this.refreshContextMenu();
         }
         if (!this.isLoggedIn()) {
@@ -623,6 +651,7 @@ export class ManuScrapeController {
       } catch (e: any) {
         // show login window if there was some kind of error
         // TODO: report error
+        console.error("Unable to login automatically:", e);
         const tooOld = isClientDeprecationError(e);
         this.openAuthorizationWindow(false, tooOld);
       }
@@ -679,6 +708,8 @@ export class ManuScrapeController {
           saveFile(host, this.hostPath);
           saveFile(token, this.tokenPath);
         }
+
+        return user;
       }
     } catch (e) {
       console.error(e);
@@ -721,6 +752,7 @@ export class ManuScrapeController {
     // delete saved token file
     // NOTE: it skips silently if there is none
     deleteFile(this.tokenPath);
+    deleteFile(this.projectPath);
 
     // create delicious notification
     new Notification({
