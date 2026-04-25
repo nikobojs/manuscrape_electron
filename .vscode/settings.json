@@ -17,6 +17,6 @@
     "editor.formatOnSave": true
   },
   "prettier.printWidth": 80,
-  "prettier.singleQuote": true,
+  "prettier.singleQuote": false,
   "prettier.semi": true
 }
