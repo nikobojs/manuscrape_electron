@@ -25,6 +25,7 @@ async function req<T>(
   body?: ReqBody | FormData,
   headers?: HeadersInit,
 ): Promise<{ res: Response; json: T }> {
+  const start = Date.now();
   if (process.env.DEBUG && ["1", "true"].includes(process.env.DEBUG)) {
     console.log("REQUESTING " + method + " " + host + path);
   }
@@ -130,6 +131,9 @@ async function req<T>(
 
     // throw error
     throw err;
+  } finally {
+    const requestTook = Date.now() - start;
+    console.log(`REQUEST ${method} ${host}${path} TOOK`, requestTook, "ms");
   }
 }
 

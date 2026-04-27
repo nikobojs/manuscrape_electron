@@ -123,6 +123,13 @@ export const createOverlayWindow = (
 
   win.loadFile("windows/markArea.html");
   win.setBounds(activeDisplay.workArea);
+
+  const beginOpen = Date.now();
+  win.on("ready-to-show", () => {
+    const openOverlayTook = Date.now() - beginOpen;
+    console.log("open overlay took", openOverlayTook, "ms");
+  });
+
   win.show();
   // win.webContents.openDevTools();
 
@@ -215,7 +222,7 @@ export const createAddObservationWindow = async (
   projectId: number,
   observationId: number,
   onClose: () => void,
-  onReady?: undefined | (() => void),
+  _onReady?: undefined | (() => void),
   electronTheme: boolean = true,
   imgFilePath?: string | undefined,
   projectFieldId?: number | undefined,
@@ -235,11 +242,27 @@ export const createAddObservationWindow = async (
   if ((imgFilePath && !projectFieldId) || (!imgFilePath && projectFieldId)) {
     console.warn(
       "Expected `imgFilePath` and `projectFieldId` to be both defined or undefined",
+      { imgFilePath, projectFieldId },
     );
     console.warn("Not opening image window");
   }
 
   // image is not provided, just open the normal observation detail view
+  const beginOpen = Date.now();
+  const onReady = () => {
+    const openWindowTook = Date.now() - beginOpen;
+    if (imgFilePath && projectFieldId) {
+      console.log("open edit-image-new window took:", openWindowTook, "ms");
+    } else {
+      console.log(
+        "open create empty observaiton window took:",
+        openWindowTook,
+        "ms",
+      );
+    }
+    return _onReady?.();
+  };
+
   if (!imgFilePath || !projectFieldId) {
     const win = createNuxtAppWindow(
       `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
@@ -274,7 +297,10 @@ export const createAddObservationWindow = async (
     // win.webContents.openDevTools();
 
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
-    win.webContents.executeJavaScript(`
+    const moveImgStart = Date.now();
+    win.webContents
+      .executeJavaScript(
+        `
       sessionStorage.setItem(
         "pendingImageFile",
         JSON.stringify({
@@ -283,7 +309,13 @@ export const createAddObservationWindow = async (
           data: "${imgBase64}",
         }),
       );
-    `);
+    `,
+      )
+      .then(() => {
+        const moveImgTook = Date.now() - moveImgStart;
+        console.log("moving of image into chromium took", moveImgTook, "ms");
+      });
+
     return win;
   }
 };

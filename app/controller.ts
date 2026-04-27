@@ -407,12 +407,15 @@ export class ManuScrapeController {
         }
 
         // take scrollshot/screenshot ('callback' argument)
+        const callbackBegin = Date.now();
         filePath = await callback(
           area,
           this.getActiveDisplay(),
           this.activeDisplayIndex,
           () => this.cancelOperation,
         );
+        const callbackTook = Date.now() - callbackBegin;
+        console.log("onMarkedArea callback took", callbackTook, "ms");
 
         // close overlay now that saving is done
         this.cancelOverlay();
@@ -452,6 +455,7 @@ export class ManuScrapeController {
       observationId,
       loginToken,
       undefined,
+      true,
     );
   }
 
@@ -459,6 +463,7 @@ export class ManuScrapeController {
     observationId: number,
     accessToken: string,
     imgFilePath: string | undefined,
+    forceEmpty = false,
   ) {
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
@@ -471,18 +476,22 @@ export class ManuScrapeController {
     );
 
     let chosenField: SmallProjectFieldResponse | null = null;
-    if (imageProjectFields.length === 0) {
-      // TODO: export + handle error
-    } else if (imageProjectFields.length === 1) {
+    if (!forceEmpty && imageProjectFields.length === 0) {
+      const errMsg =
+        "Internal project error: forceEmpty is false and imageProjectFields.length is zero";
+      console.error(errMsg);
+      // TODO: report error
+      return;
+    } else if (!forceEmpty && imageProjectFields.length === 1) {
       chosenField = imageProjectFields[0];
-    } else if (imageProjectFields.length > 1) {
+    } else if (!forceEmpty && imageProjectFields.length > 1) {
       chosenField = selectProjectField(
         "Select which project field you want to add the image to.",
         imageProjectFields,
       );
     }
 
-    if (imageProjectFields.length) {
+    if (imageProjectFields.length && !forceEmpty) {
       if (!chosenField) {
         await deleteObservation(
           apiHost,
@@ -490,6 +499,8 @@ export class ManuScrapeController {
           activeProjectId,
           observationId,
         );
+        console.error("deleting observation, chosenField is not defined");
+        // TODO: report error
         return;
       }
     }
