@@ -123,6 +123,10 @@ export class ManuScrapeController {
       this.cancelActiveObservation();
     });
 
+    // disable proxy (can disable weird long loading time in some cases)
+    app.commandLine.appendSwitch("auto-detect", "false");
+    app.commandLine.appendSwitch("no-proxy-server");
+
     trayWindow.on("ready-to-show", () => {
       // setup tray app
       this.tray = new Tray(trayIcon);
