@@ -1,116 +1,159 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="da" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
-        http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline'"
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
     />
-    <meta
-        http-equiv="X-Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline'"
-    />
-    <link rel="stylesheet" href="../assets/css.css" type="text/css">
-    <link rel="stylesheet" href="../assets/tailwind.min.css" type="text/css">
+    <link rel="stylesheet" href="../assets/tailwind.min.css" type="text/css" />
     <title>Sign up</title>
-</head>
-<body class="dark pt-5 bg-[#1c1b22] text-white">
+    <style>
+      body,
+      html {
+        margin: 0;
+        overflow: hidden;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      label,
+      span,
+      input {
+        font-family:
+          "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="dark pt-5 bg-[#1c1b22] text-white">
     <div class="container px-5 max-w-sm mx-auto">
-        <form class="flex flex-col max-w-sm w-full items-start mb-3" onsubmit="signUp(event)">
-            <h2 class="text-xl mb-5">New ManuScrape account</h2>
-            <span class="text-sm text-left block mb-4">
-                Register a new ManuScrape account on a custom server hosting
-                <a class="underline cursor-pointer" target="_blank" href="https://github.com/nikobojs/manuscrape_nuxt">this repo</a>
-                (or fork).
-            </span>
-            <span class="text-sm text-left block">
-                If you already have an account,
-                <a class="underline cursor-pointer" href="signIn.html">sign in</a>
-                instead.
-            </span>
-            <div class="flex flex-col mt-5 gap-y-3 w-full">
-                <div>
-                    <label class="text-gray-200 text-sm font-bold" for="input-email">Email</label>
-                    <input
-                        class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
-                        id="input-email"
-                        placeholder="Email"
-                        type="email"
-                        required
-                    />
-                </div>
+      <form
+        class="flex flex-col max-w-sm w-full items-start mb-3"
+        onsubmit="signUp(event)"
+      >
+        <h2 class="text-xl mb-5">New ManuScrape account</h2>
+        <span class="text-sm text-left block mb-4">
+          Register a new ManuScrape account on a custom server hosting
+          <a
+            class="underline cursor-pointer"
+            target="_blank"
+            href="https://github.com/nikobojs/manuscrape_nuxt"
+            >this repo</a
+          >
+          (or fork).
+        </span>
+        <span class="text-sm text-left block">
+          If you already have an account,
+          <a class="underline cursor-pointer" href="signIn.html">sign in</a>
+          instead.
+        </span>
+        <div class="flex flex-col mt-5 gap-y-3 w-full">
+          <div>
+            <label class="text-gray-200 text-sm font-bold" for="input-email"
+              >Email</label
+            >
+            <input
+              class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+              id="input-email"
+              placeholder="Email"
+              type="email"
+              required
+            />
+          </div>
 
-                <div>
-                    <label class="text-gray-200 text-sm font-bold flex gap-2" for="input-password">
-                        Password
-                        <div class='has-tooltip relative w-full'>
-                            <span class='border-gray-700 border tooltip rounded shadow-lg p-1 bg-slate-950 -mt-[64px] block absolute'>
-                                <p class="text-white text-xs">
-                                    Password: minimum 6 characters, minimum one letter, minimum one symbol or number
-                                </p>
-                            </span>
-                            <img src="../assets/icons/info.png" class="mb-1 w-4 h-4 inline-block" />
-                        </div>
-                    </label>
-                    <input
-                        class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
-                        id="input-password"
-                        placeholder="Password"
-                        type="password"
-                        required
-                    />
-                </div>
+          <div>
+            <label
+              class="text-gray-200 text-sm font-bold flex gap-2"
+              for="input-password"
+            >
+              Password
+              <div class="has-tooltip relative w-full">
+                <span
+                  class="border-gray-700 border tooltip rounded shadow-lg p-1 bg-slate-950 -mt-[64px] block absolute"
+                >
+                  <p class="text-white text-xs">
+                    Password: minimum 6 characters, minimum one letter, minimum
+                    one symbol or number
+                  </p>
+                </span>
+                <img
+                  src="../assets/icons/info.png"
+                  class="mb-1 w-4 h-4 inline-block"
+                />
+              </div>
+            </label>
+            <input
+              class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+              id="input-password"
+              placeholder="Password"
+              type="password"
+              required
+            />
+          </div>
 
-                <div>
-                    <label class="text-gray-200 text-sm font-bold" for="input-host">Host domain or IP</label>
-                    <input
-                        class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
-                        id="input-host"
-                        placeholder="app.manuscrape.org"
-                        type="text"
-                    />
-                </div>
-            </div>
-            <div class="mt-6 flex flex-row gap-x-4 items-baseline">
-                <button
-                    class="text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm transition-colors bg-[#263d71] focus:bg-[#29419d] hover:bg-[#29419d] disabled:bg-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center"
-                    type="submit"
-                    id="input-submit"
-                >Sign up</button>
-                <span class="text-red-600 text-sm block" id="error-message">&nbsp;</span>
-            </div>
-        </form>
+          <div>
+            <label class="text-gray-200 text-sm font-bold" for="input-host"
+              >Host domain or IP</label
+            >
+            <input
+              class="relative block w-full disabled:cursor-not-allowed disabled:opacity-75 focus:outline-none border-0 rounded-md placeholder-gray-400 dark:placeholder-gray-500 text-sm px-2.5 py-1.5 shadow-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 input"
+              id="input-host"
+              placeholder="app.manuscrape.org"
+              type="text"
+            />
+          </div>
+        </div>
+        <div class="mt-6 flex flex-row gap-x-4 items-baseline">
+          <button
+            class="text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 flex-shrink-0 font-medium rounded-md text-sm gap-x-1.5 px-2.5 py-1.5 shadow-sm transition-colors bg-[#263d71] focus:bg-[#29419d] hover:bg-[#29419d] disabled:bg-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:focus-visible:outline-primary-400 inline-flex items-center"
+            type="submit"
+            id="input-submit"
+          >
+            Sign up
+          </button>
+          <span class="text-red-600 text-sm block" id="error-message"
+            >&nbsp;</span
+          >
+        </div>
+      </form>
     </div>
 
     <script>
-        let hostPlaceholder = '';
-        window.electronAPI.defaultHostValue((_event, host) => {
-            if (host) {
-                document.querySelector('#input-host').value = host;
-            }
-        });
-
-        function signUp(event) {
-            event.preventDefault();
-            const errorElem = document.querySelector('#error-message');
-            errorElem.innerHTML = '&nbsp;';
-            document.querySelector('#input-submit').disabled = true;
-            document.querySelector('#input-submit').value = 'Creating account...'
-            const email = document.querySelector('#input-email').value;
-            const password = document.querySelector('#input-password').value;
-            const host = document.querySelector('#input-host').value || 'https://app.manuscrape.org';
-
-            window.electronAPI.signUp({ email, password, host }, () => {
-                window.close();
-            }, (event, errorMessage) => {
-                errorElem.innerText = errorMessage;
-                document.querySelector('#input-submit').disabled = false;
-                document.querySelector('#input-submit').value = 'Sign up'
-            });
+      let hostPlaceholder = "";
+      window.electronAPI.defaultHostValue((_event, host) => {
+        if (host) {
+          document.querySelector("#input-host").value = host;
         }
+      });
 
-        document.querySelector('#input-email').focus();
+      function signUp(event) {
+        event.preventDefault();
+        const errorElem = document.querySelector("#error-message");
+        errorElem.innerHTML = "&nbsp;";
+        document.querySelector("#input-submit").disabled = true;
+        document.querySelector("#input-submit").value = "Creating account...";
+        const email = document.querySelector("#input-email").value;
+        const password = document.querySelector("#input-password").value;
+        const host =
+          document.querySelector("#input-host").value ||
+          "https://app.manuscrape.org";
+
+        window.electronAPI.signUp(
+          { email, password, host },
+          () => {
+            window.close();
+          },
+          (event, errorMessage) => {
+            errorElem.innerText = errorMessage;
+            document.querySelector("#input-submit").disabled = false;
+            document.querySelector("#input-submit").value = "Sign up";
+          },
+        );
+      }
+
+      document.querySelector("#input-email").focus();
     </script>
-</body>
+  </body>
 </html>

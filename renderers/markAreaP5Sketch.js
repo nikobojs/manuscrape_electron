@@ -157,16 +157,10 @@ window.electronAPI.onStatus((_event, status) => {
   hideArea = status.hideArea;
 });
 
-// new p5(sketch);
 window.initOverlay = () => {
   if (!window.p5) {
-    const script = document.createElement("script");
-    script.src = "../assets/p5.min.js";
-    script.onload = () => {
-      // Now safe to run your sketch
-      new window.p5(sketch);
-    };
-    document.body.appendChild(script);
+    console.error("window.p5 is not defined");
+    // TODO: handle error
   } else {
     new window.p5(sketch);
   }

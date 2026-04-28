@@ -75,4 +75,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.once("client-is-deprecated", callback);
     ipcRenderer.send("ask-client-is-deprecated");
   },
+  useP5Script: (callback: () => void) => {
+    console.log("listening to p5 injections!");
+    ipcRenderer.on("inject-p5-script", (_, scriptContent) => {
+      console.log("p5 script injected!");
+      const script = document.createElement("script");
+      script.textContent = scriptContent;
+      document.head.appendChild(script);
+      window.requestAnimationFrame(callback);
+    });
+  },
 });

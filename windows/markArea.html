@@ -5,21 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
     />
-    <meta
-      http-equiv="X-Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline'"
-    />
-    <link rel="stylesheet" href="../assets/css.css" />
     <title>Mark area</title>
+    <script>
+      window.electronAPI?.useP5Script(() => {
+        window?.initOverlay();
+      });
+    </script>
+    <style type="text/css">
+      body,
+      html {
+        margin: 0;
+        overflow: hidden;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      label,
+      span,
+      input {
+        font-family:
+          "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+      }
+
+      .mark-area-overlay {
+        cursor: crosshair;
+      }
+    </style>
   </head>
   <body class="mark-area-overlay">
     <script src="../renderers/markAreaP5Sketch.js"></script>
     <script>
-      window.addEventListener("load", () => {
-        window?.initOverlay();
-      });
+      window.addEventListener("DOMContentLoaded", () => {});
     </script>
   </body>
 </html>

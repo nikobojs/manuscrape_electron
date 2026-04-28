@@ -69,6 +69,7 @@ export class ManuScrapeController {
   public activeProjectId: number | undefined;
   public activeObservationId: number | undefined;
   public activeDisplayIndex: number;
+  public p5Cache: string | null;
   public version: string;
 
   private app: Electron.App;
@@ -113,6 +114,9 @@ export class ManuScrapeController {
     this.activeObservationId = undefined;
     this.activeProjectId = undefined;
 
+    // define p5 file cache
+    this.p5Cache = null;
+
     console.info(`Initializing ManuScrape Client v${version}...\n`);
 
     ipcMain.on("get-version-request", (event) => {
@@ -144,6 +148,16 @@ export class ManuScrapeController {
       // try sign in and populate context menu
       this.init();
     });
+  }
+
+  // returns the full p5 script
+  public async getP5Script() {
+    if (!this.p5Cache) {
+      const filePath = path.join(__dirname, "../assets/p5.min.js");
+      // This read might still be scanned, but only ONCE per app session
+      this.p5Cache = await fs.promises.readFile(filePath, "utf8");
+    }
+    return this.p5Cache;
   }
 
   // open context menu
@@ -789,12 +803,13 @@ export class ManuScrapeController {
   }
 
   // open markArea overlay. IPC listeners should have be added beforehand
-  private openMarkAreaOverlay() {
+  private async openMarkAreaOverlay() {
     if (this.overlayWindow && !this.overlayWindow?.isDestroyed?.()) {
       this.overlayWindow.webContents.close();
     }
     this.isMarkingArea = true;
-    this.overlayWindow = createOverlayWindow(this.getActiveDisplay());
+    const p5Script = await this.getP5Script();
+    this.overlayWindow = createOverlayWindow(this.getActiveDisplay(), p5Script);
     this.refreshContextMenu();
     globalShortcut.unregister("Alt+C");
     globalShortcut.unregister("Esc");

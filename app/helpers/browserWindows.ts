@@ -75,6 +75,7 @@ export function createTrayWindow(): BrowserWindow {
 
 export const createOverlayWindow = (
   activeDisplay: Electron.Display,
+  p5Content: string,
 ): BrowserWindow => {
   const win = new BrowserWindow({
     title: "ManuScrape - Mark area overlay",
@@ -124,14 +125,13 @@ export const createOverlayWindow = (
   }
 
   win.loadFile("windows/markArea.html");
-  win.setBounds(activeDisplay.workArea);
 
   const beginOpen = Date.now();
   win.on("ready-to-show", () => {
     const openOverlayTook = Date.now() - beginOpen;
-    console.log("open overlay took", openOverlayTook, "ms");
+    console.log("open overlay took", openOverlayTook, "ms - injecting p5");
+    win.webContents.send("inject-p5-script", p5Content);
   });
-
   win.show();
   // win.webContents.openDevTools();
 
