@@ -1,6 +1,6 @@
 // x, y, w, h
 let hideArea = false;
-let area = [0,0,0,0];
+let area = [0, 0, 0, 0];
 let dragging = false;
 let resultRect = null;
 let fillColor = null;
@@ -8,11 +8,11 @@ let strokeColor = null;
 let spinnerSize = 28;
 let spinnerSpeed = 8;
 let spinnerColor;
-let statusText = '';
-let statusDescription = '';
+let statusText = "";
+let statusDescription = "";
 
 function drawArea(p, area) {
-  p.push()
+  p.push();
   p.noStroke();
   p.fill(fillColor);
 
@@ -23,14 +23,13 @@ function drawArea(p, area) {
   const w = Math.abs(area[2]);
   const h = Math.abs(area[3]);
 
-
-  p.rect(0, 0, p.windowWidth, minY)
-  p.rect(0, minY, minX, h)
-  p.rect(maxX, minY, p.windowWidth - maxX, h)
-  p.rect(0, maxY, p.windowWidth, p.windowHeight - maxY)
+  p.rect(0, 0, p.windowWidth, minY);
+  p.rect(0, minY, minX, h);
+  p.rect(maxX, minY, p.windowWidth - maxX, h);
+  p.rect(0, maxY, p.windowWidth, p.windowHeight - maxY);
 
   p.noFill();
-  p.stroke(strokeColor)
+  p.stroke(strokeColor);
   p.strokeWeight(2);
 
   p.rect(minX, minY, w, h);
@@ -43,18 +42,18 @@ function drawProcessing(p) {
   // create text and box
   p.push();
   p.translate(p.windowWidth - 64, 32);
-  p.noStroke()
+  p.noStroke();
   p.fill(10, 10, 10, 190);
-  p.rect(-390, -32, 454, 88)
+  p.rect(-390, -32, 454, 88);
   p.stroke(spinnerColor);
   p.fill(spinnerColor);
   p.strokeWeight(1);
   p.textSize(28);
   p.textAlign(p.RIGHT, p.CENTER);
-  p.text(statusText, -50, 0)
+  p.text(statusText, -50, 0);
   p.fill(spinnerColor);
   p.textSize(16);
-  p.text(statusDescription, -50, 30)
+  p.text(statusDescription, -50, 30);
   p.pop();
 
   // create rotating spinner
@@ -65,32 +64,44 @@ function drawProcessing(p) {
   p.stroke(spinnerColor);
   p.strokeWeight(5);
   p.strokeCap(p.SQUARE);
-  p.arc(0, 0, spinnerSize - (spinnerSize / 20), spinnerSize - (spinnerSize / 20), 0, p.PI + p.HALF_PI, p.OPEN);
+  p.arc(
+    0,
+    0,
+    spinnerSize - spinnerSize / 20,
+    spinnerSize - spinnerSize / 20,
+    0,
+    p.PI + p.HALF_PI,
+    p.OPEN,
+  );
   p.pop();
 }
 
 const sketch = (p) => {
-  strokeColor = p.color(80, 110, 180, 1)
-  fillColor = p.color(23, 29, 38, 130)
+  strokeColor = p.color(80, 110, 180, 1);
+  fillColor = p.color(23, 29, 38, 130);
   spinnerColor = p.color(33, 150, 243);
 
   p.setup = () => {
-    p.createCanvas(p.windowWidth, p.windowHeight);
+    p.createCanvas(p.windowWidth, p.windowHeight, p.P2D);
     p.background(fillColor);
     window.focus();
-  }
+  };
 
   p.draw = () => {
     p.clear(255, 255, 255, 1);
     if (dragging) {
       drawArea(p, area);
-    } else if(resultRect && statusText && typeof statusDescription === 'string') {
+    } else if (
+      resultRect &&
+      statusText &&
+      typeof statusDescription === "string"
+    ) {
       hideArea || drawArea(p, area);
       drawProcessing(p);
     } else if (!resultRect) {
       p.background(fillColor);
     }
-  }
+  };
 
   p.mousePressed = () => {
     area[0] = p.mouseX;
@@ -98,24 +109,24 @@ const sketch = (p) => {
     area[2] = 0;
     area[3] = 0;
     dragging = true;
-  }
+  };
 
   p.mouseDragged = () => {
-    area[2] = (p.mouseX - area[0]);
-    area[3] = (p.mouseY - area[1]);
-  }
+    area[2] = p.mouseX - area[0];
+    area[3] = p.mouseY - area[1];
+  };
 
   p.mouseReleased = () => {
     dragging = false;
 
     if (area[2] < 0) {
-      area[2] = Math.abs(area[2])
-      area[0] -= area[2]
+      area[2] = Math.abs(area[2]);
+      area[0] -= area[2];
     }
 
     if (area[3] < 0) {
-      area[3] = Math.abs(area[3])
-      area[1] -= area[3]
+      area[3] = Math.abs(area[3]);
+      area[1] -= area[3];
     }
 
     const width = area[2];
@@ -130,15 +141,15 @@ const sketch = (p) => {
       y: area[1],
       width,
       height,
-    }
+    };
 
     window.electronAPI.areaMarked(resultRect);
-  }
+  };
 
   p.windowResized = () => {
-    p.resizeCanvas(p.windowWidth, p.windowHeight)
-  }
-}
+    p.resizeCanvas(p.windowWidth, p.windowHeight);
+  };
+};
 
 window.electronAPI.onStatus((_event, status) => {
   statusText = status.statusText;
@@ -146,4 +157,17 @@ window.electronAPI.onStatus((_event, status) => {
   hideArea = status.hideArea;
 });
 
-new p5(sketch);
+// new p5(sketch);
+window.initOverlay = () => {
+  if (!window.p5) {
+    const script = document.createElement("script");
+    script.src = "../assets/p5.min.js";
+    script.onload = () => {
+      // Now safe to run your sketch
+      new window.p5(sketch);
+    };
+    document.body.appendChild(script);
+  } else {
+    new window.p5(sketch);
+  }
+};

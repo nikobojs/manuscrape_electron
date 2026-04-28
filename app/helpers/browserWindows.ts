@@ -50,7 +50,9 @@ const createNuxtAppWindow = (
 
   win.once("close", () => onClose());
 
-  win.show();
+  win.on("ready-to-show", () => {
+    win.show();
+  });
 
   return win;
 };
@@ -103,7 +105,7 @@ export const createOverlayWindow = (
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
-      webgl: true,
+      webgl: false,
     },
   });
 
@@ -290,26 +292,27 @@ export const createAddObservationWindow = async (
     const win = createNuxtAppWindow(
       url,
       onClose,
-      onReady,
+      () => {
+        onReady();
+      },
       jpgImg ? Math.max(jpgImg.width - 200, 1080) : 790,
       jpgImg ? Math.min(jpgImg.height + 300, 760) : 1200,
     );
     // win.webContents.openDevTools();
-
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
     const moveImgStart = Date.now();
     win.webContents
       .executeJavaScript(
         `
-      sessionStorage.setItem(
-        "pendingImageFile",
-        JSON.stringify({
-          name: "image.jpg",
-          type: "image/jpeg",
-          data: "${imgBase64}",
-        }),
-      );
-    `,
+        sessionStorage.setItem(
+          "pendingImageFile",
+          JSON.stringify({
+            name: "image.jpg",
+            type: "image/jpeg",
+            data: "${imgBase64}",
+          }),
+        );
+      `,
       )
       .then(() => {
         const moveImgTook = Date.now() - moveImgStart;

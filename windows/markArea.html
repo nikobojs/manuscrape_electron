@@ -15,7 +15,11 @@
     <title>Mark area</title>
   </head>
   <body class="mark-area-overlay">
-    <script src="../assets/p5.min.js"></script>
     <script src="../renderers/markAreaP5Sketch.js"></script>
+    <script>
+      window.addEventListener("load", () => {
+        window?.initOverlay();
+      });
+    </script>
   </body>
 </html>
