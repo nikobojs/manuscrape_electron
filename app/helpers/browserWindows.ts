@@ -251,7 +251,7 @@ export const createAddObservationWindow = async (
   }
 
   // image is not provided, just open the normal observation detail view
-  const beginOpen = Date.now();
+  let beginOpen = Date.now();
   const onReady = () => {
     const openWindowTook = Date.now() - beginOpen;
     if (imgFile && projectFieldId) {
@@ -301,8 +301,16 @@ export const createAddObservationWindow = async (
     } catch (e) {
       // image is not jpg, dont try to read it but provide defaults for scrollshot (which is png)
     }
+    const imgBase64Start = Date.now();
     const imgBase64 = buffer.toString("base64");
+    console.log(
+      "conversion of image to base64 took",
+      Date.now() - imgBase64Start,
+      "ms",
+    );
     const url = `${apiHost}/projects/${projectId}/observations/${observationId}/edit-image-new?${query}`;
+    beginOpen = Date.now();
+    const askedBegin = Date.now();
     const win = createNuxtAppWindow(
       url,
       onClose,
@@ -315,6 +323,11 @@ export const createAddObservationWindow = async (
     // win.webContents.openDevTools();
     // send the image directly to the window when asked for (without requiring upload before editing)
     win.webContents.ipc.once("ask-for-image", () => {
+      console.log(
+        "overlay frontend asked for image",
+        Date.now() - askedBegin,
+        "after overlay started to open",
+      );
       win.webContents.send("load-image", imgBase64);
     });
 
