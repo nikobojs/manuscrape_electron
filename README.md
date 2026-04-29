@@ -82,7 +82,7 @@ These instructions covers installation of a completely local setup, on all three
    5. `npm run pyfreeze` (on Windows: `npm run pyfreeze-win`)
 3. [Install ManuScrape Nuxt repository](https://github.com/nikobojs/manuscrape_nuxt)
 4. Start Nuxt app: `cd manuscrape_nuxt && yarn dev`
-5. Start Electron app: `cd manuscrape_electron && npm start`
+5. Start Electron app: `cd manuscrape_electron && npm start` (on Windows: `npm run start-win`)
 6. For MacOS: If you have problems with taking screenshots after the installation, go to System Preferences -> Privacy & Security -> Screen Recording, and give app permission
 
 <br />
