@@ -78,21 +78,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
   useP5Script: (callback: () => void) => {
     console.log("listening to p5 injections!");
     ipcRenderer.on("inject-p5-script", (_, scriptContent) => {
-      console.log("p5 script injected!");
       const script = document.createElement("script");
       script.textContent = scriptContent;
       document.head.appendChild(script);
-      window.requestAnimationFrame(callback);
+      callback();
     });
   },
   useP5Sketch: (callback: () => void) => {
     ipcRenderer.on("inject-p5-sketch", (_, scriptContent) => {
-      console.log("p5 sketch injected!");
       const script = document.createElement("script");
       script.textContent = scriptContent;
       script.onload = () => callback();
       document.body.appendChild(script);
-      window.requestAnimationFrame(callback);
+      callback();
     });
+  },
+  useLocalImg: (callback: (_imgBase64: string) => void) => {
+    ipcRenderer.on("load-image", (_, imgBase64) => {
+      callback(imgBase64);
+    });
+    ipcRenderer.send("ask-for-image");
   },
 });

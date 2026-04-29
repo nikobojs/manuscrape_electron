@@ -126,10 +126,9 @@ export async function quickScreenshot(
   display: Electron.Display,
   displayIndex: number,
   _isCancelled: () => boolean,
-): Promise<string> {
+): Promise<Buffer<ArrayBufferLike>> {
   const screenshot = await captureScreenshot(area, display, displayIndex);
-  const path = await saveScreenshot(screenshot.source.name, screenshot.buffer);
-  return path;
+  return screenshot.buffer;
 }
 
 export async function captureScrollshot(

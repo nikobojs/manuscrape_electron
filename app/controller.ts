@@ -409,7 +409,7 @@ export class ManuScrapeController {
       activeDisplay: Electron.Display,
       activeDisplayIndex: number,
       isCancelled: () => boolean,
-    ) => Promise<string>,
+    ) => Promise<string | Buffer<ArrayBufferLike>>,
     statusText?: string,
     statusDescription?: string,
     hideArea = false,
@@ -463,12 +463,18 @@ export class ManuScrapeController {
 
         // take scrollshot/screenshot ('callback' argument)
         const callbackBegin = Date.now();
-        filePath = await callback(
+        const res = await callback(
           area,
           this.getActiveDisplay(),
           this.activeDisplayIndex,
           () => this.cancelOperation,
         );
+
+        // only set filePath if provided file was not a binary already (skipping hd reads/writes)
+        if (typeof res === "string") {
+          filePath = res;
+        }
+
         const callbackTook = Date.now() - callbackBegin;
         console.log("onMarkedArea callback took", callbackTook, "ms");
 
@@ -476,12 +482,14 @@ export class ManuScrapeController {
         this.cancelOverlay();
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, loginToken, filePath);
+        await this.openCreateObservationWindow(obsId, loginToken, res);
       } catch (e: any) {
         console.log(e);
         this.handleScreenshotError(e);
       } finally {
-        this.wrapUpScreenshot(filePath);
+        if (filePath) {
+          this.wrapUpScreenshot(filePath);
+        }
       }
     };
 
@@ -517,7 +525,7 @@ export class ManuScrapeController {
   private async openCreateObservationWindow(
     observationId: number,
     accessToken: string,
-    imgFilePath: string | undefined,
+    imgFile: string | Buffer<ArrayBufferLike> | undefined,
     forceEmpty = false,
   ) {
     const apiHost = this.requireApiHost();
@@ -624,9 +632,8 @@ export class ManuScrapeController {
       activeProjectId,
       observationId,
       onWindowClose,
-      undefined,
       true,
-      imgFilePath,
+      imgFile,
       chosenField?.id,
     );
 

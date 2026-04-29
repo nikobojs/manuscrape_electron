@@ -226,9 +226,8 @@ export const createAddObservationWindow = async (
   projectId: number,
   observationId: number,
   onClose: () => void,
-  _onReady?: undefined | (() => void),
   electronTheme: boolean = true,
-  imgFilePath?: string | undefined,
+  imgFile?: string | Buffer<ArrayBufferLike> | undefined,
   projectFieldId?: number | undefined,
 ): Promise<BrowserWindow> => {
   const flags: Record<string, boolean> = {
@@ -243,10 +242,10 @@ export const createAddObservationWindow = async (
     }, [] as string[])
     .join("&");
 
-  if ((imgFilePath && !projectFieldId) || (!imgFilePath && projectFieldId)) {
+  if ((imgFile && !projectFieldId) || (!imgFile && projectFieldId)) {
     console.warn(
-      "Expected `imgFilePath` and `projectFieldId` to be both defined or undefined",
-      { imgFilePath, projectFieldId },
+      "Expected `imgFile` and `projectFieldId` to be both defined or undefined",
+      { imgFile, projectFieldId },
     );
     console.warn("Not opening image window");
   }
@@ -255,7 +254,7 @@ export const createAddObservationWindow = async (
   const beginOpen = Date.now();
   const onReady = () => {
     const openWindowTook = Date.now() - beginOpen;
-    if (imgFilePath && projectFieldId) {
+    if (imgFile && projectFieldId) {
       console.log("open edit-image-new window took:", openWindowTook, "ms");
     } else {
       console.log(
@@ -264,10 +263,9 @@ export const createAddObservationWindow = async (
         "ms",
       );
     }
-    return _onReady?.();
   };
 
-  if (!imgFilePath || !projectFieldId) {
+  if (!imgFile || !projectFieldId) {
     const win = createNuxtAppWindow(
       `${apiHost}/projects/${projectId}/observations/${observationId}?${query}`,
       onClose,
@@ -282,10 +280,24 @@ export const createAddObservationWindow = async (
     query += `&projectFieldId=${projectFieldId}`;
 
     // load file
-    const buffer = await fs.promises.readFile(imgFilePath);
+    let buffer: Buffer<ArrayBufferLike>;
+    if (typeof imgFile === "string") {
+      const readFileBegin = Date.now();
+      buffer = await fs.promises.readFile(imgFile);
+      console.log(
+        "reading file imgFile took",
+        Date.now() - readFileBegin,
+        "ms (not using direct file buffer because is scrollshot)",
+      );
+    } else {
+      buffer = imgFile as Buffer<ArrayBufferLike>;
+    }
+
     let jpgImg;
     try {
+      const decodingStart = Date.now();
       jpgImg = jpeg.decode(buffer, {});
+      console.log("decoding jpg buffer took", Date.now() - decodingStart, "ms");
     } catch (e) {
       // image is not jpg, dont try to read it but provide defaults for scrollshot (which is png)
     }
@@ -301,26 +313,9 @@ export const createAddObservationWindow = async (
       jpgImg ? Math.min(jpgImg.height + 300, 760) : 1200,
     );
     // win.webContents.openDevTools();
-    // execute js in the window, to add img to the session storage (without requiring upload before editing)
-    win.on("ready-to-show", () => {
-      const moveImgStart = Date.now();
-      win.webContents
-        .executeJavaScript(
-          `
-          sessionStorage.setItem(
-            "pendingImageFile",
-            JSON.stringify({
-              name: "image.jpg",
-              type: "image/jpeg",
-              data: "${imgBase64}",
-            }),
-          );
-        `,
-        )
-        .then(() => {
-          const moveImgTook = Date.now() - moveImgStart;
-          console.log("moving of image into chromium took", moveImgTook, "ms");
-        });
+    // send the image directly to the window when asked for (without requiring upload before editing)
+    win.webContents.ipc.once("ask-for-image", () => {
+      win.webContents.send("load-image", imgBase64);
     });
 
     return win;
