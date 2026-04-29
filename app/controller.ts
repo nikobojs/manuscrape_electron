@@ -749,6 +749,8 @@ export class ManuScrapeController {
   // try to reset state by removing listeners and closing overlay
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      globalShortcut.unregister("Esc");
+      globalShortcut.unregister("Alt+C");
       ipcMain.removeAllListeners("area-marked");
       this.onMarkAreaDone();
       this.overlayWindow.webContents.close();
