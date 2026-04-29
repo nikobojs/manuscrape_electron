@@ -10,6 +10,10 @@
     <title>Mark area</title>
     <script>
       window.electronAPI?.useP5Script(() => {
+        console.log("p5 script loaded");
+      });
+      window.electronAPI?.useP5Sketch(() => {
+        console.log("p5 sketch loaded - init overlay");
         window?.initOverlay();
       });
     </script>
@@ -22,23 +26,10 @@
         height: 100%;
         width: 100%;
       }
-
-      label,
-      span,
-      input {
-        font-family:
-          "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
-      }
-
       .mark-area-overlay {
         cursor: crosshair;
       }
     </style>
   </head>
-  <body class="mark-area-overlay">
-    <script src="../renderers/markAreaP5Sketch.js"></script>
-    <script>
-      window.addEventListener("DOMContentLoaded", () => {});
-    </script>
-  </body>
+  <body></body>
 </html>

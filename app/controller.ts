@@ -70,6 +70,7 @@ export class ManuScrapeController {
   public activeObservationId: number | undefined;
   public activeDisplayIndex: number;
   public p5Cache: string | null;
+  public p5SketchCache: string | null;
   public version: string;
 
   private app: Electron.App;
@@ -116,6 +117,7 @@ export class ManuScrapeController {
 
     // define p5 file cache
     this.p5Cache = null;
+    this.p5SketchCache = null;
 
     console.info(`Initializing ManuScrape Client v${version}...\n`);
 
@@ -131,7 +133,35 @@ export class ManuScrapeController {
     app.commandLine.appendSwitch("auto-detect", "false");
     app.commandLine.appendSwitch("no-proxy-server");
 
-    trayWindow.on("ready-to-show", () => {
+    // load p5 file early
+    const p5FilePath = path.join(__dirname, "../assets/p5.min.js");
+    const p5LoadBegin = Date.now();
+    const p5Promise = fs.promises
+      .readFile(p5FilePath, "utf8")
+      .then((content) => {
+        this.p5Cache = content;
+        const p5LoadTook = Date.now() - p5LoadBegin;
+        console.log("initial loading of p5 file into ram took", p5LoadTook);
+      });
+
+    // load markAreaP5Sketch file early
+    const p5SketchFilePath = path.join(
+      __dirname,
+      "../renderers/markAreaP5Sketch.js",
+    );
+    const p5SketchLoadBegin = Date.now();
+    const p5SketchPromise = fs.promises
+      .readFile(p5SketchFilePath, "utf8")
+      .then((content) => {
+        this.p5SketchCache = content;
+        const p5SketchLoadTook = Date.now() - p5SketchLoadBegin;
+        console.log(
+          "initial loading of p5 sketch file into ram took",
+          p5SketchLoadTook,
+        );
+      });
+
+    trayWindow.on("ready-to-show", async () => {
       // setup tray app
       this.tray = new Tray(trayIcon);
       this.tray.setToolTip("ManuScrape");
@@ -145,19 +175,30 @@ export class ManuScrapeController {
       // NOTE: this is required to avoid the tray app getting garbage collected
       this.trayWindow = trayWindow;
 
+      // make sure p5 is loaded
+      await p5Promise;
+
+      // make sure p5 sketch is loaded
+      await p5SketchPromise;
+
       // try sign in and populate context menu
       this.init();
     });
   }
 
   // returns the full p5 script
-  public async getP5Script() {
+  public getP5Script(): string {
     if (!this.p5Cache) {
-      const filePath = path.join(__dirname, "../assets/p5.min.js");
-      // This read might still be scanned, but only ONCE per app session
-      this.p5Cache = await fs.promises.readFile(filePath, "utf8");
+      throw new Error("p5Cache is not defined on instance");
     }
     return this.p5Cache;
+  }
+  // returns the full p5 script
+  public getP5Sketch(): string {
+    if (!this.p5SketchCache) {
+      throw new Error("p5SketchCache is not defined on instance");
+    }
+    return this.p5SketchCache;
   }
 
   // open context menu
@@ -808,8 +849,13 @@ export class ManuScrapeController {
       this.overlayWindow.webContents.close();
     }
     this.isMarkingArea = true;
-    const p5Script = await this.getP5Script();
-    this.overlayWindow = createOverlayWindow(this.getActiveDisplay(), p5Script);
+    const p5Script = this.getP5Script();
+    const p5Sketch = this.getP5Sketch();
+    this.overlayWindow = createOverlayWindow(
+      this.getActiveDisplay(),
+      p5Script,
+      p5Sketch,
+    );
     this.refreshContextMenu();
     globalShortcut.unregister("Alt+C");
     globalShortcut.unregister("Esc");

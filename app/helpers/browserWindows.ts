@@ -76,6 +76,7 @@ export function createTrayWindow(): BrowserWindow {
 export const createOverlayWindow = (
   activeDisplay: Electron.Display,
   p5Content: string,
+  p5SketchContent: string,
 ): BrowserWindow => {
   const win = new BrowserWindow({
     title: "ManuScrape - Mark area overlay",
@@ -98,8 +99,8 @@ export const createOverlayWindow = (
 
     // Sets width and height for non fullscreen
     // Makes overlay work on gnome 3
-    x: activeDisplay.bounds.x,
-    y: activeDisplay.bounds.y,
+    x: activeDisplay.workArea.x,
+    y: activeDisplay.workArea.y,
     width: activeDisplay.workArea.width,
     height: activeDisplay.workArea.height,
 
@@ -131,6 +132,7 @@ export const createOverlayWindow = (
     const openOverlayTook = Date.now() - beginOpen;
     console.log("open overlay took", openOverlayTook, "ms - injecting p5");
     win.webContents.send("inject-p5-script", p5Content);
+    win.webContents.send("inject-p5-sketch", p5SketchContent);
   });
   win.show();
   // win.webContents.openDevTools();
@@ -300,24 +302,26 @@ export const createAddObservationWindow = async (
     );
     // win.webContents.openDevTools();
     // execute js in the window, to add img to the session storage (without requiring upload before editing)
-    const moveImgStart = Date.now();
-    win.webContents
-      .executeJavaScript(
-        `
-        sessionStorage.setItem(
-          "pendingImageFile",
-          JSON.stringify({
-            name: "image.jpg",
-            type: "image/jpeg",
-            data: "${imgBase64}",
-          }),
-        );
-      `,
-      )
-      .then(() => {
-        const moveImgTook = Date.now() - moveImgStart;
-        console.log("moving of image into chromium took", moveImgTook, "ms");
-      });
+    win.on("ready-to-show", () => {
+      const moveImgStart = Date.now();
+      win.webContents
+        .executeJavaScript(
+          `
+          sessionStorage.setItem(
+            "pendingImageFile",
+            JSON.stringify({
+              name: "image.jpg",
+              type: "image/jpeg",
+              data: "${imgBase64}",
+            }),
+          );
+        `,
+        )
+        .then(() => {
+          const moveImgTook = Date.now() - moveImgStart;
+          console.log("moving of image into chromium took", moveImgTook, "ms");
+        });
+    });
 
     return win;
   }

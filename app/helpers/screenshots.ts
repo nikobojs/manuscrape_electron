@@ -4,19 +4,20 @@ import {
   Notification,
   ipcMain,
   globalShortcut,
-} from 'electron';
-import path from 'path';
-import { sleepAsync } from './utils';
-import { joinImagesVertically } from './pythonBridge';
-import { errorIcon } from './icons';
-import { blockhashData, hammingDistance } from './blockhash-js';
-import jpeg from 'jpeg-js';
-import fs from 'fs';
+} from "electron";
+import path from "path";
+import { sleepAsync } from "./utils";
+import { joinImagesVertically } from "./pythonBridge";
+import { errorIcon } from "./icons";
+import { blockhashData, hammingDistance } from "./blockhash-js";
+import jpeg from "jpeg-js";
+import fs from "fs";
 
 function getScreenshotFromSource(
   source: Electron.DesktopCapturerSource,
-  areaRect: Square
+  areaRect: Square,
 ): IScreenshot {
+  const cropBegin = Date.now();
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
   const buffer = image.toJPEG(100);
@@ -31,12 +32,15 @@ function getScreenshotFromSource(
   };
 
   console.log(
-    'Captured screenshot: len=' +
+    "Cropped screenshot and created img file: len=" +
       sizeKb +
-      'kb, size=' +
+      "kb, size=" +
       size.width +
-      'x' +
-      size.height
+      "x" +
+      size.height,
+    "- it took",
+    Date.now() - cropBegin,
+    "ms",
   );
 
   return screenshot;
@@ -45,7 +49,7 @@ function getScreenshotFromSource(
 function findCapturerSourceByDisplay(
   sources: Electron.DesktopCapturerSource[],
   targetDisplay: Electron.Display,
-  targetDisplayIndex: number
+  targetDisplayIndex: number,
 ): Electron.DesktopCapturerSource {
   let screen = sources.find((s) => s.display_id == targetDisplay.id.toString());
   if (screen) {
@@ -53,26 +57,26 @@ function findCapturerSourceByDisplay(
   } else if (!screen && sources.length - 1 >= targetDisplayIndex) {
     return sources[targetDisplayIndex];
   } else {
-    throw new Error('Screen was not found');
+    throw new Error("Screen was not found");
   }
 }
 
 async function captureScreenshot(
   areaRect: Square,
   activeScreen: Electron.Display,
-  activeDisplayIndex: number
+  activeDisplayIndex: number,
 ): Promise<IScreenshot> {
   const fullsize = activeScreen.bounds;
 
   const sources = await desktopCapturer.getSources({
-    types: ['screen'],
+    types: ["screen"],
     thumbnailSize: fullsize,
     fetchWindowIcons: false,
   });
   const displaySource = findCapturerSourceByDisplay(
     sources,
     activeScreen,
-    activeDisplayIndex
+    activeDisplayIndex,
   );
   const screenshot = getScreenshotFromSource(displaySource, areaRect);
   return screenshot;
@@ -84,7 +88,7 @@ function primaryDisplayIsRight(allDisplays: Electron.Display[]): boolean {
 }
 
 function getTempPath(): string {
-  const fullPath = path.join(app.getPath('temp'), 'manuscrape');
+  const fullPath = path.join(app.getPath("temp"), "manuscrape");
   if (!fs.existsSync(fullPath)) {
     fs.mkdirSync(fullPath);
   }
@@ -94,7 +98,7 @@ function getTempPath(): string {
 export async function saveScreenshot(
   filename: string,
   buffer: string | NodeJS.ArrayBufferView,
-  directory?: string | undefined
+  directory?: string | undefined,
 ): Promise<string> {
   let basepath = getTempPath();
 
@@ -105,10 +109,15 @@ export async function saveScreenshot(
 
   const filepath = path.join(
     basepath,
-    filename + '.' + new Date().toISOString().replace(/\:/g, '') + '.jpg'
+    filename + "." + new Date().toISOString().replace(/\:/g, "") + ".jpg",
   );
+  const writeBegin = Date.now();
   fs.writeFileSync(filepath, buffer);
-  console.log("Saved screenshot to file '" + filepath + "'");
+  console.log(
+    "Saved screenshot to file '" + filepath + "' - it took",
+    Date.now() - writeBegin,
+    "ms",
+  );
   return filepath;
 }
 
@@ -116,7 +125,7 @@ export async function quickScreenshot(
   area: Square,
   display: Electron.Display,
   displayIndex: number,
-  _isCancelled: () => boolean
+  _isCancelled: () => boolean,
 ): Promise<string> {
   const screenshot = await captureScreenshot(area, display, displayIndex);
   const path = await saveScreenshot(screenshot.source.name, screenshot.buffer);
@@ -127,7 +136,7 @@ export async function captureScrollshot(
   area: Square,
   display: Electron.Display,
   displayIndex: number,
-  isCancelled: () => boolean
+  isCancelled: () => boolean,
 ): Promise<{
   dirname: string;
   lastSavePath: string;
@@ -141,20 +150,20 @@ export async function captureScrollshot(
   const dirname = scrollShotId.toString();
 
   let repeatedScreenshots = 0;
-  let lastSavePath: string = '';
+  let lastSavePath: string = "";
   let userIsDone = false;
   let lastImageHash = null;
   let totalScreenshots = 0;
 
   // change shortcut so it saves instead of initiating a scrollshot
-  globalShortcut.unregister('Alt+S');
-  globalShortcut.register('Alt+S', () => (userIsDone = true));
+  globalShortcut.unregister("Alt+S");
+  globalShortcut.register("Alt+S", () => (userIsDone = true));
 
   // run loop until canceled/finished by user or maximum screenshots reached
   while (totalScreenshots < maxScreenshots && !isCancelled()) {
     if (isCancelled()) {
       // TODO: cleanup files etc
-      throw new Error('Cancelled');
+      throw new Error("Cancelled");
     }
 
     // get time before screenshot is taken
@@ -165,7 +174,7 @@ export async function captureScrollshot(
     const { source, buffer } = await captureScreenshot(
       area,
       display,
-      displayIndex
+      displayIndex,
     );
     const data = jpeg.decode(buffer);
     const imageHash = blockhashData(data, 128, 2);
@@ -214,10 +223,10 @@ export async function processScrollshot(
   lastSavePath: string,
   totalScreenshots: number,
   settings: ScrollshotSettings,
-  isCancelled: () => boolean
+  isCancelled: () => boolean,
 ): Promise<string> {
-  const resultImageDir = path.join(app.getPath('userData'), dirname, 'output');
-  const resultImagePath = path.join(resultImageDir, 'result.png');
+  const resultImageDir = path.join(app.getPath("userData"), dirname, "output");
+  const resultImagePath = path.join(resultImageDir, "result.png");
 
   // create directory for the joined image
   fs.mkdirSync(resultImageDir, { recursive: true });
@@ -231,11 +240,11 @@ export async function processScrollshot(
       return resultImagePath;
     } catch (err) {
       new Notification({
-        title: 'Unable to process scrollshot :(',
-        body: 'Please scroll slowly either up or down',
+        title: "Unable to process scrollshot :(",
+        body: "Please scroll slowly either up or down",
         icon: errorIcon,
       }).show();
-      throw new Error('Unable to join scrollshot images to one single image');
+      throw new Error("Unable to join scrollshot images to one single image");
       // TODO: report error
     } finally {
       // remove all the single screenshots no matter if it went well joining them
@@ -246,8 +255,8 @@ export async function processScrollshot(
   else if (totalScreenshots === 1 && lastSavePath) {
     return lastSavePath;
   } else if (isCancelled()) {
-    throw new Error('Cancelled');
+    throw new Error("Cancelled");
   } else {
-    throw new Error('Unable to save scroll shot!');
+    throw new Error("Unable to save scroll shot!");
   }
 }

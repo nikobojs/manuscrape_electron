@@ -27,7 +27,7 @@ async function req<T>(
 ): Promise<{ res: Response; json: T }> {
   const start = Date.now();
   if (process.env.DEBUG && ["1", "true"].includes(process.env.DEBUG)) {
-    console.log("REQUESTING " + method + " " + host + path);
+    // console.log("REQUESTING " + method + " " + host + path);
   }
   try {
     // define initial request config

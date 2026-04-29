@@ -85,4 +85,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
       window.requestAnimationFrame(callback);
     });
   },
+  useP5Sketch: (callback: () => void) => {
+    ipcRenderer.on("inject-p5-sketch", (_, scriptContent) => {
+      console.log("p5 sketch injected!");
+      const script = document.createElement("script");
+      script.textContent = scriptContent;
+      script.onload = () => callback();
+      document.body.appendChild(script);
+      window.requestAnimationFrame(callback);
+    });
+  },
 });
