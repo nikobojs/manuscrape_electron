@@ -81,6 +81,9 @@ export class ManuScrapeController {
   private settingsWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private nuxtWarmWindow: Electron.BrowserWindow | undefined;
+  private nuxtWarmWindowNext: Electron.BrowserWindow | undefined;
+  private settingsWarmWindow: Electron.BrowserWindow | undefined;
+  private draftsWarmWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener:
     | ((event: IpcMainEvent, ...args: any[]) => Promise<void>)
     | undefined;
@@ -96,11 +99,13 @@ export class ManuScrapeController {
   private useEncryption: boolean;
   private cancelOperation: boolean;
   private settings: ISettings;
+  private onReady: (() => void) | undefined;
 
   constructor(
     trayWindow: BrowserWindow,
     useEncryption: boolean,
     version: string,
+    onReady?: () => void,
   ) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
@@ -116,6 +121,7 @@ export class ManuScrapeController {
     this.version = version;
     this.activeObservationId = undefined;
     this.activeProjectId = undefined;
+    this.onReady = onReady;
 
     // define p5 file cache
     this.p5Cache = null;
@@ -217,7 +223,25 @@ export class ManuScrapeController {
   private preWarmNuxtWindow(): void {
     if (!this.apiHost) return;
     if (this.nuxtWarmWindow && !this.nuxtWarmWindow.isDestroyed()) return;
-    this.nuxtWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+    // promote the second slot if it is already warm, otherwise create fresh
+    if (this.nuxtWarmWindowNext && !this.nuxtWarmWindowNext.isDestroyed()) {
+      this.nuxtWarmWindow = this.nuxtWarmWindowNext;
+      this.nuxtWarmWindowNext = undefined;
+    } else {
+      this.nuxtWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+    }
+  }
+
+  private preWarmSettingsWindow(): void {
+    if (!this.apiHost) return;
+    if (this.settingsWarmWindow && !this.settingsWarmWindow.isDestroyed()) return;
+    this.settingsWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+  }
+
+  private preWarmDraftsWindow(): void {
+    if (!this.apiHost) return;
+    if (this.draftsWarmWindow && !this.draftsWarmWindow.isDestroyed()) return;
+    this.draftsWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
   }
 
   // open context menu
@@ -746,9 +770,11 @@ export class ManuScrapeController {
           await renewCookieFromToken(host, token);
           const _user = await this.refreshUser(host, token);
 
-          // pre-warm windows now that login is confirmed
+          // pre-warm all windows now that login is confirmed
           this.preWarmOverlay();
           this.preWarmNuxtWindow();
+          this.preWarmSettingsWindow();
+          this.preWarmDraftsWindow();
 
           if (projectId) {
             console.log("choosing last used project", projectId);
@@ -777,6 +803,9 @@ export class ManuScrapeController {
         const tooOld = isClientDeprecationError(e);
         this.openAuthorizationWindow(false, tooOld);
       }
+
+      // tray and auth state are fully set up — destroy the splash screen
+      this.onReady?.();
     }
   }
 
@@ -880,6 +909,18 @@ export class ManuScrapeController {
       this.nuxtWarmWindow.destroy();
       this.nuxtWarmWindow = undefined;
     }
+    if (this.nuxtWarmWindowNext && !this.nuxtWarmWindowNext.isDestroyed()) {
+      this.nuxtWarmWindowNext.destroy();
+      this.nuxtWarmWindowNext = undefined;
+    }
+    if (this.settingsWarmWindow && !this.settingsWarmWindow.isDestroyed()) {
+      this.settingsWarmWindow.destroy();
+      this.settingsWarmWindow = undefined;
+    }
+    if (this.draftsWarmWindow && !this.draftsWarmWindow.isDestroyed()) {
+      this.draftsWarmWindow.destroy();
+      this.draftsWarmWindow = undefined;
+    }
 
     // update context menu and state
     this.user = undefined;
@@ -942,6 +983,12 @@ export class ManuScrapeController {
     }
     this.overlayWindow!.show();
     console.log("open overlay took", Date.now() - beginOpen, "ms - (pre-warmed)");
+
+    // start warming the second observation slot while the user is marking an area —
+    // by the time they confirm and the edit window opens, AV scanning will be done
+    if (this.apiHost && (!this.nuxtWarmWindowNext || this.nuxtWarmWindowNext.isDestroyed())) {
+      this.nuxtWarmWindowNext = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+    }
 
     this.refreshContextMenu();
     globalShortcut.unregister("Alt+C");
@@ -1076,9 +1123,11 @@ export class ManuScrapeController {
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
 
-    // pre-warm windows now that login is confirmed
+    // pre-warm all windows now that login is confirmed
     this.preWarmOverlay();
     this.preWarmNuxtWindow();
+    this.preWarmSettingsWindow();
+    this.preWarmDraftsWindow();
 
     if (this.user?.projectAccess.length === 0) {
       // if no projects available for user, open createProjects window
@@ -1139,12 +1188,15 @@ export class ManuScrapeController {
       // focus the authWindow if its already open
       this.settingsWindow.focus();
     } else {
-      // create new sign in window
+      const warmWindow = this.settingsWarmWindow;
+      this.settingsWarmWindow = undefined;
       this.settingsWindow = createSettingsWindow(
         apiHost,
         () => this.getSettings(),
         (event, patch) => this.updateSettingsHandler(event, patch),
+        warmWindow,
       );
+      this.preWarmSettingsWindow();
     }
   }
 
@@ -1208,8 +1260,10 @@ export class ManuScrapeController {
       this.syncAuthStateAndMenu();
     };
 
-    // open drafts window
-    const win = createDraftsWindow(apiHost, activeProjectId, onWindowClose);
+    const warmWindow = this.draftsWarmWindow;
+    this.draftsWarmWindow = undefined;
+    const win = createDraftsWindow(apiHost, activeProjectId, onWindowClose, warmWindow);
+    this.preWarmDraftsWindow();
     this.nuxtWindow = win;
   }
 

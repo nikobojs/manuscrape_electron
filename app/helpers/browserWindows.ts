@@ -29,6 +29,10 @@ const createNuxtAppWindow = (
     win.removeAllListeners("show");
     win.removeAllListeners("ready-to-show");
     win.removeAllListeners("close");
+    // Apply size constraints — the warm window was created with default dimensions
+    win.setMinimumSize(minWidth, minHeight);
+    win.setSize(minWidth, minHeight);
+    win.setMaximumSize(typeof maxWidth === "number" ? maxWidth : 0, 0);
   } else {
     win = new BrowserWindow({
       title: "ManuScrape",
@@ -67,6 +71,27 @@ const createNuxtAppWindow = (
 
   return win;
 };
+
+export function createSplashWindow(): BrowserWindow {
+  const win = new BrowserWindow({
+    width: 380,
+    height: 240,
+    frame: false,
+    resizable: false,
+    center: true,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: "#1c1b22",
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  win.loadFile("windows/splash.html");
+  win.once("ready-to-show", () => win.show());
+  return win;
+}
 
 export function createTrayWindow(): BrowserWindow {
   const trayWindow = new BrowserWindow({
@@ -222,6 +247,7 @@ export const createSettingsWindow = (
     event: Electron.IpcMainEvent,
     patch: ISettings,
   ) => Promise<void>,
+  warmWindow?: BrowserWindow,
 ) => {
   // cleanup and use best ipc practices
   ipcMain.removeAllListeners("update-settings");
@@ -260,6 +286,7 @@ export const createSettingsWindow = (
     402,
     560,
     492,
+    warmWindow,
   );
 
   return win;
@@ -403,6 +430,7 @@ export const createDraftsWindow = (
   apiHost: string,
   projectId: number,
   onClose: () => void,
+  warmWindow?: BrowserWindow,
 ): BrowserWindow => {
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/drafts?electron=1`,
@@ -410,6 +438,8 @@ export const createDraftsWindow = (
     () => {},
     1280,
     760,
+    undefined,
+    warmWindow,
   );
 
   return win;
