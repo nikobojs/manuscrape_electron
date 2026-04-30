@@ -1,21 +1,21 @@
-import { app, globalShortcut, dialog } from 'electron';
+import { app, globalShortcut, dialog } from "electron";
 
 // ask OS for a "single instance lock"
 // if OS supports it, app will quit if launched as second instance
 const obtainedLock = app.requestSingleInstanceLock();
 if (!obtainedLock) {
-  console.error('ManuScrape is already running. Will quit :/');
+  console.error("ManuScrape is already running. Will quit :/");
   app.quit();
 }
 
-import { ManuScrapeController } from './controller';
-import { ensurePythonAvail } from './helpers/pythonBridge';
-import { createTrayWindow } from './helpers/browserWindows';
+import { ManuScrapeController } from "./controller";
+import { ensurePythonAvail } from "./helpers/pythonBridge";
+import { createTrayWindow } from "./helpers/browserWindows";
 import {
   parseSquirrelArgs,
   warnIfEncryptionUnavailable,
-} from './helpers/utils';
-import { ensureFfmpegAvail } from './helpers/ffmpegBridge';
+} from "./helpers/utils";
+import { ensureFfmpegAvail } from "./helpers/ffmpegBridge";
 
 // https://github.com/electron/windows-installer
 // https://www.electronforge.io/config/makers/squirrel.windows
@@ -26,10 +26,13 @@ let controller: ManuScrapeController | undefined;
 
 if (!squirrelEvent) {
   // force dark mode in chrome
-  app.commandLine.appendSwitch('enable-features', 'WebContentsForceDark');
+  app.commandLine.appendSwitch("enable-features", "WebContentsForceDark");
 
   // enable screen capturing using navigator.mediaDevices.getUserMedia
-  app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
+  app.commandLine.appendSwitch("enable-usermedia-screen-capturing");
+
+  // disable dns watcher (handles app dns cache on network changes, but causes hangs)
+  app.commandLine.appendSwitch("disable-features", "DnsConfigWatch");
 
   // seems like the best thing to do
   // NOTE: https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering
@@ -43,26 +46,26 @@ app.whenReady().then(() => {
   // TODO: test on windows
   // https://www.electronforge.io/config/makers/squirrel.windows
   if (squirrelEvent) {
-    if (squirrelEvent === 'install') {
+    if (squirrelEvent === "install") {
       app.quit();
       return;
-    } else if (squirrelEvent === 'firstrun') {
+    } else if (squirrelEvent === "firstrun") {
       // experiment to let this run
       // TODO: revise on windows!
       dialog.showMessageBoxSync({
-        title: 'Install/update status',
+        title: "Install/update status",
         message: `${appName} was successfully updated/installed`,
       });
-    } else if (squirrelEvent === 'uninstall') {
+    } else if (squirrelEvent === "uninstall") {
       dialog.showMessageBoxSync({
-        title: 'Install/update status',
+        title: "Install/update status",
         message: `${appName} was successfully uninstalled`,
       });
       app.quit();
       return;
     } else {
       dialog.showMessageBoxSync({
-        title: 'Error',
+        title: "Error",
         message: `There is no handling of squirrel event: ${squirrelEvent}`,
       });
       app.quit();
@@ -70,13 +73,13 @@ app.whenReady().then(() => {
     }
   }
 
-  app.on('window-all-closed', function () {
-    if (process.platform !== 'darwin') {
+  app.on("window-all-closed", function () {
+    if (process.platform !== "darwin") {
       app.quit();
     }
   });
 
-  app.on('will-quit', () => {
+  app.on("will-quit", () => {
     globalShortcut.unregisterAll();
   });
 
@@ -100,11 +103,11 @@ app.whenReady().then(() => {
   controller = new ManuScrapeController(
     trayWindow,
     encryptionSupport,
-    app.getVersion()
+    app.getVersion(),
   );
 });
 
-process.on('unhandledRejection', function (err) {
+process.on("unhandledRejection", function (err) {
   console.error(err);
   process.exit(1);
 });
