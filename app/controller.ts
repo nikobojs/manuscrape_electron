@@ -17,7 +17,6 @@ import {
 } from "./helpers/screenshots";
 import {
   createPrewarmedOverlayWindow,
-  showPrewarmedOverlay,
   createWarmNuxtWindow,
   createSettingsWindow,
   createAuthorizationWindow,
@@ -789,6 +788,8 @@ export class ManuScrapeController {
       if (this.overlayWindow.isVisible()) {
         this.overlayWindow.hide();
       }
+      // restore mouse event handling for the next use (was set to true after area selection)
+      this.overlayWindow.setIgnoreMouseEvents(false);
       // reload resets renderer state and re-triggers ready-to-show → p5 re-injection
       this.overlayWindow.webContents.reload();
     }
@@ -912,7 +913,33 @@ export class ManuScrapeController {
     }
 
     this.isMarkingArea = true;
-    showPrewarmedOverlay(this.overlayWindow!, this.getActiveDisplay());
+
+    // Re-apply bounds to the currently active display before showing.
+    // The pre-warmed window may have stale bounds if the user switched monitors.
+    const activeDisplay = this.getActiveDisplay();
+    const beginOpen = Date.now();
+    if (!isMac()) {
+      this.overlayWindow!.setFullScreen(false);
+      this.overlayWindow!.setBounds({
+        x: activeDisplay.workArea.x,
+        y: activeDisplay.workArea.y,
+        width: activeDisplay.workArea.width,
+        height: activeDisplay.workArea.height,
+      });
+      this.overlayWindow!.setFullScreen(true);
+    } else {
+      this.overlayWindow!.setBounds({
+        x: activeDisplay.bounds.x,
+        y: activeDisplay.bounds.y,
+        width: activeDisplay.size.width,
+        height: activeDisplay.size.height,
+      });
+      this.overlayWindow!.setAlwaysOnTop(true, "screen-saver");
+      this.overlayWindow!.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    }
+    this.overlayWindow!.show();
+    console.log("open overlay took", Date.now() - beginOpen, "ms - (pre-warmed)");
+
     this.refreshContextMenu();
     globalShortcut.unregister("Alt+C");
     globalShortcut.unregister("Esc");
