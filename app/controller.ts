@@ -648,8 +648,6 @@ export class ManuScrapeController {
     // consume the pre-warmed Nuxt window (avoids spawning a new renderer process)
     const warmWindow = this.nuxtWarmWindow;
     this.nuxtWarmWindow = undefined;
-    // immediately pre-warm a replacement for the next observation
-    this.preWarmNuxtWindow();
 
     // create add observation window using observation id
     const win = await createAddObservationWindow(
@@ -662,6 +660,11 @@ export class ManuScrapeController {
       chosenField?.id,
       warmWindow,
     );
+
+    // pre-warm a replacement now that loadURL has been called on the handed-off
+    // window — runs in parallel while the user works inside the edit window so
+    // it is ready before they close it and take another screenshot
+    this.preWarmNuxtWindow();
 
     // safe window in instance state
     this.nuxtWindow = win;

@@ -1,4 +1,4 @@
-import { MenuItem, shell, screen, Menu } from "electron";
+import { app, MenuItem, shell, screen, Menu } from "electron";
 import type { ManuScrapeController } from "../controller";
 import {
   loginIcon,
@@ -299,8 +299,8 @@ export function generateMenuItems(
   const itemExit = new MenuItem({
     label: "Quit",
     enabled: !controller.isMarkingArea,
-    role: "quit",
     icon: quitIcon,
+    click: () => app.exit(0),
   });
 
   // add all menu items
