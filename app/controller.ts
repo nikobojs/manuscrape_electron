@@ -16,7 +16,9 @@ import {
   processScrollshot,
 } from "./helpers/screenshots";
 import {
-  createOverlayWindow,
+  createPrewarmedOverlayWindow,
+  showPrewarmedOverlay,
+  createWarmNuxtWindow,
   createSettingsWindow,
   createAuthorizationWindow,
   createAddProjectWindow,
@@ -79,6 +81,7 @@ export class ManuScrapeController {
   private nuxtWindow: Electron.BrowserWindow | undefined;
   private settingsWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
+  private nuxtWarmWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener:
     | ((event: IpcMainEvent, ...args: any[]) => Promise<void>)
     | undefined;
@@ -199,6 +202,23 @@ export class ManuScrapeController {
       throw new Error("p5SketchCache is not defined on instance");
     }
     return this.p5SketchCache;
+  }
+
+  // create hidden overlay window so the renderer process is alive before the hotkey fires
+  private preWarmOverlay(): void {
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) return;
+    this.overlayWindow = createPrewarmedOverlayWindow(
+      this.getActiveDisplay(),
+      this.getP5Script(),
+      this.getP5Sketch(),
+    );
+  }
+
+  // create hidden Nuxt window so the JS bundle is parsed before the observation ID is known
+  private preWarmNuxtWindow(): void {
+    if (!this.apiHost) return;
+    if (this.nuxtWarmWindow && !this.nuxtWarmWindow.isDestroyed()) return;
+    this.nuxtWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
   }
 
   // open context menu
@@ -578,8 +598,8 @@ export class ManuScrapeController {
       if (!this.nuxtWindow?.isDestroyed()) {
         this.nuxtWindow?.webContents.close();
       }
-      if (this.overlayWindow?.isDestroyed() === false) {
-        this.overlayWindow?.webContents.close();
+      if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+        this.cancelOverlay();
       }
 
       new Notification({
@@ -610,8 +630,8 @@ export class ManuScrapeController {
         if (!this.nuxtWindow?.isDestroyed()) {
           this.nuxtWindow?.webContents.close();
         }
-        if (this.overlayWindow?.isDestroyed() === false) {
-          this.overlayWindow?.webContents.close();
+        if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+          this.cancelOverlay();
         }
 
         // save observation id to the next screenshot
@@ -626,6 +646,12 @@ export class ManuScrapeController {
       this.syncAuthStateAndMenu();
     };
 
+    // consume the pre-warmed Nuxt window (avoids spawning a new renderer process)
+    const warmWindow = this.nuxtWarmWindow;
+    this.nuxtWarmWindow = undefined;
+    // immediately pre-warm a replacement for the next observation
+    this.preWarmNuxtWindow();
+
     // create add observation window using observation id
     const win = await createAddObservationWindow(
       apiHost,
@@ -635,6 +661,7 @@ export class ManuScrapeController {
       true,
       imgFile,
       chosenField?.id,
+      warmWindow,
     );
 
     // safe window in instance state
@@ -716,6 +743,11 @@ export class ManuScrapeController {
         if (host && token) {
           await renewCookieFromToken(host, token);
           const _user = await this.refreshUser(host, token);
+
+          // pre-warm windows now that login is confirmed
+          this.preWarmOverlay();
+          this.preWarmNuxtWindow();
+
           if (projectId) {
             console.log("choosing last used project", projectId);
             this.chooseProject(projectId);
@@ -746,14 +778,19 @@ export class ManuScrapeController {
     }
   }
 
-  // try to reset state by removing listeners and closing overlay
+  // try to reset state by removing listeners and hiding overlay
+  // hides+reloads the pre-warmed window so it is ready for the next hotkey press
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       globalShortcut.unregister("Esc");
       globalShortcut.unregister("Alt+C");
       ipcMain.removeAllListeners("area-marked");
       this.onMarkAreaDone();
-      this.overlayWindow.webContents.close();
+      if (this.overlayWindow.isVisible()) {
+        this.overlayWindow.hide();
+      }
+      // reload resets renderer state and re-triggers ready-to-show → p5 re-injection
+      this.overlayWindow.webContents.reload();
     }
   }
 
@@ -830,6 +867,16 @@ export class ManuScrapeController {
       // TODO: report this error
     }
 
+    // destroy pre-warmed windows — user is logging out
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
+      this.overlayWindow.destroy();
+      this.overlayWindow = undefined;
+    }
+    if (this.nuxtWarmWindow && !this.nuxtWarmWindow.isDestroyed()) {
+      this.nuxtWarmWindow.destroy();
+      this.nuxtWarmWindow = undefined;
+    }
+
     // update context menu and state
     this.user = undefined;
     this.loginToken = undefined;
@@ -852,19 +899,20 @@ export class ManuScrapeController {
     }).show();
   }
 
-  // open markArea overlay. IPC listeners should have be added beforehand
+  // open markArea overlay. IPC listeners should have been added beforehand
   private async openMarkAreaOverlay() {
-    if (this.overlayWindow && !this.overlayWindow?.isDestroyed?.()) {
-      this.overlayWindow.webContents.close();
+    // guard: already showing (shouldn't happen in normal flow)
+    if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+      return;
     }
+
+    // ensure a pre-warmed window exists (fallback if pre-warm was skipped)
+    if (!this.overlayWindow || this.overlayWindow.isDestroyed()) {
+      this.preWarmOverlay();
+    }
+
     this.isMarkingArea = true;
-    const p5Script = this.getP5Script();
-    const p5Sketch = this.getP5Sketch();
-    this.overlayWindow = createOverlayWindow(
-      this.getActiveDisplay(),
-      p5Script,
-      p5Sketch,
-    );
+    showPrewarmedOverlay(this.overlayWindow!, this.getActiveDisplay());
     this.refreshContextMenu();
     globalShortcut.unregister("Alt+C");
     globalShortcut.unregister("Esc");
@@ -997,6 +1045,10 @@ export class ManuScrapeController {
 
     // refresh context menu, now that we are logged in
     this.refreshContextMenu();
+
+    // pre-warm windows now that login is confirmed
+    this.preWarmOverlay();
+    this.preWarmNuxtWindow();
 
     if (this.user?.projectAccess.length === 0) {
       // if no projects available for user, open createProjects window
@@ -1181,8 +1233,8 @@ export class ManuScrapeController {
       if (!confirmed) {
         return;
       }
-      if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.webContents.close();
+      if (this.isMarkingArea) {
+        this.cancelOverlay();
       }
       return this.createQuickScreenshot();
     });
@@ -1192,8 +1244,8 @@ export class ManuScrapeController {
       if (!confirmed) {
         return;
       }
-      if (!this.overlayWindow?.isDestroyed?.()) {
-        this.overlayWindow?.webContents.close();
+      if (this.isMarkingArea) {
+        this.cancelOverlay();
       }
       return this.createScrollScreenshot();
     });

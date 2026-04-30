@@ -12,6 +12,7 @@ import { isMac } from "./os";
 const isLinux = process.platform === "linux";
 
 // generic nuxt app window factory - not meant to be exported
+// pass existingWindow to reuse a pre-warmed BrowserWindow instead of creating a new one
 const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
@@ -19,24 +20,34 @@ const createNuxtAppWindow = (
   minWidth: number,
   minHeight: number,
   maxWidth?: number | undefined,
+  existingWindow?: BrowserWindow | undefined,
 ): BrowserWindow => {
-  const win = new BrowserWindow({
-    title: "ManuScrape",
-    autoHideMenuBar: true,
-    minimizable: false,
-    closable: true,
-    movable: true,
-    show: false,
-    icon: getMainIconPathBasedOnOS(),
-    webPreferences: {
-      preload: path.join(__dirname, "../preload.js"),
-    },
-    useContentSize: true,
-    backgroundColor: "#1c1b22",
-    ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
-    ...(typeof minHeight === "number" ? { minHeight, height: minHeight } : {}),
-    ...(typeof maxWidth === "number" ? { maxWidth } : {}),
-  });
+  let win: BrowserWindow;
+
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    win = existingWindow;
+    win.removeAllListeners("show");
+    win.removeAllListeners("ready-to-show");
+    win.removeAllListeners("close");
+  } else {
+    win = new BrowserWindow({
+      title: "ManuScrape",
+      autoHideMenuBar: true,
+      minimizable: false,
+      closable: true,
+      movable: true,
+      show: false,
+      icon: getMainIconPathBasedOnOS(),
+      webPreferences: {
+        preload: path.join(__dirname, "../preload.js"),
+      },
+      useContentSize: true,
+      backgroundColor: "#1c1b22",
+      ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
+      ...(typeof minHeight === "number" ? { minHeight, height: minHeight } : {}),
+      ...(typeof maxWidth === "number" ? { maxWidth } : {}),
+    });
+  }
 
   win.loadURL(url);
 
@@ -73,19 +84,19 @@ export function createTrayWindow(): BrowserWindow {
   return trayWindow;
 }
 
-export const createOverlayWindow = (
-  activeDisplay: Electron.Display,
+// Creates a hidden overlay window pre-loaded with markArea.html.
+// p5 is re-injected on every ready-to-show (initial load + after each reload).
+// Call showPrewarmedOverlay() to display it; cancelOverlay() hides+reloads it.
+export const createPrewarmedOverlayWindow = (
+  initialDisplay: Electron.Display,
   p5Content: string,
   p5SketchContent: string,
 ): BrowserWindow => {
   const win = new BrowserWindow({
     title: "ManuScrape - Mark area overlay",
-    // remove the default frame around the window
     frame: false,
-    // hide Electron’s default menu
     autoHideMenuBar: true,
     transparent: true,
-    // do not display our app in the task bar
     skipTaskbar: true,
     hasShadow: false,
     show: false,
@@ -96,14 +107,10 @@ export const createOverlayWindow = (
     focusable: false,
     hiddenInMissionControl: true,
     thickFrame: false,
-
-    // Sets width and height for non fullscreen
-    // Makes overlay work on gnome 3
-    x: activeDisplay.workArea.x,
-    y: activeDisplay.workArea.y,
-    width: activeDisplay.workArea.width,
-    height: activeDisplay.workArea.height,
-
+    x: initialDisplay.workArea.x,
+    y: initialDisplay.workArea.y,
+    width: initialDisplay.workArea.width,
+    height: initialDisplay.workArea.height,
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
@@ -111,10 +118,36 @@ export const createOverlayWindow = (
     },
   });
 
+  if (isMac()) {
+    win.setMenu(null);
+    win.setAlwaysOnTop(true, "screen-saver");
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  }
+
+  win.loadFile("windows/markArea.html");
+
+  // fires on initial load and after every webContents.reload()
+  win.on("ready-to-show", () => {
+    win.webContents.send("inject-p5-script", p5Content);
+    win.webContents.send("inject-p5-sketch", p5SketchContent);
+  });
+
+  return win;
+};
+
+// Repositions the pre-warmed overlay onto activeDisplay and makes it visible.
+export const showPrewarmedOverlay = (
+  win: BrowserWindow,
+  activeDisplay: Electron.Display,
+): void => {
+  const beginOpen = Date.now();
+
   if (!isMac()) {
+    // Exit fullscreen first so setPosition takes effect, then re-enter on the target display.
+    win.setFullScreen(false);
+    win.setPosition(activeDisplay.workArea.x, activeDisplay.workArea.y);
     win.setFullScreen(true);
   } else {
-    win.setMenu(null);
     win.setBounds({
       x: 0,
       y: 0,
@@ -125,18 +158,29 @@ export const createOverlayWindow = (
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   }
 
-  win.loadFile("windows/markArea.html");
-
-  const beginOpen = Date.now();
-  win.on("ready-to-show", () => {
-    const openOverlayTook = Date.now() - beginOpen;
-    console.log("open overlay took", openOverlayTook, "ms - injecting p5");
-    win.webContents.send("inject-p5-script", p5Content);
-    win.webContents.send("inject-p5-sketch", p5SketchContent);
-  });
   win.show();
-  // win.webContents.openDevTools();
+  console.log("open overlay took", Date.now() - beginOpen, "ms - (pre-warmed)");
+};
 
+// Creates a hidden Nuxt window pre-loaded at warmUrl (typically the app root).
+// The renderer process is alive and the JS bundle is parsed before it is needed.
+export const createWarmNuxtWindow = (warmUrl: string): BrowserWindow => {
+  const win = new BrowserWindow({
+    title: "ManuScrape",
+    autoHideMenuBar: true,
+    minimizable: false,
+    closable: true,
+    movable: true,
+    show: false,
+    icon: getMainIconPathBasedOnOS(),
+    webPreferences: {
+      preload: path.join(__dirname, "../preload.js"),
+    },
+    useContentSize: true,
+    backgroundColor: "#1c1b22",
+  });
+
+  win.loadURL(warmUrl);
   return win;
 };
 
@@ -229,6 +273,7 @@ export const createAddObservationWindow = async (
   electronTheme: boolean = true,
   imgFile?: string | Buffer<ArrayBufferLike> | undefined,
   projectFieldId?: number | undefined,
+  warmWindow?: BrowserWindow | undefined,
 ): Promise<BrowserWindow> => {
   const flags: Record<string, boolean> = {
     electron: electronTheme,
@@ -272,6 +317,8 @@ export const createAddObservationWindow = async (
       onReady,
       1200,
       790,
+      undefined,
+      warmWindow,
     );
     return win;
     // if img is provided, open /edit-image-new to provide image editing before upload
@@ -319,6 +366,8 @@ export const createAddObservationWindow = async (
       },
       jpgImg ? Math.max(jpgImg.width - 200, 1080) : 790,
       jpgImg ? Math.min(jpgImg.height + 300, 760) : 1200,
+      undefined,
+      warmWindow,
     );
     // win.webContents.openDevTools();
     // send the image directly to the window when asked for (without requiring upload before editing)
