@@ -10,7 +10,7 @@ if (!obtainedLock) {
 
 import { ManuScrapeController } from "./controller";
 import { ensurePythonAvail } from "./helpers/pythonBridge";
-import { createTrayWindow, createSplashWindow } from "./helpers/browserWindows";
+import { createTrayWindow } from "./helpers/browserWindows";
 import {
   parseSquirrelArgs,
   warnIfEncryptionUnavailable,
@@ -73,9 +73,6 @@ app.whenReady().then(() => {
     }
   }
 
-  // show splash immediately — destroyed once the controller signals ready
-  const splashWindow = createSplashWindow();
-
   app.on("window-all-closed", function () {
     if (process.platform !== "darwin") {
       app.quit();
@@ -107,7 +104,6 @@ app.whenReady().then(() => {
     trayWindow,
     encryptionSupport,
     app.getVersion(),
-    () => splashWindow.destroy(),
   );
 });
 

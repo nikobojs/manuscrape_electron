@@ -234,8 +234,11 @@ export class ManuScrapeController {
 
   private preWarmSettingsWindow(): void {
     if (!this.apiHost) return;
-    if (this.settingsWarmWindow && !this.settingsWarmWindow.isDestroyed()) return;
-    this.settingsWarmWindow = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+    if (this.settingsWarmWindow && !this.settingsWarmWindow.isDestroyed())
+      return;
+    this.settingsWarmWindow = createWarmNuxtWindow(
+      `${this.apiHost}/?electron=1`,
+    );
   }
 
   private preWarmDraftsWindow(): void {
@@ -621,7 +624,11 @@ export class ManuScrapeController {
       if (!this.nuxtWindow?.isDestroyed()) {
         this.nuxtWindow?.webContents.close();
       }
-      if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+      if (
+        this.overlayWindow &&
+        !this.overlayWindow.isDestroyed() &&
+        this.overlayWindow.isVisible()
+      ) {
         this.cancelOverlay();
       }
 
@@ -653,7 +660,11 @@ export class ManuScrapeController {
         if (!this.nuxtWindow?.isDestroyed()) {
           this.nuxtWindow?.webContents.close();
         }
-        if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+        if (
+          this.overlayWindow &&
+          !this.overlayWindow.isDestroyed() &&
+          this.overlayWindow.isVisible()
+        ) {
           this.cancelOverlay();
         }
 
@@ -804,7 +815,7 @@ export class ManuScrapeController {
         this.openAuthorizationWindow(false, tooOld);
       }
 
-      // tray and auth state are fully set up — destroy the splash screen
+      // tray and auth state are fully set up
       this.onReady?.();
     }
   }
@@ -947,7 +958,11 @@ export class ManuScrapeController {
   // open markArea overlay. IPC listeners should have been added beforehand
   private async openMarkAreaOverlay() {
     // guard: already showing (shouldn't happen in normal flow)
-    if (this.overlayWindow && !this.overlayWindow.isDestroyed() && this.overlayWindow.isVisible()) {
+    if (
+      this.overlayWindow &&
+      !this.overlayWindow.isDestroyed() &&
+      this.overlayWindow.isVisible()
+    ) {
       return;
     }
 
@@ -979,15 +994,28 @@ export class ManuScrapeController {
         height: activeDisplay.size.height,
       });
       this.overlayWindow!.setAlwaysOnTop(true, "screen-saver");
-      this.overlayWindow!.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      this.overlayWindow!.setVisibleOnAllWorkspaces(true, {
+        visibleOnFullScreen: true,
+      });
     }
+    this.overlayWindow!.once("show", () => {
+      console.log(
+        "open overlay took",
+        Date.now() - beginOpen,
+        "ms - (pre-warmed)",
+      );
+    });
     this.overlayWindow!.show();
-    console.log("open overlay took", Date.now() - beginOpen, "ms - (pre-warmed)");
 
     // start warming the second observation slot while the user is marking an area —
     // by the time they confirm and the edit window opens, AV scanning will be done
-    if (this.apiHost && (!this.nuxtWarmWindowNext || this.nuxtWarmWindowNext.isDestroyed())) {
-      this.nuxtWarmWindowNext = createWarmNuxtWindow(`${this.apiHost}/?electron=1`);
+    if (
+      this.apiHost &&
+      (!this.nuxtWarmWindowNext || this.nuxtWarmWindowNext.isDestroyed())
+    ) {
+      this.nuxtWarmWindowNext = createWarmNuxtWindow(
+        `${this.apiHost}/?electron=1`,
+      );
     }
 
     this.refreshContextMenu();
@@ -1262,7 +1290,12 @@ export class ManuScrapeController {
 
     const warmWindow = this.draftsWarmWindow;
     this.draftsWarmWindow = undefined;
-    const win = createDraftsWindow(apiHost, activeProjectId, onWindowClose, warmWindow);
+    const win = createDraftsWindow(
+      apiHost,
+      activeProjectId,
+      onWindowClose,
+      warmWindow,
+    );
     this.preWarmDraftsWindow();
     this.nuxtWindow = win;
   }

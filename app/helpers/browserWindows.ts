@@ -48,7 +48,9 @@ const createNuxtAppWindow = (
       useContentSize: true,
       backgroundColor: "#1c1b22",
       ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
-      ...(typeof minHeight === "number" ? { minHeight, height: minHeight } : {}),
+      ...(typeof minHeight === "number"
+        ? { minHeight, height: minHeight }
+        : {}),
       ...(typeof maxWidth === "number" ? { maxWidth } : {}),
     });
   }
@@ -71,27 +73,6 @@ const createNuxtAppWindow = (
 
   return win;
 };
-
-export function createSplashWindow(): BrowserWindow {
-  const win = new BrowserWindow({
-    width: 380,
-    height: 240,
-    frame: false,
-    resizable: false,
-    center: true,
-    skipTaskbar: true,
-    alwaysOnTop: true,
-    show: false,
-    backgroundColor: "#1c1b22",
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-  win.loadFile("windows/splash.html");
-  win.once("ready-to-show", () => win.show());
-  return win;
-}
 
 export function createTrayWindow(): BrowserWindow {
   const trayWindow = new BrowserWindow({
