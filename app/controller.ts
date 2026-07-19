@@ -49,6 +49,7 @@ import {
   renewCookieFromToken,
 } from "./helpers/cookies";
 import { generateContextMenu } from "./helpers/contextMenu";
+
 import {
   fileExists,
   readFile,
@@ -63,6 +64,7 @@ import {
 import fs from "fs";
 import os from "os";
 import { hasMinimumMacVersion, isMac } from "./helpers/os";
+import { execFileSync, execSync, spawn } from "child_process";
 
 export class ManuScrapeController {
   public isMarkingArea: boolean;
@@ -100,6 +102,7 @@ export class ManuScrapeController {
   private cancelOperation: boolean;
   private settings: ISettings;
   private onReady: (() => void) | undefined;
+  private menuAutoRefreshInterval: NodeJS.Timeout | undefined;
 
   constructor(
     trayWindow: BrowserWindow,
@@ -169,7 +172,39 @@ export class ManuScrapeController {
         );
       });
 
+    // ====================================================================
+    // NYT: KLARGØR BINARIES (TILLADELSER + BYPASS GATEKEEPER POPUP)
+    // ====================================================================
+    try {
+      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
+      const adbPath = path.join(binDir, "adb");
+      const scrcpyPath = path.join(binDir, "scrcpy");
+
+      // 1. Sæt korrekte filrettigheder (chmod)
+      if (fs.existsSync(adbPath)) fs.chmodSync(adbPath, 0o755);
+      if (fs.existsSync(scrcpyPath)) fs.chmodSync(scrcpyPath, 0o755);
+
+      // 2. Fjern macOS quarantine flag rekursivt fra hele bin/macos-arm64 mappen
+      if (process.platform === "darwin" && fs.existsSync(binDir)) {
+        console.log("Fjerner Gatekeeper quarantine flag fra binære filer...");
+        execFileSync("/usr/bin/xattr", [
+          "-r",
+          "-d",
+          "com.apple.quarantine",
+          binDir,
+        ]);
+      }
+
+      console.log("Klargøring af adb og scrcpy lykkedes!");
+    } catch (err) {
+      console.error("Kunne ikke klargøre binaries automatisk:", err);
+    }
+
     trayWindow.on("ready-to-show", async () => {
+      console.log("✅ trayWindow.on('ready-to-show') triggered!");
+      // ====================================================================
+      // NYT: OPDATER MENU HVERT 5. SEKUND (DYNAMISKE TELEFONER)
+      // ====================================================================
       // setup tray app
       this.tray = new Tray(trayIcon);
       this.tray.setToolTip("ManuScrape");
@@ -191,6 +226,35 @@ export class ManuScrapeController {
 
       // try sign in and populate context menu
       this.init();
+
+      // ========================================================
+      // START 5S OPDATERING AF MENU MED FORBUNDNE ENHEDER
+      // ========================================================
+      // Første kørsel med det samme
+      try {
+        console.log("📱 Første scan af Android-enheder...");
+        this.refreshContextMenu();
+      } catch (err) {
+        console.error("Fejl ved første scan:", err);
+      }
+
+      // Så kører den hver 5. sekund
+      if (!this.menuAutoRefreshInterval) {
+        this.menuAutoRefreshInterval = setInterval(() => {
+          try {
+            this.refreshContextMenu();
+          } catch (err) {
+            console.error("Fejl ved automatisk menu-opdatering:", err);
+          }
+        }, 5000);
+      }
+
+      this.app.once("will-quit", () => {
+        if (this.menuAutoRefreshInterval) {
+          clearInterval(this.menuAutoRefreshInterval);
+          this.menuAutoRefreshInterval = undefined;
+        }
+      });
     });
   }
 
@@ -1333,8 +1397,13 @@ export class ManuScrapeController {
         "Cannot refresh contextmenu, when tray app is not running",
       );
     }
+
     this.contextMenu = generateContextMenu(this, this.user);
+    console.debug(
+      `[refreshContextMenu] setting context menu — items=${this.contextMenu.items.length}`,
+    );
     this.tray.setContextMenu(this.contextMenu);
+    console.debug("[refreshContextMenu] tray menu updated");
   }
 
   // reset hardcoded global shortcuts
@@ -1392,4 +1461,71 @@ export class ManuScrapeController {
       return this.loginToken;
     }
   };
+
+  // ==========================================
+  // NYT: HENT FORBUNDNE ANDROID ENHEDER via ADB
+  // ==========================================
+  public getConnectedDevices(): string[] {
+    try {
+      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
+      const adbPath = path.join(binDir, "adb");
+
+      // Kør "adb devices" for at få listen over enheder
+      const stdout = execSync(`"${adbPath}" devices`, { encoding: "utf8" });
+
+      const lines = stdout.split("\n");
+      const devices: string[] = [];
+
+      // Spring første linje over ("List of devices attached")
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const parts = line.split(/\s+/);
+        if (parts.length >= 2 && parts[1] === "device") {
+          devices.push(parts[0]); // parts[0] er enhedens serienummer
+        }
+      }
+      return devices;
+    } catch (error) {
+      console.error("Fejl ved hentning af adb enheder:", error);
+      return [];
+    }
+  }
+
+  // ==========================================
+  // NYT: START SCRCPY FOR EN SPECIFIK ENHED
+  // ==========================================
+  public startScrcpy(deviceSerial: string): void {
+    try {
+      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
+      const scrcpyPath = path.join(binDir, "scrcpy");
+      const scrcpyServerPath = path.join(binDir, "scrcpy-server");
+      const adbPath = path.join(binDir, "adb");
+
+      console.log(`Starter Scrcpy for enhed: ${deviceSerial}`);
+
+      // Vi fortæller scrcpy præcis, hvor den finder vores adb binærfil
+      const env = {
+        ...process.env,
+        ADB: adbPath,
+        SCRCPY_SERVER_PATH: scrcpyServerPath,
+      };
+
+      // Kør scrcpy i baggrunden uden at blokere vores Electron app
+      const child = spawn(scrcpyPath, ["-s", deviceSerial], {
+        env,
+        detached: true,
+        stdio: "ignore",
+      });
+
+      child.on("error", (error) => {
+        console.error("Kunne ikke starte Scrcpy-processen:", error);
+      });
+
+      child.unref(); // Gør at processen kan køre videre selvstændigt
+    } catch (error) {
+      console.error("Kunne ikke starte Scrcpy:", error);
+    }
+  }
 }

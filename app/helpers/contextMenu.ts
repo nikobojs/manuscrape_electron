@@ -253,8 +253,40 @@ export function generateMenuItems(
       menuItems.push(projectMenu);
     }
 
+    // ==========================================
+    // DYNAMISK "PHONES" SUBMENU
+    // ==========================================
+    const connectedDevices = controller.getConnectedDevices();
+    const phoneSubmenuItems = [] as MenuItem[];
+
+    if (connectedDevices.length === 0) {
+      phoneSubmenuItems.push(
+        new MenuItem({
+          label: "Ingen telefoner fundet",
+          enabled: false,
+        }),
+      );
+    } else {
+      connectedDevices.forEach((deviceSerial) => {
+        phoneSubmenuItems.push(
+          new MenuItem({
+            label: `📱 Start Scrcpy (${deviceSerial})`,
+            click: () => controller.startScrcpy(deviceSerial),
+          }),
+        );
+      });
+    }
+
+    const phoneMenu = new MenuItem({
+      label: "Phones",
+      submenu: Menu.buildFromTemplate(phoneSubmenuItems),
+      type: "submenu",
+      icon: monitorIcon, // Du kan ændre ikonet senere hvis du vil
+    });
+
     // add menu to menuItems
     menuItems.push(screenMenu);
+    menuItems.push(phoneMenu);
 
     // add nice seperator (dynamic stuff above seperator, always-there stuff in the bottom)
     menuItems.push(

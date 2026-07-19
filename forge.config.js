@@ -39,7 +39,7 @@ if (debug && process.platform === "win32") {
   console.log(
     doWindowsSign
       ? "will code sign the windows build"
-      : "will NOT code sign the windows build"
+      : "will NOT code sign the windows build",
   );
 }
 
@@ -66,12 +66,9 @@ module.exports = {
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
     ignore: [/python\//, /python3\.\d+$/, /python$/],
-    osxSign: {}, // object must exist even if empty (for MacOS code signing)
-    osxNotarize: {
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID,
-    },
+    //osxSign: {}, // object must exist even if empty (for MacOS code signing)
+    osxSign: false, // TILFØJ DENNE LINJE
+    osxNotarize: undefined,
   },
   rebuildConfig: {},
   makers: [
@@ -88,7 +85,7 @@ module.exports = {
           __dirname,
           "assets",
           "icons",
-          "desktop-icon.ico"
+          "desktop-icon.ico",
         ),
         icon: path.resolve(__dirname, "assets", "icons", "desktop-icon.ico"),
       }),
@@ -123,14 +120,14 @@ module.exports = {
       buildPath,
       electronVersion,
       platform,
-      arch
+      arch,
     ) => {
       console.log("Copying files is done! Current dirname is:\n", __dirname);
       if (debug) {
         console.log({ platform, arch, buildPath, electronVersion });
         console.log(
           "\nUsed following config:",
-          JSON.stringify(config, null, 4)
+          JSON.stringify(config, null, 4),
         );
       }
     },
