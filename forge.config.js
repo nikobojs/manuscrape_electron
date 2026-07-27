@@ -66,9 +66,15 @@ module.exports = {
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
     ignore: [/python\//, /python3\.\d+$/, /python$/],
+    osxSign: {}, // object must exist even if empty (for MacOS code signing)
+    osxNotarize: {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_PASSWORD,
+      teamId: process.env.APPLE_TEAM_ID,
+    },
     //osxSign: {}, // object must exist even if empty (for MacOS code signing)
-    osxSign: false, // TILFØJ DENNE LINJE
-    osxNotarize: undefined,
+    // osxSign: false, //
+    // osxNotarize: undefined,
   },
   rebuildConfig: {},
   makers: [
