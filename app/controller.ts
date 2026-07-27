@@ -64,7 +64,11 @@ import {
 import fs from "fs";
 import os from "os";
 import { hasMinimumMacVersion, isMac } from "./helpers/os";
-import { execFileSync, execSync, spawn } from "child_process";
+import { execFileSync, spawn } from "child_process";
+import {
+  getScrcpyRuntimePaths,
+  parseAdbDevices,
+} from "./helpers/scrcpyRuntime";
 
 export class ManuScrapeController {
   public isMarkingArea: boolean;
@@ -171,34 +175,6 @@ export class ManuScrapeController {
           p5SketchLoadTook,
         );
       });
-
-    // ====================================================================
-    // NYT: KLARGØR BINARIES (TILLADELSER + BYPASS GATEKEEPER POPUP)
-    // ====================================================================
-    try {
-      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
-      const adbPath = path.join(binDir, "adb");
-      const scrcpyPath = path.join(binDir, "scrcpy");
-
-      // 1. Sæt korrekte filrettigheder (chmod)
-      if (fs.existsSync(adbPath)) fs.chmodSync(adbPath, 0o755);
-      if (fs.existsSync(scrcpyPath)) fs.chmodSync(scrcpyPath, 0o755);
-
-      // 2. Fjern macOS quarantine flag rekursivt fra hele bin/macos-arm64 mappen
-      if (process.platform === "darwin" && fs.existsSync(binDir)) {
-        console.log("Fjerner Gatekeeper quarantine flag fra binære filer...");
-        execFileSync("/usr/bin/xattr", [
-          "-r",
-          "-d",
-          "com.apple.quarantine",
-          binDir,
-        ]);
-      }
-
-      console.log("Klargøring af adb og scrcpy lykkedes!");
-    } catch (err) {
-      console.error("Kunne ikke klargøre binaries automatisk:", err);
-    }
 
     trayWindow.on("ready-to-show", async () => {
       console.log("✅ trayWindow.on('ready-to-show') triggered!");
@@ -1467,26 +1443,13 @@ export class ManuScrapeController {
   // ==========================================
   public getConnectedDevices(): string[] {
     try {
-      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
-      const adbPath = path.join(binDir, "adb");
+      const runtime = getScrcpyRuntimePaths();
+      const stdout = execFileSync(runtime.adb, ["devices"], {
+        encoding: "utf8",
+        windowsHide: true,
+      });
 
-      // Kør "adb devices" for at få listen over enheder
-      const stdout = execSync(`"${adbPath}" devices`, { encoding: "utf8" });
-
-      const lines = stdout.split("\n");
-      const devices: string[] = [];
-
-      // Spring første linje over ("List of devices attached")
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const parts = line.split(/\s+/);
-        if (parts.length >= 2 && parts[1] === "device") {
-          devices.push(parts[0]); // parts[0] er enhedens serienummer
-        }
-      }
-      return devices;
+      return parseAdbDevices(stdout);
     } catch (error) {
       console.error("Fejl ved hentning af adb enheder:", error);
       return [];
@@ -1498,25 +1461,24 @@ export class ManuScrapeController {
   // ==========================================
   public startScrcpy(deviceSerial: string): void {
     try {
-      const binDir = path.join(app.getAppPath(), "bin", "macos-arm64");
-      const scrcpyPath = path.join(binDir, "scrcpy");
-      const scrcpyServerPath = path.join(binDir, "scrcpy-server");
-      const adbPath = path.join(binDir, "adb");
+      const runtime = getScrcpyRuntimePaths();
 
       console.log(`Starter Scrcpy for enhed: ${deviceSerial}`);
 
       // Vi fortæller scrcpy præcis, hvor den finder vores adb binærfil
       const env = {
         ...process.env,
-        ADB: adbPath,
-        SCRCPY_SERVER_PATH: scrcpyServerPath,
+        ADB: runtime.adb,
+        SCRCPY_SERVER_PATH: runtime.server,
       };
 
       // Kør scrcpy i baggrunden uden at blokere vores Electron app
-      const child = spawn(scrcpyPath, ["-s", deviceSerial], {
+      const child = spawn(runtime.client, ["-s", deviceSerial], {
+        cwd: runtime.directory,
         env,
         detached: true,
         stdio: "ignore",
+        windowsHide: true,
       });
 
       child.on("error", (error) => {
