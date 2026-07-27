@@ -64,10 +64,11 @@ import {
 import fs from "fs";
 import os from "os";
 import { hasMinimumMacVersion, isMac } from "./helpers/os";
-import { execFileSync, spawn } from "child_process";
+import { execFile, spawn } from "child_process";
 import {
   getScrcpyRuntimePaths,
   parseAdbDevices,
+  type AndroidDevice,
 } from "./helpers/scrcpyRuntime";
 
 export class ManuScrapeController {
@@ -106,7 +107,9 @@ export class ManuScrapeController {
   private cancelOperation: boolean;
   private settings: ISettings;
   private onReady: (() => void) | undefined;
-  private menuAutoRefreshInterval: NodeJS.Timeout | undefined;
+  private connectedDevices: AndroidDevice[];
+  private deviceRefreshInterval: NodeJS.Timeout | undefined;
+  private deviceScanInProgress: boolean;
 
   constructor(
     trayWindow: BrowserWindow,
@@ -129,6 +132,8 @@ export class ManuScrapeController {
     this.activeObservationId = undefined;
     this.activeProjectId = undefined;
     this.onReady = onReady;
+    this.connectedDevices = [];
+    this.deviceScanInProgress = false;
 
     // define p5 file cache
     this.p5Cache = null;
@@ -179,7 +184,7 @@ export class ManuScrapeController {
     trayWindow.on("ready-to-show", async () => {
       console.log("✅ trayWindow.on('ready-to-show') triggered!");
       // ====================================================================
-      // NYT: OPDATER MENU HVERT 5. SEKUND (DYNAMISKE TELEFONER)
+      // DYNAMICALLY UPDATE CONNECTED ANDROID DEVICES
       // ====================================================================
       // setup tray app
       this.tray = new Tray(trayIcon);
@@ -204,32 +209,15 @@ export class ManuScrapeController {
       this.init();
 
       // ========================================================
-      // START 5S OPDATERING AF MENU MED FORBUNDNE ENHEDER
+      // START DYNAMIC UPDATES FOR CONNECTED ANDROID DEVICES
       // ========================================================
-      // Første kørsel med det samme
-      try {
-        console.log("📱 Første scan af Android-enheder...");
-        this.refreshContextMenu();
-      } catch (err) {
-        console.error("Fejl ved første scan:", err);
-      }
-
-      // Så kører den hver 5. sekund
-      if (!this.menuAutoRefreshInterval) {
-        this.menuAutoRefreshInterval = setInterval(() => {
-          try {
-            this.refreshContextMenu();
-          } catch (err) {
-            console.error("Fejl ved automatisk menu-opdatering:", err);
-          }
-        }, 5000);
-      }
+      // Run the first scan immediately, then let ADB scan in the
+      // background every 2 seconds.
+      this.startDeviceWatcher();
 
       this.app.once("will-quit", () => {
-        if (this.menuAutoRefreshInterval) {
-          clearInterval(this.menuAutoRefreshInterval);
-          this.menuAutoRefreshInterval = undefined;
-        }
+        // Stop the background scanner when the app quits.
+        this.stopDeviceWatcher();
       });
     });
   }
@@ -1439,40 +1427,96 @@ export class ManuScrapeController {
   };
 
   // ==========================================
-  // NYT: HENT FORBUNDNE ANDROID ENHEDER via ADB
+  // WATCH CONNECTED ANDROID DEVICES VIA ADB
   // ==========================================
-  public getConnectedDevices(): string[] {
+  public getConnectedDevices(): AndroidDevice[] {
+    return this.connectedDevices;
+  }
+
+  private startDeviceWatcher(): void {
+    if (this.deviceRefreshInterval) {
+      return;
+    }
+
+    this.refreshConnectedDevices();
+    this.deviceRefreshInterval = setInterval(
+      () => this.refreshConnectedDevices(),
+      2000,
+    );
+  }
+
+  private stopDeviceWatcher(): void {
+    if (this.deviceRefreshInterval) {
+      clearInterval(this.deviceRefreshInterval);
+      this.deviceRefreshInterval = undefined;
+    }
+  }
+
+  private refreshConnectedDevices(): void {
+    if (this.deviceScanInProgress) {
+      return;
+    }
+
+    this.deviceScanInProgress = true;
+
     try {
       const runtime = getScrcpyRuntimePaths();
-      const stdout = execFileSync(runtime.adb, ["devices"], {
-        encoding: "utf8",
-        windowsHide: true,
-      });
+      execFile(
+        runtime.adb,
+        ["devices", "-l"],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+        },
+        (error, stdout) => {
+          this.deviceScanInProgress = false;
 
-      return parseAdbDevices(stdout);
+          if (error) {
+            console.error("Could not retrieve ADB devices:", error);
+            return;
+          }
+
+          const devices = parseAdbDevices(stdout).sort((a, b) =>
+            a.serial.localeCompare(b.serial),
+          );
+          const devicesChanged =
+            JSON.stringify(devices) !== JSON.stringify(this.connectedDevices);
+
+          if (!devicesChanged) {
+            return;
+          }
+
+          this.connectedDevices = devices;
+          console.info("Connected Android devices changed:", devices);
+
+          if (this.tray) {
+            this.refreshContextMenu();
+          }
+        },
+      );
     } catch (error) {
-      console.error("Fejl ved hentning af adb enheder:", error);
-      return [];
+      this.deviceScanInProgress = false;
+      console.error("Could not retrieve ADB devices:", error);
     }
   }
 
   // ==========================================
-  // NYT: START SCRCPY FOR EN SPECIFIK ENHED
+  // START SCRCPY FOR A SPECIFIC DEVICE
   // ==========================================
   public startScrcpy(deviceSerial: string): void {
     try {
       const runtime = getScrcpyRuntimePaths();
 
-      console.log(`Starter Scrcpy for enhed: ${deviceSerial}`);
+      console.log(`Starting scrcpy for device: ${deviceSerial}`);
 
-      // Vi fortæller scrcpy præcis, hvor den finder vores adb binærfil
+      // Tell scrcpy exactly where to find the bundled ADB executable.
       const env = {
         ...process.env,
         ADB: runtime.adb,
         SCRCPY_SERVER_PATH: runtime.server,
       };
 
-      // Kør scrcpy i baggrunden uden at blokere vores Electron app
+      // Run scrcpy in the background without blocking the Electron app.
       const child = spawn(runtime.client, ["-s", deviceSerial], {
         cwd: runtime.directory,
         env,
@@ -1482,12 +1526,12 @@ export class ManuScrapeController {
       });
 
       child.on("error", (error) => {
-        console.error("Kunne ikke starte Scrcpy-processen:", error);
+        console.error("Could not start the scrcpy process:", error);
       });
 
-      child.unref(); // Gør at processen kan køre videre selvstændigt
+      child.unref(); // Allow the process to continue independently.
     } catch (error) {
-      console.error("Kunne ikke starte Scrcpy:", error);
+      console.error("Could not start scrcpy:", error);
     }
   }
 }

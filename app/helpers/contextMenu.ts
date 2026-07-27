@@ -1,4 +1,5 @@
 import { app, MenuItem, shell, screen, Menu } from "electron";
+import path from "path";
 import type { ManuScrapeController } from "../controller";
 import {
   loginIcon,
@@ -11,6 +12,17 @@ import {
   openInNewIcon,
   settingsIcon,
 } from "./icons";
+
+function getAndroidSetupGuidePath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "guides", "android-setup.pdf")
+    : path.join(
+        app.getAppPath(),
+        "assets",
+        "guides",
+        "android-setup.pdf",
+      );
+}
 
 export function generateMenuItems(
   controller: ManuScrapeController,
@@ -254,34 +266,74 @@ export function generateMenuItems(
     }
 
     // ==========================================
-    // DYNAMISK "PHONES" SUBMENU
+    // DYNAMIC "PHONES" SUBMENU
     // ==========================================
     const connectedDevices = controller.getConnectedDevices();
     const phoneSubmenuItems = [] as MenuItem[];
+    const readyDevices = connectedDevices.filter(
+      (device) => device.status === "device",
+    );
+    const unavailableDevices = connectedDevices.filter(
+      (device) => device.status !== "device",
+    );
 
     if (connectedDevices.length === 0) {
       phoneSubmenuItems.push(
         new MenuItem({
-          label: "Ingen telefoner fundet",
+          label: "No phones found",
           enabled: false,
         }),
       );
-    } else {
-      connectedDevices.forEach((deviceSerial) => {
-        phoneSubmenuItems.push(
-          new MenuItem({
-            label: `📱 Start Scrcpy (${deviceSerial})`,
-            click: () => controller.startScrcpy(deviceSerial),
-          }),
-        );
-      });
     }
+
+    readyDevices.forEach((device) => {
+      phoneSubmenuItems.push(
+        new MenuItem({
+          label: `📱 ${device.model} (${device.serial})`,
+          click: () => controller.startScrcpy(device.serial),
+        }),
+      );
+    });
+
+    unavailableDevices.forEach((device) => {
+      const statusMessage =
+        device.status === "unauthorized" ? "Unauthorized" : "Offline";
+
+      phoneSubmenuItems.push(
+        new MenuItem({
+          label: `⚠️ ${device.serial}: ${statusMessage} — follow the setup guide`,
+          enabled: false,
+        }),
+      );
+    });
+
+    phoneSubmenuItems.push(
+      new MenuItem({
+        type: "separator",
+      }),
+    );
+    phoneSubmenuItems.push(
+      new MenuItem({
+        label: "Set up Android phone",
+        icon: openInNewIcon,
+        click: () => {
+          shell.openPath(getAndroidSetupGuidePath()).then((errorMessage) => {
+            if (errorMessage) {
+              console.error(
+                "Could not open the Android setup guide:",
+                errorMessage,
+              );
+            }
+          });
+        },
+      }),
+    );
 
     const phoneMenu = new MenuItem({
       label: "Phones",
       submenu: Menu.buildFromTemplate(phoneSubmenuItems),
       type: "submenu",
-      icon: monitorIcon, // Du kan ændre ikonet senere hvis du vil
+      icon: monitorIcon, // You can change the icon later if needed
     });
 
     // add menu to menuItems

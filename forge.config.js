@@ -111,6 +111,7 @@ module.exports = {
       pythonEntryBin(),
       ffmpegEntryBin(),
       scrcpyRuntimeDir(),
+      path.resolve(__dirname, "assets", "guides"),
     ],
 
     // This is to avoid following error on npm build on linux:
@@ -118,12 +119,22 @@ module.exports = {
     //        file "../../../../../usr/bin/python3.11" links out of the package
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
-    ignore: [/python\//, /python3\.\d+$/, /python$/, /[\\/]bin[\\/]/],
+    ignore: [
+      /python\//,
+      /python3\.\d+$/,
+      /python$/,
+      /[\\/]bin[\\/]/,
+      /[\\/]assets[\\/]guides[\\/]/,
+    ],
     osxSign: doAppleNotarize
-      ? { continueOnError: false }
+      ? {
+          hardenedRuntime: true,
+          continueOnError: false,
+        }
       : {
           identity: "-",
           identityValidation: false,
+          optionsForFile: () => ({ hardenedRuntime: false }),
           continueOnError: false,
         },
     osxNotarize: doAppleNotarize

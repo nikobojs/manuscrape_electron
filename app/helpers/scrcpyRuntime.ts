@@ -8,13 +8,34 @@ export interface ScrcpyRuntimePaths {
   server: string;
 }
 
-export function parseAdbDevices(output: string): string[] {
+export interface AndroidDevice {
+  serial: string;
+  model: string;
+  status: "device" | "offline" | "unauthorized";
+}
+
+export function parseAdbDevices(output: string): AndroidDevice[] {
   return output
     .split(/\r?\n/)
     .slice(1)
     .map((line) => line.trim().split(/\s+/))
-    .filter((parts) => parts.length >= 2 && parts[1] === "device")
-    .map((parts) => parts[0]);
+    .filter(
+      (parts) =>
+        parts.length >= 2 &&
+        ["device", "offline", "unauthorized"].includes(parts[1]),
+    )
+    .map((parts) => {
+      const modelPart = parts.find((part) => part.startsWith("model:"));
+      const model = modelPart
+        ? modelPart.slice("model:".length).replace(/_/g, " ")
+        : "Android phone";
+
+      return {
+        serial: parts[0],
+        model,
+        status: parts[1] as AndroidDevice["status"],
+      };
+    });
 }
 
 const platformDirectories: Record<string, string> = {
