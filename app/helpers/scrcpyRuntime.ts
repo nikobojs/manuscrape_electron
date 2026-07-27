@@ -12,6 +12,8 @@ export interface AndroidDevice {
   serial: string;
   model: string;
   status: "device" | "offline" | "unauthorized";
+  displayName?: string;
+  description?: string;
 }
 
 export function parseAdbDevices(output: string): AndroidDevice[] {

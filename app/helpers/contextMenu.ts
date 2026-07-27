@@ -16,12 +16,7 @@ import {
 function getAndroidSetupGuidePath(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, "guides", "android-setup.pdf")
-    : path.join(
-        app.getAppPath(),
-        "assets",
-        "guides",
-        "android-setup.pdf",
-      );
+    : path.join(app.getAppPath(), "assets", "guides", "android-setup.pdf");
 }
 
 export function generateMenuItems(
@@ -289,7 +284,8 @@ export function generateMenuItems(
     readyDevices.forEach((device) => {
       phoneSubmenuItems.push(
         new MenuItem({
-          label: `📱 ${device.model} (${device.serial})`,
+          label: device.displayName || device.model,
+          sublabel: device.description,
           click: () => controller.startScrcpy(device.serial),
         }),
       );
@@ -301,12 +297,25 @@ export function generateMenuItems(
 
       phoneSubmenuItems.push(
         new MenuItem({
-          label: `⚠️ ${device.serial}: ${statusMessage} — follow the setup guide`,
+          label: `⚠️ ${device.model}`,
+          sublabel: `${statusMessage} · ${device.serial}`,
           enabled: false,
         }),
       );
     });
 
+    phoneSubmenuItems.push(
+      new MenuItem({
+        type: "separator",
+      }),
+    );
+    phoneSubmenuItems.push(
+      new MenuItem({
+        label: "New device connected?",
+        sublabel: "Reopen menu to refresh the device list.",
+        enabled: false,
+      }),
+    );
     phoneSubmenuItems.push(
       new MenuItem({
         type: "separator",

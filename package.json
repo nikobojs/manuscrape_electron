@@ -10,7 +10,7 @@
     "start": "tsc && DEBUG=1 electron-forge start",
     "start-win": "tsc && electron-forge start",
     "package": "tsc && electron-forge package",
-    "make": "tsc && electron-forge make --arch x64",
+    "make": "tsc && env-cmd electron-forge make --arch x64",
     "make-arm": "tsc && env-cmd electron-forge make --arch arm64",
     "pyinstall": "npm run delete-venv && cd python && . env/bin/activate && pip3 install -r requirements.txt && deactivate",
     "pyinstall-win": "cd python && env\\Scripts\\activate && pip install -r requirements.txt && deactivate",

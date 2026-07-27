@@ -108,6 +108,10 @@ export class ManuScrapeController {
   private settings: ISettings;
   private onReady: (() => void) | undefined;
   private connectedDevices: AndroidDevice[];
+  private deviceIdentityCache: Map<
+    string,
+    Pick<AndroidDevice, "displayName" | "description">
+  >;
   private deviceRefreshInterval: NodeJS.Timeout | undefined;
   private deviceScanInProgress: boolean;
 
@@ -133,6 +137,7 @@ export class ManuScrapeController {
     this.activeProjectId = undefined;
     this.onReady = onReady;
     this.connectedDevices = [];
+    this.deviceIdentityCache = new Map();
     this.deviceScanInProgress = false;
 
     // define p5 file cache
@@ -1468,17 +1473,20 @@ export class ManuScrapeController {
           encoding: "utf8",
           windowsHide: true,
         },
-        (error, stdout) => {
-          this.deviceScanInProgress = false;
-
+        async (error, stdout) => {
           if (error) {
+            this.deviceScanInProgress = false;
             console.error("Could not retrieve ADB devices:", error);
             return;
           }
 
-          const devices = parseAdbDevices(stdout).sort((a, b) =>
-            a.serial.localeCompare(b.serial),
+          const devices = await this.enrichDeviceIdentities(
+            runtime.adb,
+            parseAdbDevices(stdout),
           );
+          devices.sort((a, b) => a.serial.localeCompare(b.serial));
+          this.deviceScanInProgress = false;
+
           const devicesChanged =
             JSON.stringify(devices) !== JSON.stringify(this.connectedDevices);
 
@@ -1498,6 +1506,125 @@ export class ManuScrapeController {
       this.deviceScanInProgress = false;
       console.error("Could not retrieve ADB devices:", error);
     }
+  }
+
+  private async enrichDeviceIdentities(
+    adbPath: string,
+    devices: AndroidDevice[],
+  ): Promise<AndroidDevice[]> {
+    const readySerials = new Set(
+      devices
+        .filter((device) => device.status === "device")
+        .map((device) => device.serial),
+    );
+
+    this.deviceIdentityCache.forEach((_identity, serial) => {
+      if (!readySerials.has(serial)) {
+        this.deviceIdentityCache.delete(serial);
+      }
+    });
+
+    return Promise.all(
+      devices.map(async (device) => {
+        if (device.status !== "device") {
+          return device;
+        }
+
+        let identity = this.deviceIdentityCache.get(device.serial);
+        if (!identity) {
+          identity = await this.loadDeviceIdentity(adbPath, device);
+          this.deviceIdentityCache.set(device.serial, identity);
+        }
+
+        return {
+          ...device,
+          ...identity,
+        };
+      }),
+    );
+  }
+
+  private async loadDeviceIdentity(
+    adbPath: string,
+    device: AndroidDevice,
+  ): Promise<Pick<AndroidDevice, "displayName" | "description">> {
+    const [deviceName, marketName, manufacturer, productModel] =
+      await Promise.all([
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "settings",
+          "get",
+          "global",
+          "device_name",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.marketname",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.manufacturer",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.model",
+        ]),
+      ]);
+
+    const technicalModel = productModel || device.model;
+    const normalizedDeviceName = deviceName.toLowerCase();
+    const hasCustomDeviceName =
+      !!deviceName &&
+      normalizedDeviceName !== technicalModel.toLowerCase() &&
+      normalizedDeviceName !== device.model.toLowerCase() &&
+      normalizedDeviceName !== "android device";
+    const displayName =
+      (hasCustomDeviceName ? deviceName : "") ||
+      marketName ||
+      [manufacturer, technicalModel].filter(Boolean).join(" ") ||
+      device.model ||
+      device.serial;
+    const descriptionParts = [manufacturer, technicalModel].filter(
+      (value, index, values) =>
+        !!value &&
+        value.toLowerCase() !== displayName.toLowerCase() &&
+        values.indexOf(value) === index,
+    );
+
+    return {
+      displayName,
+      description: descriptionParts.join(" · "),
+    };
+  }
+
+  private readDeviceProperty(
+    adbPath: string,
+    serial: string,
+    args: string[],
+  ): Promise<string> {
+    return new Promise((resolve) => {
+      execFile(
+        adbPath,
+        ["-s", serial, ...args],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 3000,
+        },
+        (error, stdout) => {
+          if (error) {
+            resolve("");
+            return;
+          }
+
+          const value = stdout.trim();
+          resolve(value === "null" || value === "unknown" ? "" : value);
+        },
+      );
+    });
   }
 
   // ==========================================
