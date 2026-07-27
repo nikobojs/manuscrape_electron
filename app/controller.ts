@@ -188,9 +188,6 @@ export class ManuScrapeController {
 
     trayWindow.on("ready-to-show", async () => {
       console.log("✅ trayWindow.on('ready-to-show') triggered!");
-      // ====================================================================
-      // DYNAMICALLY UPDATE CONNECTED ANDROID DEVICES
-      // ====================================================================
       // setup tray app
       this.tray = new Tray(trayIcon);
       this.tray.setToolTip("ManuScrape");
@@ -213,15 +210,13 @@ export class ManuScrapeController {
       // try sign in and populate context menu
       this.init();
 
-      // ========================================================
-      // START DYNAMIC UPDATES FOR CONNECTED ANDROID DEVICES
-      // ========================================================
-      // Run the first scan immediately, then let ADB scan in the
+      // start dynamic Android device updates
+      // run the first scan immediately, then let ADB scan in the
       // background every 2 seconds.
       this.startDeviceWatcher();
 
       this.app.once("will-quit", () => {
-        // Stop the background scanner when the app quits.
+        // stop the background scanner when the app quits
         this.stopDeviceWatcher();
       });
     });
@@ -1636,14 +1631,14 @@ export class ManuScrapeController {
 
       console.log(`Starting scrcpy for device: ${deviceSerial}`);
 
-      // Tell scrcpy exactly where to find the bundled ADB executable.
+      // tell scrcpy exactly where to find the bundled ADB executable
       const env = {
         ...process.env,
         ADB: runtime.adb,
         SCRCPY_SERVER_PATH: runtime.server,
       };
 
-      // Run scrcpy in the background without blocking the Electron app.
+      // run scrcpy in the background without blocking the Electron app
       const child = spawn(runtime.client, ["-s", deviceSerial], {
         cwd: runtime.directory,
         env,
@@ -1656,7 +1651,7 @@ export class ManuScrapeController {
         console.error("Could not start the scrcpy process:", error);
       });
 
-      child.unref(); // Allow the process to continue independently.
+      child.unref(); // allow the process to continue independently
     } catch (error) {
       console.error("Could not start scrcpy:", error);
     }
