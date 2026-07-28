@@ -112,7 +112,6 @@ export class ManuScrapeController {
     string,
     Pick<AndroidDevice, "displayName" | "description">
   >;
-  private deviceRefreshInterval: NodeJS.Timeout | undefined;
   private deviceScanInProgress: boolean;
 
   constructor(
@@ -194,8 +193,8 @@ export class ManuScrapeController {
       this.tray.setIgnoreDoubleClickEvents(true);
 
       // add open menu event listeners
-      this.tray.on("click", () => this.openMenu());
-      this.tray.on("right-click", () => this.openMenu());
+      this.tray.on("click", () => void this.openMenu());
+      this.tray.on("right-click", () => void this.openMenu());
 
       // save hidden tray window to state
       // NOTE: this is required to avoid the tray app getting garbage collected
@@ -209,16 +208,6 @@ export class ManuScrapeController {
 
       // try sign in and populate context menu
       this.init();
-
-      // start dynamic Android device updates
-      // run the first scan immediately, then let ADB scan in the
-      // background every 2 seconds.
-      this.startDeviceWatcher();
-
-      this.app.once("will-quit", () => {
-        // stop the background scanner when the app quits
-        this.stopDeviceWatcher();
-      });
     });
   }
 
@@ -276,18 +265,32 @@ export class ManuScrapeController {
   }
 
   // open context menu
-  public openMenu(): void {
-    if (this.tray) {
-      if (this.contextMenu) {
-        this.tray.setContextMenu(this.contextMenu);
-      } else {
-        throw new Error("Tray menu cannot open without menu items");
-      }
-      this.tray.popUpContextMenu();
-    } else {
+  public async openMenu(): Promise<void> {
+    if (!this.tray) {
       throw new Error(
         "Unable to open context menu, when tray app is not running",
       );
+    }
+
+    if (this.deviceScanInProgress) {
+      return;
+    }
+
+    this.deviceScanInProgress = true;
+    try {
+      await this.refreshConnectedDevices();
+    } catch (error) {
+      console.error(
+        "Could not retrieve ADB devices; using the last known device list:",
+        error,
+      );
+    } finally {
+      this.deviceScanInProgress = false;
+    }
+
+    this.refreshContextMenu();
+    if (process.platform !== "linux") {
+      this.tray.popUpContextMenu(this.contextMenu);
     }
   }
 
@@ -1366,7 +1369,13 @@ export class ManuScrapeController {
     console.debug(
       `[refreshContextMenu] setting context menu — items=${this.contextMenu.items.length}`,
     );
-    this.tray.setContextMenu(this.contextMenu);
+    // On macOS and Windows, attaching the menu makes the OS open the stale
+    // menu before our asynchronous ADB refresh completes. Those platforms
+    // receive the freshly generated menu via popUpContextMenu() in openMenu().
+    // Linux does not support that explicit tray popup API, so keep it attached.
+    if (process.platform === "linux") {
+      this.tray.setContextMenu(this.contextMenu);
+    }
     console.debug("[refreshContextMenu] tray menu updated");
   }
 
@@ -1427,40 +1436,15 @@ export class ManuScrapeController {
   };
 
   // ==========================================
-  // WATCH CONNECTED ANDROID DEVICES VIA ADB
+  // REFRESH CONNECTED ANDROID DEVICES VIA ADB
   // ==========================================
   public getConnectedDevices(): AndroidDevice[] {
     return this.connectedDevices;
   }
 
-  private startDeviceWatcher(): void {
-    if (this.deviceRefreshInterval) {
-      return;
-    }
-
-    this.refreshConnectedDevices();
-    this.deviceRefreshInterval = setInterval(
-      () => this.refreshConnectedDevices(),
-      2000,
-    );
-  }
-
-  private stopDeviceWatcher(): void {
-    if (this.deviceRefreshInterval) {
-      clearInterval(this.deviceRefreshInterval);
-      this.deviceRefreshInterval = undefined;
-    }
-  }
-
-  private refreshConnectedDevices(): void {
-    if (this.deviceScanInProgress) {
-      return;
-    }
-
-    this.deviceScanInProgress = true;
-
-    try {
-      const runtime = getScrcpyRuntimePaths();
+  private async refreshConnectedDevices(): Promise<void> {
+    const runtime = getScrcpyRuntimePaths();
+    const stdout = await new Promise<string>((resolve, reject) => {
       execFile(
         runtime.adb,
         ["devices", "-l"],
@@ -1468,38 +1452,29 @@ export class ManuScrapeController {
           encoding: "utf8",
           windowsHide: true,
         },
-        async (error, stdout) => {
+        (error, stdout) => {
           if (error) {
-            this.deviceScanInProgress = false;
-            console.error("Could not retrieve ADB devices:", error);
+            reject(error);
             return;
           }
 
-          const devices = await this.enrichDeviceIdentities(
-            runtime.adb,
-            parseAdbDevices(stdout),
-          );
-          devices.sort((a, b) => a.serial.localeCompare(b.serial));
-          this.deviceScanInProgress = false;
-
-          const devicesChanged =
-            JSON.stringify(devices) !== JSON.stringify(this.connectedDevices);
-
-          if (!devicesChanged) {
-            return;
-          }
-
-          this.connectedDevices = devices;
-          console.info("Connected Android devices changed:", devices);
-
-          if (this.tray) {
-            this.refreshContextMenu();
-          }
+          resolve(stdout);
         },
       );
-    } catch (error) {
-      this.deviceScanInProgress = false;
-      console.error("Could not retrieve ADB devices:", error);
+    });
+
+    const devices = await this.enrichDeviceIdentities(
+      runtime.adb,
+      parseAdbDevices(stdout),
+    );
+    devices.sort((a, b) => a.serial.localeCompare(b.serial));
+
+    const devicesChanged =
+      JSON.stringify(devices) !== JSON.stringify(this.connectedDevices);
+
+    if (devicesChanged) {
+      this.connectedDevices = devices;
+      console.info("Connected Android devices changed:", devices);
     }
   }
 
@@ -1639,7 +1614,19 @@ export class ManuScrapeController {
       };
 
       // run scrcpy in the background without blocking the Electron app
-      const child = spawn(runtime.client, ["-s", deviceSerial], {
+      const executable =
+        process.platform === "win32" && runtime.noConsoleClient
+          ? path.join(
+              process.env.SystemRoot || "C:\\Windows",
+              "System32",
+              "wscript.exe",
+            )
+          : runtime.client;
+      const args =
+        process.platform === "win32" && runtime.noConsoleClient
+          ? [runtime.noConsoleClient, "-s", deviceSerial]
+          : ["-s", deviceSerial];
+      const child = spawn(executable, args, {
         cwd: runtime.directory,
         env,
         detached: true,

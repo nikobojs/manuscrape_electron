@@ -5,6 +5,7 @@ export interface ScrcpyRuntimePaths {
   directory: string;
   adb: string;
   client: string;
+  noConsoleClient?: string;
   server: string;
 }
 
@@ -69,6 +70,10 @@ export function getScrcpyRuntimePaths(): ScrcpyRuntimePaths {
     directory,
     adb: path.join(directory, `adb${executableExtension}`),
     client: path.join(directory, `scrcpy${executableExtension}`),
+    noConsoleClient:
+      process.platform === "win32"
+        ? path.join(directory, "scrcpy-noconsole.vbs")
+        : undefined,
     server: path.join(directory, "scrcpy-server"),
   };
 }

@@ -311,8 +311,8 @@ export function generateMenuItems(
     );
     phoneSubmenuItems.push(
       new MenuItem({
-        label: "New device connected?",
-        sublabel: "Reopen menu to refresh the device list.",
+        label: "New phone connected?",
+        sublabel: "Close and reopen this menu to refresh.",
         enabled: false,
       }),
     );
