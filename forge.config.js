@@ -60,12 +60,6 @@ function pythonEntryBin() {
   return binDir + binFilename;
 }
 
-function ffmpegEntryBin() {
-  const binDir = `./bin/`;
-  const binFilename = `ffmpeg${isWindowsTarget ? ".exe" : ""}`;
-  return binDir + binFilename;
-}
-
 if (debug) {
   console.log({
     appleId: process.env.APPLE_ID,
@@ -109,7 +103,6 @@ module.exports = {
     icon: path.resolve(__dirname, "assets", "icons", "desktop-icon.ico"),
     extraResource: [
       pythonEntryBin(),
-      ffmpegEntryBin(),
       scrcpyRuntimeDir(),
       path.resolve(__dirname, "assets", "guides"),
     ],

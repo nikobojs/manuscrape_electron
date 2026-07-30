@@ -15,7 +15,6 @@ import {
   parseSquirrelArgs,
   warnIfEncryptionUnavailable,
 } from "./helpers/utils";
-import { ensureFfmpegAvail } from "./helpers/ffmpegBridge";
 
 // https://github.com/electron/windows-installer
 // https://www.electronforge.io/config/makers/squirrel.windows
@@ -87,9 +86,6 @@ app.whenReady().then(() => {
   // NOTE: this is required for both development and production environments
   // NOTE: to compile the python part of the app, read the docs ;)
   ensurePythonAvail();
-
-  // ensure ffmpeg binaries are available
-  ensureFfmpegAvail();
 
   // create hidden tray window
   // NOTE: this needs to exist for a lot of stuff to work
