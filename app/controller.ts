@@ -49,6 +49,7 @@ import {
   renewCookieFromToken,
 } from "./helpers/cookies";
 import { generateContextMenu } from "./helpers/contextMenu";
+
 import {
   fileExists,
   readFile,
@@ -63,6 +64,12 @@ import {
 import fs from "fs";
 import os from "os";
 import { hasMinimumMacVersion, isMac } from "./helpers/os";
+import { execFile, spawn } from "child_process";
+import {
+  getScrcpyRuntimePaths,
+  parseAdbDevices,
+  type AndroidDevice,
+} from "./helpers/scrcpyRuntime";
 
 export class ManuScrapeController {
   public isMarkingArea: boolean;
@@ -100,6 +107,12 @@ export class ManuScrapeController {
   private cancelOperation: boolean;
   private settings: ISettings;
   private onReady: (() => void) | undefined;
+  private connectedDevices: AndroidDevice[];
+  private deviceIdentityCache: Map<
+    string,
+    Pick<AndroidDevice, "displayName" | "description">
+  >;
+  private deviceScanInProgress: boolean;
 
   constructor(
     trayWindow: BrowserWindow,
@@ -122,6 +135,9 @@ export class ManuScrapeController {
     this.activeObservationId = undefined;
     this.activeProjectId = undefined;
     this.onReady = onReady;
+    this.connectedDevices = [];
+    this.deviceIdentityCache = new Map();
+    this.deviceScanInProgress = false;
 
     // define p5 file cache
     this.p5Cache = null;
@@ -170,14 +186,15 @@ export class ManuScrapeController {
       });
 
     trayWindow.on("ready-to-show", async () => {
+      console.log("✅ trayWindow.on('ready-to-show') triggered!");
       // setup tray app
       this.tray = new Tray(trayIcon);
       this.tray.setToolTip("ManuScrape");
       this.tray.setIgnoreDoubleClickEvents(true);
 
       // add open menu event listeners
-      this.tray.on("click", () => this.openMenu());
-      this.tray.on("right-click", () => this.openMenu());
+      this.tray.on("click", () => void this.openMenu());
+      this.tray.on("right-click", () => void this.openMenu());
 
       // save hidden tray window to state
       // NOTE: this is required to avoid the tray app getting garbage collected
@@ -248,18 +265,32 @@ export class ManuScrapeController {
   }
 
   // open context menu
-  public openMenu(): void {
-    if (this.tray) {
-      if (this.contextMenu) {
-        this.tray.setContextMenu(this.contextMenu);
-      } else {
-        throw new Error("Tray menu cannot open without menu items");
-      }
-      this.tray.popUpContextMenu();
-    } else {
+  public async openMenu(): Promise<void> {
+    if (!this.tray) {
       throw new Error(
         "Unable to open context menu, when tray app is not running",
       );
+    }
+
+    if (this.deviceScanInProgress) {
+      return;
+    }
+
+    this.deviceScanInProgress = true;
+    try {
+      await this.refreshConnectedDevices();
+    } catch (error) {
+      console.error(
+        "Could not retrieve ADB devices; using the last known device list:",
+        error,
+      );
+    } finally {
+      this.deviceScanInProgress = false;
+    }
+
+    this.refreshContextMenu();
+    if (process.platform !== "linux") {
+      this.tray.popUpContextMenu(this.contextMenu);
     }
   }
 
@@ -1333,8 +1364,19 @@ export class ManuScrapeController {
         "Cannot refresh contextmenu, when tray app is not running",
       );
     }
+
     this.contextMenu = generateContextMenu(this, this.user);
-    this.tray.setContextMenu(this.contextMenu);
+    console.debug(
+      `[refreshContextMenu] setting context menu — items=${this.contextMenu.items.length}`,
+    );
+    // On macOS and Windows, attaching the menu makes the OS open the stale
+    // menu before our asynchronous ADB refresh completes. Those platforms
+    // receive the freshly generated menu via popUpContextMenu() in openMenu().
+    // Linux does not support that explicit tray popup API, so keep it attached.
+    if (process.platform === "linux") {
+      this.tray.setContextMenu(this.contextMenu);
+    }
+    console.debug("[refreshContextMenu] tray menu updated");
   }
 
   // reset hardcoded global shortcuts
@@ -1392,4 +1434,213 @@ export class ManuScrapeController {
       return this.loginToken;
     }
   };
+
+  // ==========================================
+  // REFRESH CONNECTED ANDROID DEVICES VIA ADB
+  // ==========================================
+  public getConnectedDevices(): AndroidDevice[] {
+    return this.connectedDevices;
+  }
+
+  private async refreshConnectedDevices(): Promise<void> {
+    const runtime = getScrcpyRuntimePaths();
+    const stdout = await new Promise<string>((resolve, reject) => {
+      execFile(
+        runtime.adb,
+        ["devices", "-l"],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+        },
+        (error, stdout) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve(stdout);
+        },
+      );
+    });
+
+    const devices = await this.enrichDeviceIdentities(
+      runtime.adb,
+      parseAdbDevices(stdout),
+    );
+    devices.sort((a, b) => a.serial.localeCompare(b.serial));
+
+    const devicesChanged =
+      JSON.stringify(devices) !== JSON.stringify(this.connectedDevices);
+
+    if (devicesChanged) {
+      this.connectedDevices = devices;
+      console.info("Connected Android devices changed:", devices);
+    }
+  }
+
+  private async enrichDeviceIdentities(
+    adbPath: string,
+    devices: AndroidDevice[],
+  ): Promise<AndroidDevice[]> {
+    const readySerials = new Set(
+      devices
+        .filter((device) => device.status === "device")
+        .map((device) => device.serial),
+    );
+
+    this.deviceIdentityCache.forEach((_identity, serial) => {
+      if (!readySerials.has(serial)) {
+        this.deviceIdentityCache.delete(serial);
+      }
+    });
+
+    return Promise.all(
+      devices.map(async (device) => {
+        if (device.status !== "device") {
+          return device;
+        }
+
+        let identity = this.deviceIdentityCache.get(device.serial);
+        if (!identity) {
+          identity = await this.loadDeviceIdentity(adbPath, device);
+          this.deviceIdentityCache.set(device.serial, identity);
+        }
+
+        return {
+          ...device,
+          ...identity,
+        };
+      }),
+    );
+  }
+
+  private async loadDeviceIdentity(
+    adbPath: string,
+    device: AndroidDevice,
+  ): Promise<Pick<AndroidDevice, "displayName" | "description">> {
+    const [deviceName, marketName, manufacturer, productModel] =
+      await Promise.all([
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "settings",
+          "get",
+          "global",
+          "device_name",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.marketname",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.manufacturer",
+        ]),
+        this.readDeviceProperty(adbPath, device.serial, [
+          "shell",
+          "getprop",
+          "ro.product.model",
+        ]),
+      ]);
+
+    const technicalModel = productModel || device.model;
+    const normalizedDeviceName = deviceName.toLowerCase();
+    const hasCustomDeviceName =
+      !!deviceName &&
+      normalizedDeviceName !== technicalModel.toLowerCase() &&
+      normalizedDeviceName !== device.model.toLowerCase() &&
+      normalizedDeviceName !== "android device";
+    const displayName =
+      (hasCustomDeviceName ? deviceName : "") ||
+      marketName ||
+      [manufacturer, technicalModel].filter(Boolean).join(" ") ||
+      device.model ||
+      device.serial;
+    const descriptionParts = [manufacturer, technicalModel].filter(
+      (value, index, values) =>
+        !!value &&
+        value.toLowerCase() !== displayName.toLowerCase() &&
+        values.indexOf(value) === index,
+    );
+
+    return {
+      displayName,
+      description: descriptionParts.join(" · "),
+    };
+  }
+
+  private readDeviceProperty(
+    adbPath: string,
+    serial: string,
+    args: string[],
+  ): Promise<string> {
+    return new Promise((resolve) => {
+      execFile(
+        adbPath,
+        ["-s", serial, ...args],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 3000,
+        },
+        (error, stdout) => {
+          if (error) {
+            resolve("");
+            return;
+          }
+
+          const value = stdout.trim();
+          resolve(value === "null" || value === "unknown" ? "" : value);
+        },
+      );
+    });
+  }
+
+  // ==========================================
+  // START SCRCPY FOR A SPECIFIC DEVICE
+  // ==========================================
+  public startScrcpy(deviceSerial: string): void {
+    try {
+      const runtime = getScrcpyRuntimePaths();
+
+      console.log(`Starting scrcpy for device: ${deviceSerial}`);
+
+      // tell scrcpy exactly where to find the bundled ADB executable
+      const env = {
+        ...process.env,
+        ADB: runtime.adb,
+        SCRCPY_SERVER_PATH: runtime.server,
+      };
+
+      // run scrcpy in the background without blocking the Electron app
+      const executable =
+        process.platform === "win32" && runtime.noConsoleClient
+          ? path.join(
+              process.env.SystemRoot || "C:\\Windows",
+              "System32",
+              "wscript.exe",
+            )
+          : runtime.client;
+      const args =
+        process.platform === "win32" && runtime.noConsoleClient
+          ? [runtime.noConsoleClient, "-s", deviceSerial]
+          : ["-s", deviceSerial];
+      const child = spawn(executable, args, {
+        cwd: runtime.directory,
+        env,
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+      });
+
+      child.on("error", (error) => {
+        console.error("Could not start the scrcpy process:", error);
+      });
+
+      child.unref(); // allow the process to continue independently
+    } catch (error) {
+      console.error("Could not start scrcpy:", error);
+    }
+  }
 }

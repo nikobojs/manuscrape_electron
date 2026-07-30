@@ -1,7 +1,52 @@
 require("dotenv").config();
-const isWindows = process.platform === "win32";
+const fs = require("fs");
 const path = require("path");
 const debug = process.env.DEBUG === "1";
+
+function cliOption(name) {
+  const option = `--${name}`;
+  const optionIndex = process.argv.indexOf(option);
+  if (optionIndex !== -1) {
+    return process.argv[optionIndex + 1];
+  }
+
+  const optionWithValue = process.argv.find((arg) =>
+    arg.startsWith(`${option}=`),
+  );
+  return optionWithValue?.slice(option.length + 1);
+}
+
+const targetPlatform = cliOption("platform") || process.platform;
+const targetArch = cliOption("arch") || process.arch;
+const isWindowsTarget = targetPlatform === "win32";
+
+const scrcpyPlatformDirectories = {
+  "darwin-arm64": "macos-arm64",
+  "darwin-x64": "macos-x64",
+  "linux-x64": "linux-x64",
+  "win32-x64": "windows-x64",
+};
+
+function scrcpyRuntimeDir() {
+  const target = `${targetPlatform}-${targetArch}`;
+  const platformDirectory = scrcpyPlatformDirectories[target];
+
+  if (!platformDirectory) {
+    throw new Error(`No bundled scrcpy runtime supports ${target}`);
+  }
+
+  const runtimeDir = path.resolve(
+    __dirname,
+    "bin",
+    platformDirectory,
+    "scrcpy-runtime",
+  );
+  if (!fs.existsSync(runtimeDir)) {
+    throw new Error(`Missing scrcpy runtime directory: ${runtimeDir}`);
+  }
+
+  return runtimeDir;
+}
 
 if (debug) {
   console.log("debug is enabled");
@@ -11,13 +56,13 @@ if (debug) {
 
 function pythonEntryBin() {
   const binDir = `./python/dist/`;
-  const binFilename = `chatjoiner${isWindows ? ".exe" : ""}`;
+  const binFilename = `chatjoiner${isWindowsTarget ? ".exe" : ""}`;
   return binDir + binFilename;
 }
 
 function ffmpegEntryBin() {
   const binDir = `./bin/`;
-  const binFilename = `ffmpeg${isWindows ? ".exe" : ""}`;
+  const binFilename = `ffmpeg${isWindowsTarget ? ".exe" : ""}`;
   return binDir + binFilename;
 }
 
@@ -35,11 +80,15 @@ const doWindowsSign =
   process.platform === "win32" &&
   process.env.WINDOWS_SIGN_SHA1 &&
   process.env.WINDOWS_SIGN_TIME;
+const doAppleNotarize =
+  process.env.APPLE_ID &&
+  process.env.APPLE_PASSWORD &&
+  process.env.APPLE_TEAM_ID;
 if (debug && process.platform === "win32") {
   console.log(
     doWindowsSign
       ? "will code sign the windows build"
-      : "will NOT code sign the windows build"
+      : "will NOT code sign the windows build",
   );
 }
 
@@ -58,20 +107,46 @@ module.exports = {
         }
       : undefined,
     icon: path.resolve(__dirname, "assets", "icons", "desktop-icon.ico"),
-    extraResource: [pythonEntryBin(), ffmpegEntryBin()],
+    extraResource: [
+      pythonEntryBin(),
+      ffmpegEntryBin(),
+      scrcpyRuntimeDir(),
+      path.resolve(__dirname, "assets", "guides"),
+    ],
 
     // This is to avoid following error on npm build on linux:
     // Error: /tmp/electron-packager/tmp-VyJyij/resources/app/python/env/bin/python:
     //        file "../../../../../usr/bin/python3.11" links out of the package
     // NOTE: but the error still happens in jenkins
     // NOTE: also works on linux when building for windows without
-    ignore: [/python\//, /python3\.\d+$/, /python$/],
-    osxSign: {}, // object must exist even if empty (for MacOS code signing)
-    osxNotarize: {
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID,
-    },
+    ignore: [
+      /python\//,
+      /python3\.\d+$/,
+      /python$/,
+      /[\\/]bin[\\/]/,
+      /[\\/]assets[\\/]guides[\\/]/,
+    ],
+    osxSign: doAppleNotarize
+      ? {
+          hardenedRuntime: true,
+          continueOnError: false,
+        }
+      : {
+          identity: "-",
+          identityValidation: false,
+          optionsForFile: () => ({ hardenedRuntime: false }),
+          continueOnError: false,
+        },
+    osxNotarize: doAppleNotarize
+      ? {
+          appleId: process.env.APPLE_ID,
+          appleIdPassword: process.env.APPLE_PASSWORD,
+          teamId: process.env.APPLE_TEAM_ID,
+        }
+      : undefined,
+    //osxSign: {}, // object must exist even if empty (for MacOS code signing)
+    // osxSign: false, //
+    // osxNotarize: undefined,
   },
   rebuildConfig: {},
   makers: [
@@ -88,7 +163,7 @@ module.exports = {
           __dirname,
           "assets",
           "icons",
-          "desktop-icon.ico"
+          "desktop-icon.ico",
         ),
         icon: path.resolve(__dirname, "assets", "icons", "desktop-icon.ico"),
       }),
@@ -123,14 +198,14 @@ module.exports = {
       buildPath,
       electronVersion,
       platform,
-      arch
+      arch,
     ) => {
       console.log("Copying files is done! Current dirname is:\n", __dirname);
       if (debug) {
         console.log({ platform, arch, buildPath, electronVersion });
         console.log(
           "\nUsed following config:",
-          JSON.stringify(config, null, 4)
+          JSON.stringify(config, null, 4),
         );
       }
     },
