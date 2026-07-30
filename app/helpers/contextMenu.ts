@@ -309,13 +309,28 @@ export function generateMenuItems(
         type: "separator",
       }),
     );
-    phoneSubmenuItems.push(
-      new MenuItem({
-        label: "New phone connected?",
-        sublabel: "Close and reopen this menu to refresh.",
-        enabled: false,
-      }),
-    );
+    // only add tooltip about auto refresh feature if not linux
+    if (process.platform !== "linux") {
+      phoneSubmenuItems.push(
+        new MenuItem({
+          label: "New phone connected?",
+          sublabel: "Close and reopen this menu to refresh.",
+          enabled: false,
+        }),
+      );
+    } else if (process.platform === "linux") {
+      // show manual refresh list link if on linux
+      phoneSubmenuItems.push(
+        new MenuItem({
+          label: "Refresh list",
+          click: async () => {
+            await controller.scanAdbDevices();
+            controller.refreshContextMenu();
+          },
+          enabled: true,
+        }),
+      );
+    }
     phoneSubmenuItems.push(
       new MenuItem({
         type: "separator",

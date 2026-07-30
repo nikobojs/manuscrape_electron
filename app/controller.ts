@@ -62,7 +62,6 @@ import {
   validateSettings,
 } from "./helpers/settings";
 import fs from "fs";
-import os from "os";
 import { hasMinimumMacVersion, isMac } from "./helpers/os";
 import { execFile, spawn } from "child_process";
 import {
@@ -193,8 +192,17 @@ export class ManuScrapeController {
       this.tray.setIgnoreDoubleClickEvents(true);
 
       // add open menu event listeners
-      this.tray.on("click", () => void this.openMenu());
-      this.tray.on("right-click", () => void this.openMenu());
+      // NOTE: these are ignored on linux, at least GNOME/Wayland (2026-07-30)
+      if (process.platform !== "linux") {
+        this.tray.on("click", async () => {
+          await this.scanAdbDevices();
+          this.refreshContextMenu();
+        });
+        this.tray.on("right-click", async () => {
+          await this.scanAdbDevices();
+          this.refreshContextMenu();
+        });
+      }
 
       // save hidden tray window to state
       // NOTE: this is required to avoid the tray app getting garbage collected
@@ -265,17 +273,13 @@ export class ManuScrapeController {
   }
 
   // open context menu
-  public async openMenu(): Promise<void> {
-    if (!this.tray) {
-      throw new Error(
-        "Unable to open context menu, when tray app is not running",
-      );
-    }
-
+  public async scanAdbDevices(): Promise<void> {
     if (this.deviceScanInProgress) {
+      console.warn("adb device scan in progress, not starting a new scan");
       return;
     }
 
+    console.log("scanning for adb devices..");
     this.deviceScanInProgress = true;
     try {
       await this.refreshConnectedDevices();
@@ -286,11 +290,6 @@ export class ManuScrapeController {
       );
     } finally {
       this.deviceScanInProgress = false;
-    }
-
-    this.refreshContextMenu();
-    if (process.platform !== "linux") {
-      this.tray.popUpContextMenu(this.contextMenu);
     }
   }
 
@@ -801,8 +800,9 @@ export class ManuScrapeController {
         console.error("Unable to connect to host");
       }
     } finally {
-      // TODO: weird bug requries refreshContext to be called twice
-      // context popup wont show unless refreshContextMenu is called twice
+      if (process.platform === "linux") {
+        this.scanAdbDevices();
+      }
       this.refreshContextMenu();
       this.refreshShortcuts();
 
@@ -1358,7 +1358,8 @@ export class ManuScrapeController {
   }
 
   // refresh the context menu ui based on state of current ManuController instance
-  private refreshContextMenu(): void {
+  public refreshContextMenu(): void {
+    console.log("REFRFEH CONTEXT MANU!");
     if (!this.tray) {
       throw new Error(
         "Cannot refresh contextmenu, when tray app is not running",
@@ -1454,6 +1455,7 @@ export class ManuScrapeController {
         },
         (error, stdout) => {
           if (error) {
+            console.error(error);
             reject(error);
             return;
           }
