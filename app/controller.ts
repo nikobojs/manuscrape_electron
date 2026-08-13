@@ -1359,7 +1359,6 @@ export class ManuScrapeController {
 
   // refresh the context menu ui based on state of current ManuController instance
   public refreshContextMenu(): void {
-    console.log("REFRFEH CONTEXT MANU!");
     if (!this.tray) {
       throw new Error(
         "Cannot refresh contextmenu, when tray app is not running",
