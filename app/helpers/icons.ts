@@ -25,7 +25,7 @@ export const addIcon = loadImage(
 // NOTE: image is way to large
 // TODO: Fix for windows & GNOME
 export const trayIcon = loadImage(
-  path.join(__dirname, '../../assets', isMac ? 'tray_20px.png' : 'tray.png')
+  path.join(__dirname, '../../assets', isMac ? 'tray_srgb_20px.png' : 'tray_small.png')
 );
 export const loginIcon = loadImage(
   path.join(__dirname, '../../assets/icons/login.png')
