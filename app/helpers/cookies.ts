@@ -12,7 +12,7 @@ export function parseAuthCookie(
     throw new Error("The response headers does not include 'Set-Cookie'");
   }
 
-  const parsed = cookie.parse(cookieVal);
+  const parsed = cookie.parseCookie(cookieVal);
   const expires = parsed['Expires'];
   if (!expires) {
     console.log(parsed);
@@ -57,8 +57,8 @@ export async function removeAuthCookies(): Promise<void> {
         'cookies',
         'localstorage',
         'indexdb',
-        'websql',
         'serviceworkers',
+        'cachestorage',
       ],
     };
     await session.defaultSession.clearStorageData(opts);
