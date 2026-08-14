@@ -1108,23 +1108,15 @@ export class ManuScrapeController {
     // Clear any stale auth cookies from previous sessions
     void removeAuthCookies();
 
-    // Save chooseServer window reference BEFORE overwriting
+    // Keep the chooseServer window open ("Connecting...") while the Nuxt
+    // window loads hidden; it is only destroyed once the Nuxt window shows
     const chooseServerWin = this.authWindow;
 
-    // Destroy any existing auth window
-    if (this.authWindow && !this.authWindow.isDestroyed()) {
-      this.authWindow.destroy();
-    }
-
-    // Create Nuxt login window first
-    this.authWindow = createNuxtAppWindow(
+    const nuxtWin = createNuxtAppWindow(
       `${host}/login?electron=1`,
       () => {
         // onClose callback
         this.syncAuthStateAndMenu();
-        if (chooseServerWin && !chooseServerWin.isDestroyed()) {
-          chooseServerWin.destroy();
-        }
       },
       () => {
         // onReady callback
@@ -1134,29 +1126,23 @@ export class ManuScrapeController {
       600,
       undefined,
     );
+
+    this.attachNuxtAuthWindowLifecycle(nuxtWin, chooseServerWin, event, host);
   }
 
   private openNuxtSignupWindow(host: string, event: Electron.IpcMainEvent): void {
     // Clear any stale auth cookies from previous sessions
     void removeAuthCookies();
 
-    // Save chooseServer window reference BEFORE overwriting
+    // Keep the chooseServer window open ("Connecting...") while the Nuxt
+    // window loads hidden; it is only destroyed once the Nuxt window shows
     const chooseServerWin = this.authWindow;
 
-    // Destroy any existing auth window
-    if (this.authWindow && !this.authWindow.isDestroyed()) {
-      this.authWindow.destroy();
-    }
-
-    // Create Nuxt signup window
-    this.authWindow = createNuxtAppWindow(
+    const nuxtWin = createNuxtAppWindow(
       `${host}/user/new?electron=1`,
       () => {
         // onClose callback
         this.syncAuthStateAndMenu();
-        if (chooseServerWin && !chooseServerWin.isDestroyed()) {
-          chooseServerWin.destroy();
-        }
       },
       () => {
         // onReady callback
@@ -1165,6 +1151,56 @@ export class ManuScrapeController {
       400,
       600,
       undefined,
+    );
+
+    this.attachNuxtAuthWindowLifecycle(nuxtWin, chooseServerWin, event, host);
+  }
+
+  // Swap the chooseServer window for the Nuxt auth window once it has
+  // actually loaded; on load failure keep the chooser so the user can retry
+  private attachNuxtAuthWindowLifecycle(
+    nuxtWin: Electron.BrowserWindow,
+    chooseServerWin: Electron.BrowserWindow | undefined,
+    event: Electron.IpcMainEvent,
+    host: string,
+  ): void {
+    nuxtWin.webContents.once("did-finish-load", () => {
+      if (nuxtWin.isDestroyed()) return;
+      nuxtWin.webContents.removeAllListeners("did-fail-load");
+
+      // promote the Nuxt window and show it
+      this.authWindow = nuxtWin;
+      nuxtWin.show();
+
+      // tell the chooser form it succeeded, then retire the chooser
+      if (!event.sender.isDestroyed()) {
+        event.reply("choose-server-ok");
+      }
+      if (chooseServerWin && !chooseServerWin.isDestroyed()) {
+        chooseServerWin.destroy();
+      }
+    });
+
+    nuxtWin.webContents.on(
+      "did-fail-load",
+      (_e, errorCode, errorDescription, _validatedURL, isMainFrame) => {
+        // ignore subframe failures and aborted loads (errorCode -3)
+        if (!isMainFrame || errorCode === -3) return;
+
+        // drop the failed Nuxt window; the chooser stays as this.authWindow
+        if (!nuxtWin.isDestroyed()) {
+          nuxtWin.destroy();
+        }
+
+        // let chooseServer.html re-enable the form and show the error
+        if (!event.sender.isDestroyed()) {
+          const description = errorDescription || `error ${errorCode}`;
+          event.reply(
+            "choose-server-error",
+            `Could not connect to ${host} (${description})`,
+          );
+        }
+      },
     );
   }
 
@@ -1180,7 +1216,10 @@ export class ManuScrapeController {
     console.log('handleLoginSuccess, authWin is', authWin)
     if (!host) {
       console.error("No host available for login success");
-      return event.reply("login-success-error", "No host available");
+      if (!event.sender.isDestroyed()) {
+        event.reply("login-success-error", "No host available");
+      }
+      return;
     }
 
     try {
@@ -1190,22 +1229,32 @@ export class ManuScrapeController {
 
         const token = await readTokenFromCookie();
 
-        // Close the login window BEFORE calling updateAuthSession
-        // to avoid window size inheritance issues
+        await this.updateAuthSession(host, token);
+
+        // Reply while the window is still alive — replying to a destroyed
+        // webContents throws on Electron 41
+        if (!event.sender.isDestroyed()) {
+          event.reply("login-success-ok");
+        }
+
+        // Only now tear the login window down
         if (authWin && !authWin.isDestroyed()) {
           authWin.destroy();
         }
-
-        await this.updateAuthSession(host, token);
-
-        event.reply("login-success-ok");
+        if (this.authWindow === authWin) {
+          this.authWindow = undefined;
+        }
       } else {
         console.error("Auth cookie not found after login success");
-        event.reply("login-success-error", "Auth cookie not found");
+        if (!event.sender.isDestroyed()) {
+          event.reply("login-success-error", "Auth cookie not found");
+        }
       }
     } catch (err) {
       console.error("Failed to handle login success:", err);
-      event.reply("login-success-error", "Authentication failed");
+      if (!event.sender.isDestroyed()) {
+        event.reply("login-success-error", "Authentication failed");
+      }
     }
   }
 
@@ -1220,7 +1269,10 @@ export class ManuScrapeController {
 
     if (!host) {
       console.error("No host available for signup success");
-      return event.reply("signup-success-error", "No host available");
+      if (!event.sender.isDestroyed()) {
+        event.reply("signup-success-error", "No host available");
+      }
+      return;
     }
 
     try {
@@ -1230,22 +1282,32 @@ export class ManuScrapeController {
 
         const token = await readTokenFromCookie();
 
-        // Close the signup window BEFORE calling updateAuthSession
-        // to avoid window size inheritance issues
+        await this.updateAuthSession(host, token);
+
+        // Reply while the window is still alive — replying to a destroyed
+        // webContents throws on Electron 41
+        if (!event.sender.isDestroyed()) {
+          event.reply("signup-success-ok");
+        }
+
+        // Only now tear the signup window down
         if (authWin && !authWin.isDestroyed()) {
           authWin.destroy();
         }
-
-        await this.updateAuthSession(host, token);
-
-        event.reply("signup-success-ok");
+        if (this.authWindow === authWin) {
+          this.authWindow = undefined;
+        }
       } else {
         console.error("Auth cookie not found after signup success");
-        event.reply("signup-success-error", "Auth cookie not found");
+        if (!event.sender.isDestroyed()) {
+          event.reply("signup-success-error", "Auth cookie not found");
+        }
       }
     } catch (err) {
       console.error("Failed to handle signup success:", err);
-      event.reply("signup-success-error", "Authentication failed");
+      if (!event.sender.isDestroyed()) {
+        event.reply("signup-success-error", "Authentication failed");
+      }
     }
   }
 
@@ -1254,6 +1316,20 @@ export class ManuScrapeController {
     console.log(`[showServerChooser] START - intent=${intent}, authWindow=${this.authWindow?.isDestroyed()}, nuxtWindow=${this.nuxtWindow?.isDestroyed()}`);
 
     if (this.authWindow && !this.authWindow.isDestroyed()) {
+      // honor the new intent even though a window is already open
+      this.pendingAuthIntent = intent;
+
+      const currentUrl = this.authWindow.webContents.getURL();
+      if (/^https?:/.test(currentUrl) && this.apiHost) {
+        // Nuxt auth window: navigate it if it is showing the other auth page
+        // NOTE: keep the ?electron=1 param on these URLs for now
+        const targetPath = intent === "signup" ? "/user/new" : "/login";
+        if (new URL(currentUrl).pathname !== targetPath) {
+          this.authWindow.loadURL(`${this.apiHost}${targetPath}?electron=1`);
+        }
+      }
+      // the chooser window just gets focused; the updated intent is used
+      // when the server is chosen
       this.authWindow.focus();
       console.log(`[showServerChooser] Window already exists, focusing`);
       return;

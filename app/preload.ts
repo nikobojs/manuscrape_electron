@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, app } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 // console.log('version:', process.env.npm_package_version) (THIS WORKS)
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -41,7 +41,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     callback: () => void,
     callbackError: (errorMessage: string) => void,
   ) => {
-    console.log('login success preload!!!!!!!!!!!!!!!!!!!!!!!!!1')
     ipcRenderer.once("login-success-ok", callback);
     ipcRenderer.once("login-success-error", (_event, errorMessage) => {
       callbackError(errorMessage);
@@ -69,7 +68,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   defaultHostValue: (callback: HostValueCallback) => {
     ipcRenderer.once("default-host-value", callback);
-    ipcRenderer.once("ask-for-default-host-value", callback); // TODO: is this one needed?
     ipcRenderer.send("ask-for-default-host-value");
   },
   getSettings: (callback: HostValueCallback) => {

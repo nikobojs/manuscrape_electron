@@ -7,12 +7,21 @@ export function parseAuthCookie(
   host: string,
   res: Response
 ): CookiesSetDetails {
-  const cookieVal = res.headers.get('Set-Cookie');
-  if (!cookieVal) {
+  const setCookieHeaders = res.headers.getSetCookie();
+  if (setCookieHeaders.length === 0) {
     throw new Error("The response headers does not include 'Set-Cookie'");
   }
 
-  const parsed = cookie.parse(cookieVal);
+  const authCookieHeader = setCookieHeaders.find((header) =>
+    header.trimStart().startsWith('authcookie=')
+  );
+  if (!authCookieHeader) {
+    throw new Error(
+      "The 'Set-Cookie' response headers do not include 'authcookie'"
+    );
+  }
+
+  const parsed = cookie.parse(authCookieHeader);
   const expires = parsed['Expires'];
   if (!expires) {
     console.log(parsed);
@@ -26,13 +35,14 @@ export function parseAuthCookie(
   const hostUrl = new URL(host);
   const newCookie: CookiesSetDetails = {
     value: parsed.authcookie,
-    expirationDate: expireDate.getTime(),
+    // expirationDate is seconds since epoch, not milliseconds
+    expirationDate: Math.floor(expireDate.getTime() / 1000),
     path: '/',
     sameSite: 'strict' as 'strict' | 'unspecified' | 'no_restriction' | 'lax',
     url: host,
     name: 'authcookie',
     httpOnly: true,
-    secure: false, // TODO,
+    secure: hostUrl.protocol === 'https:',
     domain: hostUrl.hostname,
   };
   return newCookie;
