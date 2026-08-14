@@ -19,10 +19,11 @@ import {
   createPrewarmedOverlayWindow,
   createWarmNuxtWindow,
   createSettingsWindow,
-  createAuthorizationWindow,
   createAddProjectWindow,
   createAddObservationWindow,
   createDraftsWindow,
+  createNuxtAppWindow,
+  createChooseServerWindow,
 } from "./helpers/browserWindows";
 import { trayIcon, successIcon, errorIcon, warningIcon } from "./helpers/icons";
 import {
@@ -84,6 +85,7 @@ export class ManuScrapeController {
   private trayWindow: Electron.BrowserWindow | undefined;
   private authWindow: Electron.BrowserWindow | undefined;
   private nuxtWindow: Electron.BrowserWindow | undefined;
+  private pendingAuthIntent: "login" | "signup" = "login";
   private settingsWindow: Electron.BrowserWindow | undefined;
   private overlayWindow: Electron.BrowserWindow | undefined;
   private nuxtWarmWindow: Electron.BrowserWindow | undefined;
@@ -184,8 +186,16 @@ export class ManuScrapeController {
         );
       });
 
-    trayWindow.on("ready-to-show", async () => {
-      console.log("✅ trayWindow.on('ready-to-show') triggered!");
+    // Save tray window reference immediately to prevent garbage collection
+    this.trayWindow = trayWindow;
+
+    // Load tray window AFTER setting up event listeners to avoid race condition
+    trayWindow.loadFile("windows/tray.html");
+
+    // Use 'did-finish-load' instead of 'ready-to-show' for hidden windows
+    // as 'ready-to-show' may not fire reliably for 0x0 windows
+    trayWindow.webContents.on("did-finish-load", async () => {
+      console.log("✅ trayWindow.webContents.on('did-finish-load') triggered!");
       // setup tray app
       this.tray = new Tray(trayIcon);
       this.tray.setToolTip("ManuScrape");
@@ -205,10 +215,6 @@ export class ManuScrapeController {
           this.tray?.popUpContextMenu(this.contextMenu);
         });
       }
-
-      // save hidden tray window to state
-      // NOTE: this is required to avoid the tray app getting garbage collected
-      this.trayWindow = trayWindow;
 
       // make sure p5 is loaded
       await p5Promise;
@@ -834,18 +840,24 @@ export class ManuScrapeController {
           this.refreshContextMenu();
         }
         if (!this.isLoggedIn()) {
-          // show login window if not logged in by now
-          this.openAuthorizationWindow(false);
+          // OLD (line 838 - ERROR):
+          // this.showServerChooser(clientIsTooOld);
+
+          // NEW:
+          const tooOld = false;  // Define it here
+          this.showServerChooser(tooOld);
         } else if (this.user?.projectAccess.length === 0) {
-          // if no projects available for user, open createProjects window
           await this.openCreateProjectWindow();
         }
       } catch (e: any) {
-        // show login window if there was some kind of error
-        // TODO: report error
         console.error("Unable to login automatically:", e);
         const tooOld = isClientDeprecationError(e);
-        this.openAuthorizationWindow(false, tooOld);
+
+        // OLD (line 1084 - ERROR):
+        // this.showServerChooser(tooOld);
+
+        // NEW (already correct, but verify):
+        this.showServerChooser(tooOld);
       }
 
       // tray and auth state are fully set up
@@ -1064,38 +1076,217 @@ export class ManuScrapeController {
     });
   }
 
-  private async signInHandler(
+  private async chooseServerHandler(
     event: Electron.IpcMainEvent,
-    { email, password, host }: ISignInBody,
+    { host }: { host: string },
   ): Promise<void> {
-    // reset important state variables
-    this.activeObservationId = undefined;
-    this.activeProjectId = undefined;
-
-    // define initial token (to keep it in scope outside try/catch block)
-    let token: string | undefined;
-
-    // parse and set token and host variables
     try {
-      // validate and set host url string
       host = parseHostUrl(host);
+      this.apiHost = host;
 
-      // unpack in try catch to ensure token value in runtime
-      const { token: _token } = await signIn(host, email, password);
-      token = _token;
-
-      // return `error` to client, so error can be rendered
-    } catch (err: any) {
-      if (isClientDeprecationError(err)) {
-        event.reply("client-is-deprecated", err?.message);
+      // Save host for future sessions
+      if (this.useEncryption) {
+        saveFile(host, this.hostPath);
       }
-      return event.reply("sign-in-error", err?.message || "Unknown error"); // TODO: use enum
+
+      // Clear existing auth listeners
+      // this.clearAuthIpcListeners();
+
+      // Open the appropriate Nuxt window based on stored intent
+      if (this.pendingAuthIntent === "signup") {
+        this.openNuxtSignupWindow(host, event);
+      } else {
+        this.openNuxtLoginWindow(host, event);
+      }
+
+    } catch (err: any) {
+      return event.reply("choose-server-error", err?.message || "Invalid host");
+    }
+  }
+
+  private openNuxtLoginWindow(host: string, event: Electron.IpcMainEvent): void {
+    // Clear any stale auth cookies from previous sessions
+    void removeAuthCookies();
+
+    // Save chooseServer window reference BEFORE overwriting
+    const chooseServerWin = this.authWindow;
+
+    // Destroy any existing auth window
+    if (this.authWindow && !this.authWindow.isDestroyed()) {
+      this.authWindow.destroy();
     }
 
-    await this.updateAuthSession(host, token);
+    // Create Nuxt login window first
+    this.authWindow = createNuxtAppWindow(
+      `${host}/login?electron=1`,
+      () => {
+        // onClose callback
+        this.syncAuthStateAndMenu();
+        if (chooseServerWin && !chooseServerWin.isDestroyed()) {
+          chooseServerWin.destroy();
+        }
+      },
+      () => {
+        // onReady callback
+        console.log('Nuxt login window ready, waiting for frontend IPC events...');
+      },
+      400,
+      600,
+      undefined,
+    );
+  }
 
-    // tell client login was successful
-    event.reply("sign-in-ok"); // TODO: use enum
+  private openNuxtSignupWindow(host: string, event: Electron.IpcMainEvent): void {
+    // Clear any stale auth cookies from previous sessions
+    void removeAuthCookies();
+
+    // Save chooseServer window reference BEFORE overwriting
+    const chooseServerWin = this.authWindow;
+
+    // Destroy any existing auth window
+    if (this.authWindow && !this.authWindow.isDestroyed()) {
+      this.authWindow.destroy();
+    }
+
+    // Create Nuxt signup window
+    this.authWindow = createNuxtAppWindow(
+      `${host}/user/new?electron=1`,
+      () => {
+        // onClose callback
+        this.syncAuthStateAndMenu();
+        if (chooseServerWin && !chooseServerWin.isDestroyed()) {
+          chooseServerWin.destroy();
+        }
+      },
+      () => {
+        // onReady callback
+        console.log('Nuxt signup window ready, waiting for frontend IPC events...');
+      },
+      400,
+      600,
+      undefined,
+    );
+  }
+
+  private async handleLoginSuccess(event: Electron.IpcMainEvent): Promise<void> {
+    console.log("Login success triggered from frontend");
+
+    // Get the current auth window (login window)
+    const authWin = this.authWindow;
+
+    // Get the host from the current state
+    const host = this.apiHost;
+
+    console.log('handleLoginSuccess, authWin is', authWin)
+    if (!host) {
+      console.error("No host available for login success");
+      return event.reply("login-success-error", "No host available");
+    }
+
+    try {
+      // Check if cookie exists (should be set by Nuxt)
+      if (await authCookieExists()) {
+        console.log('Auth cookie detected after login success!');
+
+        const token = await readTokenFromCookie();
+
+        // Close the login window BEFORE calling updateAuthSession
+        // to avoid window size inheritance issues
+        if (authWin && !authWin.isDestroyed()) {
+          authWin.destroy();
+        }
+
+        await this.updateAuthSession(host, token);
+
+        event.reply("login-success-ok");
+      } else {
+        console.error("Auth cookie not found after login success");
+        event.reply("login-success-error", "Auth cookie not found");
+      }
+    } catch (err) {
+      console.error("Failed to handle login success:", err);
+      event.reply("login-success-error", "Authentication failed");
+    }
+  }
+
+  private async handleSignupSuccess(event: Electron.IpcMainEvent): Promise<void> {
+    console.log("Signup success triggered from frontend");
+
+    // Get the current auth window (signup window)
+    const authWin = this.authWindow;
+
+    // Get the host from the current state
+    const host = this.apiHost;
+
+    if (!host) {
+      console.error("No host available for signup success");
+      return event.reply("signup-success-error", "No host available");
+    }
+
+    try {
+      // Check if cookie exists (should be set by Nuxt)
+      if (await authCookieExists()) {
+        console.log('Auth cookie detected after signup success!');
+
+        const token = await readTokenFromCookie();
+
+        // Close the signup window BEFORE calling updateAuthSession
+        // to avoid window size inheritance issues
+        if (authWin && !authWin.isDestroyed()) {
+          authWin.destroy();
+        }
+
+        await this.updateAuthSession(host, token);
+
+        event.reply("signup-success-ok");
+      } else {
+        console.error("Auth cookie not found after signup success");
+        event.reply("signup-success-error", "Auth cookie not found");
+      }
+    } catch (err) {
+      console.error("Failed to handle signup success:", err);
+      event.reply("signup-success-error", "Authentication failed");
+    }
+  }
+
+  // Show server chooser instead of sign-in/up
+  public showServerChooser(clientIsTooOld = false, intent: "login" | "signup" = "login"): void {
+    console.log(`[showServerChooser] START - intent=${intent}, authWindow=${this.authWindow?.isDestroyed()}, nuxtWindow=${this.nuxtWindow?.isDestroyed()}`);
+
+    if (this.authWindow && !this.authWindow.isDestroyed()) {
+      this.authWindow.focus();
+      console.log(`[showServerChooser] Window already exists, focusing`);
+      return;
+    }
+
+    // Clear existing auth listeners
+    this.clearAuthIpcListeners();
+
+    // Attach new event listeners
+    ipcMain.on("choose-server", (event, body) => {
+      void this.chooseServerHandler(event, body);
+    });
+    ipcMain.on("ask-for-default-host-value", (event) => {
+      event.reply("default-host-value", this?.apiHost || "");
+    });
+    ipcMain.on("ask-client-is-deprecated", (event) => {
+      if (clientIsTooOld) {
+        event.reply("client-is-deprecated");
+      }
+    });
+    ipcMain.on("login-success", (event) => {
+      void this.handleLoginSuccess(event);
+    });
+    ipcMain.on("signup-success", (event) => {
+      void this.handleSignupSuccess(event);
+    });
+
+    // Store the intent for when the server is chosen
+    this.pendingAuthIntent = intent;
+
+    // Create new choose server window
+    this.authWindow = createChooseServerWindow();
+    console.log(`[showServerChooser] Created chooseServer window: ${!this.authWindow.isDestroyed()}`);
   }
 
   // update local settings based on patch event via ipc
@@ -1134,39 +1325,15 @@ export class ManuScrapeController {
     event.reply("update-settings-ok", patchedSettings);
   }
 
-  private async signUpHandler(
-    event: Electron.IpcMainEvent,
-    { email, password, host }: ISignUpBody,
-  ): Promise<void> {
-    // define initial token (to keep it in scope outside try/catch block)
-    let token: string | undefined;
 
-    // parse and set token and host variables
-    try {
-      // validate and set host url string
-      host = parseHostUrl(host);
-
-      // unpack in try catch to ensure token value in runtime
-      const { token: _token } = await signUp(host, email, password);
-      token = _token;
-
-      // return `error` to client, so error can be rendered
-    } catch (err: any) {
-      return event.reply("sign-up-error", err?.message || "Unknown error"); // TODO: use enum
-    }
-
-    await this.updateAuthSession(host, token);
-
-    // tell client login was successful
-    event.reply("sign-up-ok"); // TODO: use enum
-  }
 
   private clearAuthIpcListeners() {
     // clear existing relevant ipcMain listeners
-    ipcMain.removeAllListeners("sign-in");
-    ipcMain.removeAllListeners("sign-up");
+    ipcMain.removeAllListeners("choose-server");
     ipcMain.removeAllListeners("ask-for-default-host-value");
-    ipcMain.removeAllListeners("ask-for-error-message");
+    ipcMain.removeAllListeners("ask-client-is-deprecated");
+    ipcMain.removeAllListeners("login-success");
+    ipcMain.removeAllListeners("signup-success");
   }
 
   private async updateAuthSession(host: string, token: string) {
@@ -1197,49 +1364,7 @@ export class ManuScrapeController {
     // TODO: also close existing open windows? maybe a reset windows method?
   }
 
-  public openAuthorizationWindow(openSignUp = false, clientIsTooOld = false) {
-    // navigate automatically if window is open
-    if (this.authWindow && !this.authWindow.isDestroyed()) {
-      // get html file url
-      const url = this.authWindow.webContents.getURL();
 
-      // if mismatch between what is requested and what page is currently active,
-      // load the url of the requested page
-      if (url.endsWith("signIn.html") && openSignUp) {
-        this.authWindow.loadFile("windows/signUp.html");
-      } else if (url.endsWith("signUp.html") && !openSignUp) {
-        this.authWindow.loadFile("windows/signIn.html");
-      }
-
-      // no matter what, focus the authWindow
-      this.authWindow.focus();
-    } else {
-      // clear existing relevant ipcMain listeners
-      this.clearAuthIpcListeners();
-
-      // attach new event listeners
-      // TODO: cleanup and use best ipc practices
-      ipcMain.on(
-        "sign-in", // TODO: use enum
-        (event, body) => this.signInHandler(event, body),
-      );
-      ipcMain.on(
-        "sign-up", // TODO: use enum
-        (event, body) => this.signUpHandler(event, body),
-      );
-      ipcMain.on("ask-for-default-host-value", (event) => {
-        event.reply("default-host-value", this?.apiHost || "");
-      });
-      ipcMain.on("ask-client-is-deprecated", (event) => {
-        if (clientIsTooOld) {
-          event.reply("client-is-deprecated");
-        }
-      });
-
-      // create new sign in window
-      this.authWindow = createAuthorizationWindow(openSignUp);
-    }
-  }
 
   public openSettingsWindow() {
     const apiHost = this.requireApiHost();
@@ -1265,6 +1390,12 @@ export class ManuScrapeController {
   // TODO: refactor
   public async openCreateProjectWindow(): Promise<void> {
     const apiHost = this.requireApiHost();
+
+    // Destroy any existing nuxtWindow to ensure clean state
+    if (this.nuxtWindow && !this.nuxtWindow.isDestroyed()) {
+      this.nuxtWindow.destroy();
+      this.nuxtWindow = undefined;
+    }
 
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
@@ -1621,10 +1752,10 @@ export class ManuScrapeController {
       const executable =
         process.platform === "win32" && runtime.noConsoleClient
           ? path.join(
-              process.env.SystemRoot || "C:\\Windows",
-              "System32",
-              "wscript.exe",
-            )
+            process.env.SystemRoot || "C:\\Windows",
+            "System32",
+            "wscript.exe",
+          )
           : runtime.client;
       const args =
         process.platform === "win32" && runtime.noConsoleClient

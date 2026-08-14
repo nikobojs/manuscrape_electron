@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   type BrowserWindowConstructorOptions,
+  session,
 } from "electron";
 import path from "path";
 import { defaultSettings } from "./settings";
@@ -13,10 +14,10 @@ const isLinux = process.platform === "linux";
 
 // generic nuxt app window factory - not meant to be exported
 // pass existingWindow to reuse a pre-warmed BrowserWindow instead of creating a new one
-const createNuxtAppWindow = (
+export const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
-  onReady = () => {},
+  onReady = () => { },
   minWidth: number,
   minHeight: number,
   maxWidth?: number | undefined,
@@ -44,6 +45,7 @@ const createNuxtAppWindow = (
       icon: getMainIconPathBasedOnOS(),
       webPreferences: {
         preload: path.join(__dirname, "../preload.js"),
+        session: session.defaultSession,
       },
       useContentSize: true,
       backgroundColor: "#1c1b22",
@@ -85,8 +87,10 @@ export function createTrayWindow(): BrowserWindow {
     darkTheme: true,
     skipTaskbar: true,
     hasShadow: false,
+    webPreferences: {
+      session: session.defaultSession,
+    },
   });
-  trayWindow.loadFile("windows/tray.html");
   return trayWindow;
 }
 
@@ -121,6 +125,7 @@ export const createPrewarmedOverlayWindow = (
       preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
       webgl: false,
+      session: session.defaultSession,
     },
   });
 
@@ -181,6 +186,7 @@ export const createWarmNuxtWindow = (warmUrl: string): BrowserWindow => {
     icon: getMainIconPathBasedOnOS(),
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
+      session: session.defaultSession,
     },
     useContentSize: true,
     backgroundColor: "#1c1b22",
@@ -190,9 +196,7 @@ export const createWarmNuxtWindow = (warmUrl: string): BrowserWindow => {
   return win;
 };
 
-export const createAuthorizationWindow = (
-  openSignUp = false,
-): BrowserWindow => {
+export const createChooseServerWindow = (): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
     title: "ManuScrape",
     autoHideMenuBar: true,
@@ -203,21 +207,15 @@ export const createAuthorizationWindow = (
     resizable: false,
     icon: path.join(__dirname, "../../assets/icons/desktop-icon.png"),
     width: 320,
-    height: isLinux ? 450 : 480, // TODO: needs adjustment on windows
+    height: 400,
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
+      session: session.defaultSession,
     },
   };
 
-  const file = openSignUp ? "windows/signUp.html" : "windows/signIn.html";
   const win = new BrowserWindow(opts);
-
-  win.loadFile(file);
-
-  win.once("show", () => {
-    win.focus();
-  });
-
+  win.loadFile("windows/chooseServer.html");
   return win;
 };
 
@@ -399,7 +397,7 @@ export const createAddProjectWindow = (
   const win = createNuxtAppWindow(
     `${apiHost}/projects/new?electron=1`,
     onClose,
-    () => {},
+    () => { },
     1280,
     760,
   );
@@ -416,7 +414,7 @@ export const createDraftsWindow = (
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/drafts?electron=1`,
     onClose,
-    () => {},
+    () => { },
     1280,
     760,
     undefined,

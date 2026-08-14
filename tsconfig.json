@@ -2,7 +2,7 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "target": "es5",         
-    "module": "commonjs",    
+    "module": "node20",    
     "strict": true,    
     "outDir": "./dist"
   }

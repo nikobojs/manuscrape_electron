@@ -26,23 +26,37 @@ contextBridge.exposeInMainWorld("electronAPI", {
   observationImageUploaded: () => {
     ipcRenderer.send("observation-image-uploaded");
   },
-  signIn: (
-    signInBody: ISignInBody,
-    callback: SignInCallback,
-    callbackError: SignInCallback,
+  chooseServer: (
+    body: { host: string },
+    callback: () => void,
+    callbackError: (errorMessage: string) => void,
   ) => {
-    ipcRenderer.once("sign-in-ok", callback);
-    ipcRenderer.once("sign-in-error", callbackError);
-    ipcRenderer.send("sign-in", signInBody);
+    ipcRenderer.once("choose-server-ok", callback);
+    ipcRenderer.once("choose-server-error", (_event, errorMessage) => {
+      callbackError(errorMessage);
+    });
+    ipcRenderer.send("choose-server", body);
   },
-  signUp: (
-    signInBody: ISignUpBody,
-    callback: SignInCallback,
-    callbackError: SignUpCallback,
+  loginSuccess: (
+    callback: () => void,
+    callbackError: (errorMessage: string) => void,
   ) => {
-    ipcRenderer.once("sign-up-ok", callback);
-    ipcRenderer.once("sign-up-error", callbackError);
-    ipcRenderer.send("sign-up", signInBody);
+    console.log('login success preload!!!!!!!!!!!!!!!!!!!!!!!!!1')
+    ipcRenderer.once("login-success-ok", callback);
+    ipcRenderer.once("login-success-error", (_event, errorMessage) => {
+      callbackError(errorMessage);
+    });
+    ipcRenderer.send("login-success");
+  },
+  signupSuccess: (
+    callback: () => void,
+    callbackError: (errorMessage: string) => void,
+  ) => {
+    ipcRenderer.once("signup-success-ok", callback);
+    ipcRenderer.once("signup-success-error", (_event, errorMessage) => {
+      callbackError(errorMessage);
+    });
+    ipcRenderer.send("signup-success");
   },
   updateSettings: (
     settingsBody: ISettings,
