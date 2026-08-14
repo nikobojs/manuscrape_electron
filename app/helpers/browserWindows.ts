@@ -69,9 +69,17 @@ export const createNuxtAppWindow = (
 
   win.once("close", () => onClose());
 
-  win.on("ready-to-show", () => {
-    win.show();
-  });
+  // ready-to-show is unreliable on some setups (Linux + disabled hardware
+  // acceleration) and may not re-fire on reused warm windows, so also show
+  // on did-finish-load — same trick the tray window already uses.
+  const showWhenLoaded = () => {
+    if (!win.isDestroyed() && !win.isVisible()) {
+      win.show();
+    }
+  };
+  win.on("ready-to-show", showWhenLoaded);
+  win.webContents.removeAllListeners("did-finish-load");
+  win.webContents.on("did-finish-load", showWhenLoaded);
 
   return win;
 };
