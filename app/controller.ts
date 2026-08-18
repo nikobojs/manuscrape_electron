@@ -197,10 +197,12 @@ export class ManuScrapeController {
         this.tray.on("click", async () => {
           await this.scanAdbDevices();
           this.refreshContextMenu();
+          this.tray?.popUpContextMenu(this.contextMenu);
         });
         this.tray.on("right-click", async () => {
           await this.scanAdbDevices();
           this.refreshContextMenu();
+          this.tray?.popUpContextMenu(this.contextMenu);
         });
       }
 
@@ -1359,7 +1361,7 @@ export class ManuScrapeController {
 
   // refresh the context menu ui based on state of current ManuController instance
   public refreshContextMenu(): void {
-    console.log("REFRFEH CONTEXT MANU!");
+    console.log("refreshContextMenu");
     if (!this.tray) {
       throw new Error(
         "Cannot refresh contextmenu, when tray app is not running",
@@ -1628,16 +1630,37 @@ export class ManuScrapeController {
         process.platform === "win32" && runtime.noConsoleClient
           ? [runtime.noConsoleClient, "-s", deviceSerial]
           : ["-s", deviceSerial];
+
       const child = spawn(executable, args, {
         cwd: runtime.directory,
         env,
         detached: true,
-        stdio: "ignore",
+        stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
+        windowsVerbatimArguments: true,
+        shell: true,
+      });
+
+      child.stderr?.on("data", (data: Buffer) => {
+        console.error(`[scrcpy stderr] ${data.toString().trim()}`);
+      });
+      child.stdout?.on("data", (data: Buffer) => {
+        console.log(`[scrcpy stdout] ${data.toString().trim()}`);
       });
 
       child.on("error", (error) => {
         console.error("Could not start the scrcpy process:", error);
+      });
+
+      child.on("exit", (code: number) => {
+        if (code) {
+          // TODO: report error
+          console.error(
+            "There was an error opening the android mirror window (scrcpy error)",
+          );
+        } else {
+          console.log("scrpy exit code ok");
+        }
       });
 
       child.unref(); // allow the process to continue independently

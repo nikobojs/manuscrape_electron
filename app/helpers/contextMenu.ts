@@ -311,10 +311,11 @@ export function generateMenuItems(
     );
     // only add tooltip about auto refresh feature if not linux
     if (process.platform !== "linux") {
+      const msg = process.platform === 'win32' ? '- reopen tray menu' : 'Close and reopen this menu to refresh.';
       phoneSubmenuItems.push(
         new MenuItem({
           label: "New phone connected?",
-          sublabel: "Close and reopen this menu to refresh.",
+          sublabel: msg,
           enabled: false,
         }),
       );
