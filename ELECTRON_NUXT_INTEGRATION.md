@@ -51,12 +51,10 @@ if (isElectron) {
 ```
 
 **Electron Behavior:**
-- Detects auth cookie
-- Extracts token from cookie
-- Calls `updateAuthSession()` which:
-  - Renews the cookie from token
-  - Fetches user data
-  - Saves token/host to encrypted files
+- Confirms the `manuscrape-session` auth cookie exists in Chromium's cookie jar
+- Calls `handleAuthSuccess()` which:
+  - Fetches user data using the cookie
+  - Saves the host to an encrypted file
   - Closes the login window
   - Opens createProject window if user has no projects
   - Updates context menu
@@ -97,7 +95,7 @@ if (isElectron) {
 
 **Important:** The Electron app will automatically close the login/signup window after:
 1. The IPC event is triggered (`loginSuccess` or `signupSuccess`)
-2. The auth cookie is detected (via polling fallback)
+2. The `manuscrape-session` auth cookie is confirmed in Chromium's cookie jar
 
 **Do NOT:**
 - Call `window.close()` directly from Nuxt - this won't work in Electron's BrowserWindow
@@ -124,14 +122,9 @@ if (isElectron) {
 
 ---
 
-## Fallback Behavior
+## Session Invalidation
 
-The Electron app has a **polling fallback** mechanism:
-- If the frontend doesn't trigger `loginSuccess` or `signupSuccess` events
-- Electron polls for the auth cookie every 500ms
-- When detected, it automatically proceeds with the same flow as the IPC events
-
-**Note:** The polling fallback ensures compatibility but the IPC events are preferred for immediate response.
+Electron watches Chromium's cookie jar for changes to the `manuscrape-session` cookie. When the cookie disappears (because the user logged out or the session expired inside any Nuxt window), Electron automatically clears its local session state and updates the tray menu. No IPC events are needed for sign-out.
 
 ---
 
@@ -198,10 +191,9 @@ const isElectron = computed(() => route.query.electron === '1');
    - Verify signup window closes
    - Verify createProject window opens (if no projects)
 
-3. **Fallback Flow:**
-   - Don't trigger IPC events
-   - Verify polling detects cookie after ~500ms
-   - Verify same behavior as IPC events
+3. **Sign-out Flow:**
+   - Log out from inside any Nuxt window
+   - Verify Electron detects the removed cookie and updates the tray menu
 
 ---
 
@@ -215,9 +207,8 @@ npm run start
 
 Look for messages like:
 - `✅ trayWindow.webContents.on('did-finish-load') triggered!`
-- `Nuxt login window ready, starting cookie polling...`
-- `Auth cookie detected!`
-- `Login success triggered from frontend`
+- `Auth cookie detected after auth success!`
+- `caught signed out in browser window`
 
 ### Common Issues
 
@@ -236,13 +227,3 @@ Look for messages like:
    - Check `updateAuthSession()` completes successfully
 
 ---
-
-## Implementation Checklist for Nuxt
-
-- [ ] Detect Electron environment (`window.electronAPI`)
-- [ ] Trigger `loginSuccess()` after successful login
-- [ ] Trigger `signupSuccess()` after successful signup
-- [ ] Handle `?electron=1` query parameter
-- [ ] Test login flow with Electron
-- [ ] Test signup flow with Electron
-- [ ] Test fallback polling behavior
