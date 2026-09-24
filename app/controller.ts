@@ -29,9 +29,7 @@ import { trayIcon, successIcon, errorIcon, warningIcon } from "./helpers/icons";
 import {
   fetchUser,
   logout,
-  signIn,
   addObservation,
-  signUp,
   parseHostUrl,
   isClientDeprecationError,
   getProject,
@@ -43,11 +41,13 @@ import {
   yesOrNo,
 } from "./helpers/utils";
 import {
-  authCookieExists,
-  getInvalidationCookie,
-  readTokenFromCookie,
-  removeAuthCookies,
-  renewCookieFromToken,
+  authCookieExistsForHost,
+  restoreAuthCookie,
+  rememberAuthCookie,
+  forgetAuthCookie,
+  removeAuthCookie,
+  removeOtherHostAuthCookies,
+  onAuthCookieChanged,
 } from "./helpers/cookies";
 import { generateContextMenu } from "./helpers/contextMenu";
 
@@ -96,9 +96,7 @@ export class ManuScrapeController {
     | ((event: IpcMainEvent, ...args: any[]) => Promise<void>)
     | undefined;
   private tray: Tray | undefined;
-  private loginToken: string | undefined;
   private apiHost: string | undefined;
-  private tokenPath: string;
   private hostPath: string;
   private projectPath: string;
   private settingsPath: string;
@@ -114,6 +112,7 @@ export class ManuScrapeController {
     Pick<AndroidDevice, "displayName" | "description">
   >;
   private deviceScanInProgress: boolean;
+  private authResetInProgress: boolean;
 
   constructor(
     trayWindow: BrowserWindow,
@@ -126,7 +125,6 @@ export class ManuScrapeController {
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.cancelOperation = false;
-    this.tokenPath = path.join(app.getPath("userData"), "token.txt.enc");
     this.hostPath = path.join(app.getPath("userData"), "host.txt.enc");
     this.projectPath = path.join(app.getPath("userData"), "project.txt.enc");
     this.settingsPath = path.join(app.getPath("userData"), "settings.txt.enc");
@@ -139,12 +137,21 @@ export class ManuScrapeController {
     this.connectedDevices = [];
     this.deviceIdentityCache = new Map();
     this.deviceScanInProgress = false;
+    this.authResetInProgress = false;
 
     // define p5 file cache
     this.p5Cache = null;
     this.p5SketchCache = null;
 
     console.info(`Initializing ManuScrape Client v${version}...\n`);
+
+    // sign out when the auth cookie disappears from chromium's cookie jar,
+    // e.g. when the user logs out or the session expires inside a nuxt window
+    onAuthCookieChanged((_cookie, removed) => {
+      if (removed) {
+        this.onAuthCookieRemoved();
+      }
+    });
 
     ipcMain.on("get-version-request", (event) => {
       event.reply("get-version-response", this.version);
@@ -319,7 +326,7 @@ export class ManuScrapeController {
 
   // logged in helper
   public isLoggedIn(): boolean {
-    return !!this.loginToken;
+    return !!this.user;
   }
 
   // log out function
@@ -383,7 +390,6 @@ export class ManuScrapeController {
     // define callback function
     const scrollshotHandler = async (event: IpcMainEvent, area: any) => {
       const apiHost = this.requireApiHost();
-      const loginToken = this.requireLoginToken();
       const activeProjectId = this.requireActiveProjectId();
 
       // define here so we can delete it after upload in the finally block
@@ -431,16 +437,12 @@ export class ManuScrapeController {
         // create new observation draft, to obtain observation id, unless there is an active observation id
         let obsId = this.activeObservationId;
         if (!obsId) {
-          const newObs = await addObservation(
-            apiHost,
-            loginToken,
-            activeProjectId,
-          );
+          const newObs = await addObservation(apiHost, activeProjectId);
           obsId = newObs.id;
         }
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, loginToken, filePath);
+        await this.openCreateObservationWindow(obsId, filePath);
       } catch (e: any) {
         this.handleScreenshotError(e);
       } finally {
@@ -500,7 +502,6 @@ export class ManuScrapeController {
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
       const apiHost = this.requireApiHost();
-      const loginToken = this.requireLoginToken();
       const activeProjectId = this.requireActiveProjectId();
 
       // adjust for MacOS tahoe not allowing a full overlay anymore
@@ -537,11 +538,7 @@ export class ManuScrapeController {
         // create new observation draft, to obtain observation id, unless there is an active observation id
         let obsId = this.activeObservationId;
         if (!obsId) {
-          const newObs = await addObservation(
-            apiHost,
-            loginToken,
-            activeProjectId,
-          );
+          const newObs = await addObservation(apiHost, activeProjectId);
           obsId = newObs.id;
         }
 
@@ -566,7 +563,7 @@ export class ManuScrapeController {
         this.cancelOverlay();
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, loginToken, res);
+        await this.openCreateObservationWindow(obsId, res);
       } catch (e: any) {
         console.log(e);
         this.handleScreenshotError(e);
@@ -584,7 +581,6 @@ export class ManuScrapeController {
 
   public async openEmptyDraftWindow() {
     const apiHost = this.requireApiHost();
-    const loginToken = this.requireLoginToken();
     const activeProjectId = this.requireActiveProjectId();
 
     // return early if user mistakenly opens one more window
@@ -594,13 +590,12 @@ export class ManuScrapeController {
     }
 
     // add empty observation and use returned id to modify observation
-    const res = await addObservation(apiHost, loginToken, activeProjectId);
+    const res = await addObservation(apiHost, activeProjectId);
     const observationId = res.id;
 
     // open observation window without waiting for manual image upload
     return this.openCreateObservationWindow(
       observationId,
-      loginToken,
       undefined,
       true,
     );
@@ -608,7 +603,6 @@ export class ManuScrapeController {
 
   private async openCreateObservationWindow(
     observationId: number,
-    accessToken: string,
     imgFile: string | Buffer<ArrayBufferLike> | undefined,
     forceEmpty = false,
   ) {
@@ -616,7 +610,7 @@ export class ManuScrapeController {
     const activeProjectId = this.requireActiveProjectId();
 
     // TODO: create project field parameter window
-    const project = await getProject(apiHost, accessToken, activeProjectId);
+    const project = await getProject(apiHost, activeProjectId);
 
     const imageProjectFields = project.fields.filter((f) =>
       ["IMAGE_SINGLE", "IMAGE_MULTIPLE"].includes(f.type),
@@ -640,12 +634,7 @@ export class ManuScrapeController {
 
     if (imageProjectFields.length && !forceEmpty) {
       if (!chosenField) {
-        await deleteObservation(
-          apiHost,
-          accessToken,
-          activeProjectId,
-          observationId,
-        );
+        await deleteObservation(apiHost, activeProjectId, observationId);
         console.error("deleting observation, chosenField is not defined");
         // TODO: report error
         return;
@@ -760,18 +749,24 @@ export class ManuScrapeController {
     }
   }
 
-  // function that tries to authorize using files and cookies
+  // function that tries to authorize using the saved host and the auth cookie
+  // that chromium persists in its cookie jar
   private async init() {
-    const hasAuthCookie = await authCookieExists();
-    const tokenExists = fileExists(this.tokenPath);
     const hostExists = fileExists(this.hostPath);
     const projectExists = fileExists(this.projectPath);
 
-    // define initial host and token values to be used for authorization
-    let host, token, projectId;
+    // define initial values to be used for authorization
+    let host: string | undefined;
+    let projectId: number | undefined;
+
+    // delete leftover token file from versions before cookie auth
+    // NOTE: the token is not used for authorization anymore
+    const staleTokenPath = path.join(app.getPath("userData"), "token.txt.enc");
+    if (fileExists(staleTokenPath)) {
+      deleteFile(staleTokenPath);
+    }
 
     try {
-      // if host and token files exists, try authorizing with them
       if (hostExists) {
         this.apiHost = readFile(this.hostPath);
         host = this.apiHost;
@@ -785,17 +780,6 @@ export class ManuScrapeController {
           // TODO: report error
           console.error("Unable to parse projectPath contents as number");
         }
-      }
-
-      // sign in with token if host and token files exist
-      if (tokenExists && hostExists) {
-        console.info("signing in with token and host files");
-        token = readFile(this.tokenPath);
-        // if host file exists and cookie exists, extract token from cookie
-        // TODO: fix pattern
-      } else if (hasAuthCookie && hostExists) {
-        console.info("signing in with cookie and saved host file");
-        token = await readTokenFromCookie();
       }
     } catch (err: any) {
       // TODO: report errors?
@@ -815,48 +799,43 @@ export class ManuScrapeController {
       this.refreshShortcuts();
 
       try {
-        // use retrieved 'host' and 'token' to renew cookie and fetch user
-        if (host && token) {
-          await renewCookieFromToken(host, token);
-          const _user = await this.refreshUser(host, token);
+        // sign in with the auth cookie if a valid one exists for the host
+        if (host && !(await authCookieExistsForHost(host))) {
+          // the api session cookie may be lost between app restarts, so
+          // restore the remembered login into chromium's cookie jar first
+          await restoreAuthCookie(host);
+        }
+        if (host && (await authCookieExistsForHost(host))) {
+          console.info("signing in with saved host and auth cookie");
+          const user = await this.refreshUser(host);
 
-          // pre-warm all windows now that login is confirmed
-          this.preWarmOverlay();
-          this.preWarmNuxtWindow();
-          this.preWarmSettingsWindow();
-          this.preWarmDraftsWindow();
+          if (user) {
+            // pre-warm all windows now that login is confirmed
+            this.preWarmOverlay();
+            this.preWarmNuxtWindow();
+            this.preWarmSettingsWindow();
+            this.preWarmDraftsWindow();
 
-          if (projectId) {
-            console.log("choosing last used project", projectId);
-            this.chooseProject(projectId);
-          } else {
-            if (_user) {
-              const firstProjectId = _user.projectAccess[0]?.project?.id;
+            if (projectId) {
+              console.log("choosing last used project", projectId);
+              this.chooseProject(projectId);
+            } else {
+              const firstProjectId = user.projectAccess[0]?.project?.id;
               if (firstProjectId) {
                 this.chooseProject(firstProjectId);
               }
             }
+            this.refreshContextMenu();
           }
-          this.refreshContextMenu();
         }
         if (!this.isLoggedIn()) {
-          // OLD (line 838 - ERROR):
-          // this.showServerChooser(clientIsTooOld);
-
-          // NEW:
-          const tooOld = false;  // Define it here
-          this.showServerChooser(tooOld);
+          this.showServerChooser(false);
         } else if (this.user?.projectAccess.length === 0) {
           await this.openCreateProjectWindow();
         }
       } catch (e: any) {
         console.error("Unable to login automatically:", e);
         const tooOld = isClientDeprecationError(e);
-
-        // OLD (line 1084 - ERROR):
-        // this.showServerChooser(tooOld);
-
-        // NEW (already correct, but verify):
         this.showServerChooser(tooOld);
       }
 
@@ -898,20 +877,18 @@ export class ManuScrapeController {
     this.refreshContextMenu();
   }
 
-  // fetch fresh user object and save it to state
-  private async refreshUser(host: string, token: string) {
-    // whether same credentials are already defined in instance properties
-    let freshLogin = host !== this.apiHost || token !== this.loginToken;
+  // fetch fresh user object using the auth cookie and save it to state
+  private async refreshUser(host: string) {
+    const wasLoggedIn = !!this.user;
 
-    // try fetch user with token
+    // try fetch user using the auth cookie
     try {
       // always refresh user and save to instance
-      const user = await fetchUser(host, token);
+      const user = await fetchUser(host);
       this.user = user;
 
-      // if token or host is new, save credentials and notify
-      if (freshLogin) {
-        this.loginToken = token;
+      // save host and notify if this is a new login
+      if (!wasLoggedIn) {
         this.apiHost = host;
         new Notification({
           title: "ManuScrape",
@@ -919,44 +896,22 @@ export class ManuScrapeController {
           icon: successIcon,
         }).show();
 
-        // save login session if encryption is available
+        // save host for future sessions if encryption is available
         if (this.useEncryption) {
           saveFile(host, this.hostPath);
-          saveFile(token, this.tokenPath);
         }
-
-        return user;
       }
+
+      return user;
     } catch (e) {
       console.error(e);
       // TODO: report error
-      // ignore expired/bad token
+      // ignore expired/bad cookie — the user will be asked to sign in again
     }
   }
 
-  // reset auth session and update UI accordingly
-  private async resetAuth() {
-    // ask for confirmation for closing open window if any
-    const confirmed = await this.confirmCloseNuxtWindowIfAny();
-    if (!confirmed) {
-      return;
-    }
-
-    // call logout api
-    if (this.apiHost && this.loginToken) {
-      try {
-        await logout(this.apiHost, this.loginToken);
-      } catch (e) {
-        // TODO: report error
-        console.error("Unable to log out using the api");
-        console.error(e);
-      }
-    } else {
-      console.warn("Token was not present when calling log out endpoint");
-      // TODO: report this error
-    }
-
-    // destroy pre-warmed windows — user is logging out
+  // destroy pre-warmed windows so no window keeps stale authenticated state
+  private destroyWarmWindows(): void {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       this.overlayWindow.destroy();
       this.overlayWindow = undefined;
@@ -977,20 +932,91 @@ export class ManuScrapeController {
       this.draftsWarmWindow.destroy();
       this.draftsWarmWindow = undefined;
     }
+  }
 
-    // update context menu and state
+  // clear local auth state after the session has been invalidated
+  private clearAuthState(): void {
     this.user = undefined;
-    this.loginToken = undefined;
-    this.refreshContextMenu();
-
-    // remove authorization cookies
-    // NOTE: it skips silently if there is none
-    await removeAuthCookies();
-
-    // delete saved token file
-    // NOTE: it skips silently if there is none
-    deleteFile(this.tokenPath);
+    this.activeProjectId = undefined;
+    this.activeObservationId = undefined;
     deleteFile(this.projectPath);
+    this.refreshContextMenu();
+  }
+
+  // called when the auth cookie disappears from chromium's cookie jar,
+  // e.g. when the user logs out or the session expires inside a nuxt window
+  private async onAuthCookieRemoved(): Promise<void> {
+    // ignore while an intentional logout is already in progress
+    if (this.authResetInProgress || !this.user || !this.apiHost) {
+      return;
+    }
+
+    // a cookie rotation fires a removed event quickly followed by an
+    // added event for the new value, so give chromium a moment to settle
+    await new Promise((r) => setTimeout(r, 500));
+    if (await authCookieExistsForHost(this.apiHost)) {
+      return;
+    }
+
+    console.info("caught signed out in browser window");
+    this.authResetInProgress = true;
+    try {
+      this.cancelOverlay();
+      this.cancelNuxtWindow();
+      this.destroyWarmWindows();
+      this.clearAuthState();
+
+      // the api session is gone, so do not restore it on next launch
+      forgetAuthCookie();
+
+      new Notification({
+        title: "ManuScrape",
+        body: "Signed out successfully.",
+        icon: successIcon,
+      }).show();
+    } finally {
+      this.authResetInProgress = false;
+    }
+  }
+
+  // reset auth session and update UI accordingly
+  private async resetAuth(): Promise<void> {
+    // ask for confirmation for closing open window if any
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
+    if (!confirmed) {
+      return;
+    }
+
+    this.authResetInProgress = true;
+    try {
+      // call logout api, which expires the auth cookie
+      if (this.apiHost) {
+        try {
+          await logout(this.apiHost);
+        } catch (e) {
+          // TODO: report error
+          console.error("Unable to log out using the api");
+          console.error(e);
+        }
+      }
+
+      // destroy pre-warmed windows — user is logging out
+      this.destroyWarmWindows();
+
+      // update context menu and state
+      this.clearAuthState();
+
+      // remove auth cookie in case the api could not be reached
+      // NOTE: it skips silently if there is none
+      if (this.apiHost) {
+        await removeAuthCookie(this.apiHost);
+      }
+
+      // forget the remembered login on disk
+      forgetAuthCookie();
+    } finally {
+      this.authResetInProgress = false;
+    }
 
     // create delicious notification
     new Notification({
@@ -1105,8 +1131,8 @@ export class ManuScrapeController {
   }
 
   private openNuxtLoginWindow(host: string, event: Electron.IpcMainEvent): void {
-    // Clear any stale auth cookies from previous sessions
-    void removeAuthCookies();
+    // Clear any stale auth cookie from previous sessions
+    void removeAuthCookie(host);
 
     // Keep the chooseServer window open ("Connecting...") while the Nuxt
     // window loads hidden; it is only destroyed once the Nuxt window shows
@@ -1131,8 +1157,8 @@ export class ManuScrapeController {
   }
 
   private openNuxtSignupWindow(host: string, event: Electron.IpcMainEvent): void {
-    // Clear any stale auth cookies from previous sessions
-    void removeAuthCookies();
+    // Clear any stale auth cookie from previous sessions
+    void removeAuthCookie(host);
 
     // Keep the chooseServer window open ("Connecting...") while the Nuxt
     // window loads hidden; it is only destroyed once the Nuxt window shows
@@ -1204,40 +1230,43 @@ export class ManuScrapeController {
     );
   }
 
-  private async handleLoginSuccess(event: Electron.IpcMainEvent): Promise<void> {
-    console.log("Login success triggered from frontend");
-
-    // Get the current auth window (login window)
+  // handle login and signup success events from the nuxt auth window.
+  // the auth cookie has already been set by the nuxt window using chromium's
+  // cookie handling, so all that is left is confirming it and syncing state
+  private async handleAuthSuccess(
+    event: Electron.IpcMainEvent,
+    successChannel: "login-success-ok" | "signup-success-ok",
+    errorChannel: "login-success-error" | "signup-success-error",
+  ): Promise<void> {
+    // Get the current auth window (login or signup window)
     const authWin = this.authWindow;
 
     // Get the host from the current state
     const host = this.apiHost;
 
-    console.log('handleLoginSuccess, authWin is', authWin)
     if (!host) {
-      console.error("No host available for login success");
+      console.error("No host available for auth success");
       if (!event.sender.isDestroyed()) {
-        event.reply("login-success-error", "No host available");
+        event.reply(errorChannel, "No host available");
       }
       return;
     }
 
     try {
-      // Check if cookie exists (should be set by Nuxt)
-      if (await authCookieExists()) {
-        console.log('Auth cookie detected after login success!');
+      // Check if the auth cookie exists (should be set by Nuxt)
+      if (await authCookieExistsForHost(host)) {
+        console.log("Auth cookie detected after auth success!");
 
-        const token = await readTokenFromCookie();
-
-        await this.updateAuthSession(host, token);
+        // Fetch the user and update the local session state
+        await this.updateAuthSession(host);
 
         // Reply while the window is still alive — replying to a destroyed
         // webContents throws on Electron 41
         if (!event.sender.isDestroyed()) {
-          event.reply("login-success-ok");
+          event.reply(successChannel);
         }
 
-        // Only now tear the login window down
+        // Only now tear the auth window down
         if (authWin && !authWin.isDestroyed()) {
           authWin.destroy();
         }
@@ -1245,68 +1274,15 @@ export class ManuScrapeController {
           this.authWindow = undefined;
         }
       } else {
-        console.error("Auth cookie not found after login success");
+        console.error("Auth cookie not found after auth success");
         if (!event.sender.isDestroyed()) {
-          event.reply("login-success-error", "Auth cookie not found");
+          event.reply(errorChannel, "Auth cookie not found");
         }
       }
     } catch (err) {
-      console.error("Failed to handle login success:", err);
+      console.error("Failed to handle auth success:", err);
       if (!event.sender.isDestroyed()) {
-        event.reply("login-success-error", "Authentication failed");
-      }
-    }
-  }
-
-  private async handleSignupSuccess(event: Electron.IpcMainEvent): Promise<void> {
-    console.log("Signup success triggered from frontend");
-
-    // Get the current auth window (signup window)
-    const authWin = this.authWindow;
-
-    // Get the host from the current state
-    const host = this.apiHost;
-
-    if (!host) {
-      console.error("No host available for signup success");
-      if (!event.sender.isDestroyed()) {
-        event.reply("signup-success-error", "No host available");
-      }
-      return;
-    }
-
-    try {
-      // Check if cookie exists (should be set by Nuxt)
-      if (await authCookieExists()) {
-        console.log('Auth cookie detected after signup success!');
-
-        const token = await readTokenFromCookie();
-
-        await this.updateAuthSession(host, token);
-
-        // Reply while the window is still alive — replying to a destroyed
-        // webContents throws on Electron 41
-        if (!event.sender.isDestroyed()) {
-          event.reply("signup-success-ok");
-        }
-
-        // Only now tear the signup window down
-        if (authWin && !authWin.isDestroyed()) {
-          authWin.destroy();
-        }
-        if (this.authWindow === authWin) {
-          this.authWindow = undefined;
-        }
-      } else {
-        console.error("Auth cookie not found after signup success");
-        if (!event.sender.isDestroyed()) {
-          event.reply("signup-success-error", "Auth cookie not found");
-        }
-      }
-    } catch (err) {
-      console.error("Failed to handle signup success:", err);
-      if (!event.sender.isDestroyed()) {
-        event.reply("signup-success-error", "Authentication failed");
+        event.reply(errorChannel, "Authentication failed");
       }
     }
   }
@@ -1351,10 +1327,18 @@ export class ManuScrapeController {
       }
     });
     ipcMain.on("login-success", (event) => {
-      void this.handleLoginSuccess(event);
+      void this.handleAuthSuccess(
+        event,
+        "login-success-ok",
+        "login-success-error",
+      );
     });
     ipcMain.on("signup-success", (event) => {
-      void this.handleSignupSuccess(event);
+      void this.handleAuthSuccess(
+        event,
+        "signup-success-ok",
+        "signup-success-error",
+      );
     });
 
     // Store the intent for when the server is chosen
@@ -1412,14 +1396,18 @@ export class ManuScrapeController {
     ipcMain.removeAllListeners("signup-success");
   }
 
-  private async updateAuthSession(host: string, token: string) {
-    // update cookie so browser window is logged in by default
-    // TODO: this might not be needed
-    await renewCookieFromToken(host, token);
+  // fetch the user using the auth cookie and update all local session state
+  private async updateAuthSession(host: string) {
+    // try fetch user using the auth cookie
+    // NOTE: this confirms that the cookie works
+    await this.refreshUser(host);
 
-    // try fetch user with token
-    // NOTE: this confirms that the token works, and saves credentials in safeStorage
-    await this.refreshUser(host, token);
+    if (this.user) {
+      // remember the login so it survives app restarts, and make sure only
+      // the login for this host is remembered (not logins for other hosts)
+      await rememberAuthCookie(host);
+      await removeOtherHostAuthCookies(host);
+    }
 
     // clear existing relevant ipcMain listeners
     this.clearAuthIpcListeners();
@@ -1490,8 +1478,7 @@ export class ManuScrapeController {
         }).show();
 
         const apiHost = this.requireApiHost();
-        const loginToken = this.requireLoginToken();
-        await this.refreshUser(apiHost, loginToken);
+        await this.refreshUser(apiHost);
 
         // choose the project
         if (typeof data?.id === "number") {
@@ -1552,15 +1539,14 @@ export class ManuScrapeController {
     ipcMain.addListener("area-marked", listener);
   }
 
+  // sync auth state with the api session after a nuxt window closes
   private async syncAuthStateAndMenu() {
-    const apiHost = this.requireApiHost();
-    const invalidationCookie = await getInvalidationCookie(apiHost);
+    if (!this.apiHost) return;
 
-    if (invalidationCookie) {
-      console.info("caught signed out in browser window");
-      await this.resetAuth();
-    } else if (this.isLoggedIn() && this.loginToken) {
-      await this.refreshUser(apiHost, this.loginToken);
+    // logouts and session expiries happening inside browser windows are
+    // caught by the auth cookie watcher registered in the constructor
+    if (this.isLoggedIn()) {
+      await this.refreshUser(this.apiHost);
       this.refreshContextMenu();
       this.refreshShortcuts();
     }
@@ -1633,14 +1619,6 @@ export class ManuScrapeController {
       throw new Error("apiHost is not set");
     } else {
       return this.apiHost;
-    }
-  };
-  private requireLoginToken: () => string = () => {
-    if (!this.loginToken) {
-      console.error("No login token");
-      throw new Error("loginToken not attached to controller instance");
-    } else {
-      return this.loginToken;
     }
   };
 

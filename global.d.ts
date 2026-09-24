@@ -22,18 +22,6 @@ declare global {
     source: Electron.DesktopCapturerSource;
   }
 
-  interface ISignInBody {
-    email: string;
-    password: string;
-    host: string;
-  }
-
-  interface ISignUpBody {
-    email: string;
-    password: string;
-    host: string;
-  }
-
   interface ScrollshotSettings {
     rowsPrCrop: number;
     colsPrCrop: number;
@@ -57,10 +45,6 @@ declare global {
       role: string;
       project: IGetProjectResponse;
     }[];
-  }
-
-  interface ITokenResponse {
-    token: string;
   }
 
   interface ISuccessResponse {
@@ -134,8 +118,6 @@ declare global {
     height: number;
   }
 
-  type SignInCallback = (event: IpcRendererEvent, ...args: any[]) => void;
-  type SignUpCallback = (event: IpcRendererEvent, ...args: any[]) => void;
   type UpdateSettingsCallback = (
     event: IpcRendererEvent,
     ...args: any[]

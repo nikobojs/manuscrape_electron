@@ -1,5 +1,4 @@
-import * as fs from "fs";
-import { app } from "electron";
+import { app, net } from "electron";
 
 type ReqBodyVal =
   | string
@@ -16,19 +15,18 @@ export function isClientDeprecationError(err: Error): boolean {
 }
 
 // fetch decoration function to be used instead of fetch() when calling the nuxt api
+// uses electron's network stack (net.fetch), so chromium automatically attaches
+// the auth cookie from the default session's cookie jar and stores any cookies
+// the api sets, which means authentication needs no manual handling here
 // NOTE: there is no runtime validation against the generic type
 async function req<T>(
   host: string,
   method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: RequestInfo | URL,
-  token?: string,
-  body?: ReqBody | FormData,
+  body?: ReqBody,
   headers?: HeadersInit,
 ): Promise<{ res: Response; json: T }> {
   const start = Date.now();
-  if (process.env.DEBUG && ["1", "true"].includes(process.env.DEBUG)) {
-    // console.log("REQUESTING " + method + " " + host + path);
-  }
   try {
     // define initial request config
     const init: RequestInit = {
@@ -37,11 +35,12 @@ async function req<T>(
         Accept: "application/json",
         "User-Agent": USER_AGENT,
       },
+      // include credentials so chromium attaches the auth cookie
       credentials: "include",
     };
 
     // add json body and header if body is defined
-    if (body && !(body instanceof FormData)) {
+    if (body) {
       init.body = JSON.stringify(body);
       init.headers = {
         ...init.headers,
@@ -54,17 +53,9 @@ async function req<T>(
       init.headers = { ...init.headers, ...headers };
     }
 
-    // add token header if token is defined
-    if (token) {
-      init.headers = {
-        ...init.headers,
-        Authentication: token,
-      };
-    }
-
     // send api request
     // NOTE: might throw connection errors
-    const res = await fetch(host + path, init);
+    const res = await net.fetch(host + path, init);
 
     // parse json
     // NOTE: might throw json parse errors
@@ -106,10 +97,7 @@ async function req<T>(
     }
 
     // filter out sensitive data from body that will be logged
-    if (!(body instanceof FormData) && typeof body === "object") {
-      if (body?.token) {
-        body.token = "<REDACTED>";
-      }
+    if (typeof body === "object") {
       if (body?.password) {
         body.password = "<REDACTED>";
       }
@@ -137,85 +125,26 @@ async function req<T>(
   }
 }
 
-export async function fetchUser(host: string, token: string): Promise<IUser> {
-  const { json } = await req<IUser>(host, "GET", "/api/user", token);
+// fetch the signed in user using the auth cookie
+export async function fetchUser(host: string): Promise<IUser> {
+  const { json } = await req<IUser>(host, "GET", "/api/user");
   return json;
 }
 
-export async function signUp(
-  host: string,
-  email: string,
-  password: string,
-): Promise<ITokenResponse> {
-  const { json } = await req<ITokenResponse>(
-    host,
-    "POST",
-    "/api/user",
-    undefined,
-    { email, password },
-  );
-
-  // if we still dont have a token, we have to blame the api
-  if (!json?.token || typeof json?.token !== "string") {
-    throw new Error("The server did not return the token.");
-  }
-  return json;
-}
-
-export async function signIn(
-  host: string,
-  email: string,
-  password: string,
-): Promise<ITokenResponse> {
-  const { json } = await req<ITokenResponse>(
-    host,
-    "POST",
-    "/api/auth",
-    undefined,
-    { email, password },
-  );
-
-  // if we still dont have a token, we have to blame the api
-  if (!json?.token || typeof json?.token !== "string") {
-    throw new Error("The server did not return the token.");
-  }
-  return json;
-}
-
-export async function logout(host: string, token: string): Promise<Response> {
-  const { res } = await req<ISuccessResponse>(
-    host,
-    "DELETE",
-    "/api/auth",
-    token,
-  );
-  return res;
-}
-
-export async function renewCookie(
-  host: string,
-  token: string,
-): Promise<Response> {
-  const { res } = await req<ISuccessResponse>(
-    host,
-    "POST",
-    "/api/token_auth",
-    undefined,
-    { token },
-  );
+// log out the api session, expiring the auth cookie
+export async function logout(host: string): Promise<Response> {
+  const { res } = await req<ISuccessResponse>(host, "DELETE", "/api/auth");
   return res;
 }
 
 export async function addObservation(
   host: string,
-  token: string,
   projectId: number,
 ): Promise<IObservationCreatedResponse> {
   const { json } = await req<IObservationCreatedResponse>(
     host,
     "POST",
     `/api/projects/${projectId}/observations`,
-    token,
   );
 
   // const json = await res.json();
@@ -231,14 +160,12 @@ export async function addObservation(
 
 export async function getProject(
   host: string,
-  token: string,
   projectId: number,
 ): Promise<IGetProjectResponse> {
   const { json } = await req<IGetProjectResponse>(
     host,
     "GET",
     `/api/projects/${projectId}`,
-    token,
   );
 
   // const json = await res.json();
@@ -254,7 +181,6 @@ export async function getProject(
 
 export async function deleteObservation(
   host: string,
-  token: string,
   projectId: number,
   observationId: number,
 ) {
@@ -262,7 +188,6 @@ export async function deleteObservation(
     host,
     "DELETE",
     `/api/projects/${projectId}/observations/${observationId}`,
-    token,
   );
   if (res.status !== 200) {
     console.error("Unable to delete observation", { json });
