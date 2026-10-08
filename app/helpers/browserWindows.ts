@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   type BrowserWindowConstructorOptions,
+  screen,
   session,
 } from "electron";
 import path from "path";
@@ -11,6 +12,16 @@ import { getMainIconPathBasedOnOS } from "./icons";
 import fs from "fs";
 import { isMac } from "./os";
 const isLinux = process.platform === "linux";
+
+// clamp a requested content size so the window fits the primary display's
+// work area (leave room for the window title bar and a small margin)
+const fitToWorkArea = (width: number, height: number) => {
+  const workArea = screen.getPrimaryDisplay().workArea;
+  return {
+    width: Math.min(width, workArea.width - 16),
+    height: Math.min(height, workArea.height - 48),
+  };
+};
 
 // generic nuxt app window factory - not meant to be exported
 // pass existingWindow to reuse a pre-warmed BrowserWindow instead of creating a new one
@@ -25,6 +36,8 @@ export const createNuxtAppWindow = (
 ): BrowserWindow => {
   let win: BrowserWindow;
 
+  const size = fitToWorkArea(minWidth, minHeight);
+
   if (existingWindow && !existingWindow.isDestroyed()) {
     win = existingWindow;
     win.removeAllListeners("show");
@@ -32,7 +45,7 @@ export const createNuxtAppWindow = (
     win.removeAllListeners("close");
     // Apply size constraints — the warm window was created with default dimensions
     win.setMinimumSize(minWidth, minHeight);
-    win.setSize(minWidth, minHeight);
+    win.setSize(size.width, size.height);
     win.setMaximumSize(typeof maxWidth === "number" ? maxWidth : 0, 0);
   } else {
     win = new BrowserWindow({
@@ -49,9 +62,9 @@ export const createNuxtAppWindow = (
       },
       useContentSize: true,
       backgroundColor: "#1c1b22",
-      ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
+      ...(typeof minWidth === "number" ? { minWidth, width: size.width } : {}),
       ...(typeof minHeight === "number"
-        ? { minHeight, height: minHeight }
+        ? { minHeight, height: size.height }
         : {}),
       ...(typeof maxWidth === "number" ? { maxWidth } : {}),
     });
@@ -407,7 +420,7 @@ export const createAddProjectWindow = (
     onClose,
     () => { },
     1280,
-    760,
+    800,
   );
 
   return win;
