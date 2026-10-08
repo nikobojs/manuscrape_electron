@@ -179,6 +179,28 @@ export async function getProject(
   }
 }
 
+export async function getObservation(
+  host: string,
+  projectId: number,
+  observationId: number,
+): Promise<IObservationResponse> {
+  const { json } = await req<IObservationResponse>(
+    host,
+    "GET",
+    `/api/projects/${projectId}/observations/${observationId}`,
+  );
+
+  // const json = await res.json();
+  if (typeof json["id"] !== "number") {
+    console.error("Fetch observation response:", { json });
+    throw new Error(
+      "Api did not respond as expected when fetching observation",
+    );
+  } else {
+    return json;
+  }
+}
+
 export async function deleteObservation(
   host: string,
   projectId: number,
