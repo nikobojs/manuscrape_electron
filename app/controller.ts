@@ -67,6 +67,7 @@ import { hasMinimumMacVersion, isMac } from "./helpers/os";
 import { execFile, spawn } from "child_process";
 import {
   getScrcpyRuntimePaths,
+  getAdbEnv,
   parseAdbDevices,
   type AndroidDevice,
 } from "./helpers/scrcpyRuntime";
@@ -1637,6 +1638,7 @@ export class ManuScrapeController {
         ["devices", "-l"],
         {
           encoding: "utf8",
+          env: getAdbEnv(),
           windowsHide: true,
         },
         (error, stdout) => {
@@ -1769,6 +1771,7 @@ export class ManuScrapeController {
         ["-s", serial, ...args],
         {
           encoding: "utf8",
+          env: getAdbEnv(),
           windowsHide: true,
           timeout: 3000,
         },
@@ -1796,7 +1799,7 @@ export class ManuScrapeController {
 
       // tell scrcpy exactly where to find the bundled ADB executable
       const env = {
-        ...process.env,
+        ...getAdbEnv(),
         ADB: runtime.adb,
         SCRCPY_SERVER_PATH: runtime.server,
       };
