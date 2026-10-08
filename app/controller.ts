@@ -33,6 +33,7 @@ import {
   parseHostUrl,
   isClientDeprecationError,
   getProject,
+  getObservation,
   deleteObservation,
 } from "./helpers/api";
 import {
@@ -436,6 +437,7 @@ export class ManuScrapeController {
         this.cancelOverlay();
 
         // create new observation draft, to obtain observation id, unless there is an active observation id
+        const reusedActiveObservation = !!this.activeObservationId;
         let obsId = this.activeObservationId;
         if (!obsId) {
           const newObs = await addObservation(apiHost, activeProjectId);
@@ -443,7 +445,12 @@ export class ManuScrapeController {
         }
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, filePath);
+        await this.openCreateObservationWindow(
+          obsId,
+          filePath,
+          false,
+          !reusedActiveObservation,
+        );
       } catch (e: any) {
         this.handleScreenshotError(e);
       } finally {
@@ -537,6 +544,7 @@ export class ManuScrapeController {
 
       try {
         // create new observation draft, to obtain observation id, unless there is an active observation id
+        const reusedActiveObservation = !!this.activeObservationId;
         let obsId = this.activeObservationId;
         if (!obsId) {
           const newObs = await addObservation(apiHost, activeProjectId);
@@ -564,7 +572,12 @@ export class ManuScrapeController {
         this.cancelOverlay();
 
         // open observation form window
-        await this.openCreateObservationWindow(obsId, res);
+        await this.openCreateObservationWindow(
+          obsId,
+          res,
+          false,
+          !reusedActiveObservation,
+        );
       } catch (e: any) {
         console.log(e);
         this.handleScreenshotError(e);
@@ -599,6 +612,7 @@ export class ManuScrapeController {
       observationId,
       undefined,
       true,
+      true,
     );
   }
 
@@ -606,6 +620,9 @@ export class ManuScrapeController {
     observationId: number,
     imgFile: string | Buffer<ArrayBufferLike> | undefined,
     forceEmpty = false,
+    // true only when the observation was created for this window via
+    // addObservation; false when an existing active observation id was reused
+    createdNewDraft: boolean,
   ) {
     const apiHost = this.requireApiHost();
     const activeProjectId = this.requireActiveProjectId();
@@ -635,7 +652,15 @@ export class ManuScrapeController {
 
     if (imageProjectFields.length && !forceEmpty) {
       if (!chosenField) {
-        await deleteObservation(apiHost, activeProjectId, observationId);
+        // only delete the draft when this window created it AND it is empty;
+        // a reused active observation predates this flow and must be kept
+        if (createdNewDraft) {
+          await this.deleteObservationIfEmpty(
+            apiHost,
+            activeProjectId,
+            observationId,
+          );
+        }
         console.error("deleting observation, chosenField is not defined");
         // TODO: report error
         return;
@@ -726,17 +751,20 @@ export class ManuScrapeController {
 
       // closing the window should behave like clicking "Discard": delete the
       // draft observation created for this window, unless it was submitted,
-      // kept for the next screenshot, or had content uploaded to it
+      // kept for the next screenshot, or had content uploaded to it;
+      // a reused active observation predates this window and is never deleted,
+      // and even a fresh draft is only deleted if it is completely empty
+      // (no images, file uploads, tags, or filled-in data)
       if (
+        createdNewDraft &&
         !observationSubmitted &&
         !observationKeptForNext &&
         !observationImageUploaded
       ) {
-        deleteObservation(apiHost, activeProjectId, observationId).catch((e) =>
-          console.error(
-            "Unable to delete draft observation after window close:",
-            e,
-          ),
+        this.deleteObservationIfEmpty(
+          apiHost,
+          activeProjectId,
+          observationId,
         );
       }
 
@@ -766,6 +794,42 @@ export class ManuScrapeController {
 
     // safe window in instance state
     this.nuxtWindow = win;
+  }
+
+  // delete the observation only if it is completely empty: no images, no
+  // file uploads, no tags, and no filled-in data; if the observation cannot
+  // be fetched, do not delete — err on the side of preserving data
+  private async deleteObservationIfEmpty(
+    apiHost: string,
+    projectId: number,
+    observationId: number,
+  ): Promise<void> {
+    let obs: IObservationResponse;
+    try {
+      obs = await getObservation(apiHost, projectId, observationId);
+    } catch (e) {
+      console.error(
+        "Unable to fetch draft observation before deletion:",
+        e,
+      );
+      return;
+    }
+
+    const isEmpty =
+      (obs.images?.length ?? 0) === 0 &&
+      (obs.fileUploads?.length ?? 0) === 0 &&
+      (obs.tags?.length ?? 0) === 0 &&
+      (obs.data === null || Object.keys(obs.data).length === 0);
+
+    if (!isEmpty) {
+      return;
+    }
+
+    try {
+      await deleteObservation(apiHost, projectId, observationId);
+    } catch (e) {
+      console.error("Unable to delete draft observation:", e);
+    }
   }
 
   // ensure not more than one app window

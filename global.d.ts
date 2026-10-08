@@ -55,6 +55,14 @@ declare global {
     id: number;
   }
 
+  interface IObservationResponse {
+    id: number;
+    images: unknown[] | null;
+    fileUploads: unknown[] | null;
+    tags: unknown[] | null;
+    data: Record<string, unknown> | null;
+  }
+
   type DynamicProjectFieldResponse = {
     id: number;
     label: string;
