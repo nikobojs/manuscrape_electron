@@ -642,8 +642,23 @@ export class ManuScrapeController {
       }
     }
 
+    // window-local state used to decide whether the draft observation should
+    // be deleted when the window closes without being submitted
+    let observationSubmitted = false;
+    let observationKeptForNext = false;
+    let observationImageUploaded = false;
+
+    // NOTE: the global "observation-image-uploaded" listener registered in
+    // the constructor must survive, so only this one is removed on close
+    const onImageUploaded = () => {
+      observationImageUploaded = true;
+    };
+    ipcMain.once("observation-image-uploaded", onImageUploaded);
+
     // add observation-created listener
     ipcMain.once("observation-created", (event) => {
+      observationSubmitted = true;
+
       // This ensures that the window of the event closes
       const webContents = event.sender;
       webContents.close();
@@ -673,6 +688,8 @@ export class ManuScrapeController {
     ipcMain.once(
       "prepare-next-screenshot", // TODO: use enum
       (event, obsId: number) => {
+        observationKeptForNext = true;
+
         // make sure observation id is a number
         if (typeof obsId !== "number") {
           // TODO: report error
@@ -705,6 +722,24 @@ export class ManuScrapeController {
     const onWindowClose = () => {
       ipcMain.removeAllListeners("observation-created");
       ipcMain.removeAllListeners("prepare-next-screenshot");
+      ipcMain.removeListener("observation-image-uploaded", onImageUploaded);
+
+      // closing the window should behave like clicking "Discard": delete the
+      // draft observation created for this window, unless it was submitted,
+      // kept for the next screenshot, or had content uploaded to it
+      if (
+        !observationSubmitted &&
+        !observationKeptForNext &&
+        !observationImageUploaded
+      ) {
+        deleteObservation(apiHost, activeProjectId, observationId).catch((e) =>
+          console.error(
+            "Unable to delete draft observation after window close:",
+            e,
+          ),
+        );
+      }
+
       this.syncAuthStateAndMenu();
     };
 
