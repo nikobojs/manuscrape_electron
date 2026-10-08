@@ -1547,7 +1547,49 @@ export class ManuScrapeController {
       return;
     }
 
+    // close the window when an observation is submitted and locked ("submit
+    // and lock"), matching the behavior of the screenshot observation flow
+    ipcMain.once("observation-created", (event) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.close();
+      }
+
+      new Notification({
+        title: "ManuScrape",
+        body: "Observation created successfully",
+        icon: successIcon,
+      }).show();
+
+      this.cancelActiveObservation();
+    });
+
+    // support "take another" from the drafts window, same as the
+    // screenshot observation window flow
+    ipcMain.once(
+      "prepare-next-screenshot",
+      (event, obsId: number) => {
+        if (typeof obsId !== "number") {
+          new Notification({
+            title: "ManuScrape",
+            body: "Unable to use this feature",
+            icon: errorIcon,
+          }).show();
+          return;
+        }
+
+        if (!event.sender.isDestroyed()) {
+          event.sender.close();
+        }
+
+        // save observation id to the next screenshot
+        this.activeObservationId = obsId;
+        this.refreshContextMenu();
+      },
+    );
+
     const onWindowClose = () => {
+      ipcMain.removeAllListeners("observation-created");
+      ipcMain.removeAllListeners("prepare-next-screenshot");
       this.syncAuthStateAndMenu();
     };
 
