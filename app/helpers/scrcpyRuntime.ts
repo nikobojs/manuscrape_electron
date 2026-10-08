@@ -77,3 +77,12 @@ export function getScrcpyRuntimePaths(): ScrcpyRuntimePaths {
     server: path.join(directory, "scrcpy-server"),
   };
 }
+
+// The adb server's mDNS backend listens on UDP 0.0.0.0:5353 (all interfaces),
+// which makes Windows Defender Firewall prompt the user for adb.exe the first
+// time the server starts. Disabling adb mDNS discovery keeps the server
+// loopback-only (127.0.0.1:5037), which does not trigger the prompt. The app
+// only discovers devices over USB (`adb devices`), so mDNS is not needed.
+export function getAdbEnv(): NodeJS.ProcessEnv {
+  return { ...process.env, ADB_MDNS: "0" };
+}
