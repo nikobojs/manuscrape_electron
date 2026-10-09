@@ -28,15 +28,11 @@ export const addIcon = loadImage(
 
 // NOTE: image is way to large
 // TODO: Fix for windows & GNOME
-// macOS uses a template image (black glyph on transparency) so the system
-// can render it black or white to match the menu bar appearance;
-// the @2x variant next to it is used automatically on retina displays
+// macOS uses the logo at 19px; the @2x variant next to it is used
+// automatically on retina displays
 export const trayIcon = loadImage(
-  path.join(__dirname, '../../assets', isMac ? 'trayTemplate.png' : 'tray_small.png')
+  path.join(__dirname, '../../assets', isMac ? 'tray_20px_srgb.png' : 'tray_small.png')
 );
-if (isMac) {
-  trayIcon.setTemplateImage(true);
-}
 export const loginIcon = loadImage(
   path.join(__dirname, '../../assets/icons/login.png')
 );
