@@ -105,5 +105,4 @@ app.whenReady().then(() => {
 
 process.on("unhandledRejection", function (err) {
   console.error(err);
-  process.exit(1);
 });

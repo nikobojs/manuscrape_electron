@@ -33,7 +33,7 @@ export function generateMenuItems(
         type: "normal",
         label: "Sign in",
         click: () => {
-          controller.openAuthorizationWindow();
+          controller.showServerChooser(false, "login");
         },
         icon: loginIcon,
       }),
@@ -43,7 +43,7 @@ export function generateMenuItems(
         type: "normal",
         label: "Create account",
         click: () => {
-          controller.openAuthorizationWindow(true);
+          controller.showServerChooser(false, "signup");
         },
         icon: loginIcon,
       }),

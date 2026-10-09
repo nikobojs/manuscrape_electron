@@ -100,3 +100,7 @@ These instructions covers installation of a completely local setup, on all three
 - [@nabojens](https://github.com/nabojens)
 - [@nikobojs](https://github.com/nikobojs)
 - [@samuelhimmelstrup](https://github.com/samuelhimmelstrup)
+- [@lassebig](https://github.com/lassebig)
+- [@annab0k](https://github.com/annab0k)
+- [@soufleee](https://github.com/soufleee)
+- [@iamjacob](https://github.com/iamjacob)

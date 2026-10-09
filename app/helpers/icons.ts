@@ -5,7 +5,11 @@ const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 
 function loadImage(fullPath: string): Electron.NativeImage {
-  return nativeImage.createFromPath(fullPath);
+  const image = nativeImage.createFromPath(fullPath);
+  if (image.isEmpty()) {
+    console.error(`Unable to load image: ${fullPath}`);
+  }
+  return image;
 }
 
 export function getMainIconPathBasedOnOS() {
@@ -24,8 +28,10 @@ export const addIcon = loadImage(
 
 // NOTE: image is way to large
 // TODO: Fix for windows & GNOME
+// macOS uses the logo at 19px; the @2x variant next to it is used
+// automatically on retina displays
 export const trayIcon = loadImage(
-  path.join(__dirname, '../../assets', isMac ? 'tray_20px.png' : 'tray.png')
+  path.join(__dirname, '../../assets', isMac ? 'tray_20px_srgb.png' : 'tray_small.png')
 );
 export const loginIcon = loadImage(
   path.join(__dirname, '../../assets/icons/login.png')

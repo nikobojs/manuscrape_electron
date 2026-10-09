@@ -3,6 +3,8 @@ import {
   BrowserWindow,
   ipcMain,
   type BrowserWindowConstructorOptions,
+  screen,
+  session,
 } from "electron";
 import path from "path";
 import { defaultSettings } from "./settings";
@@ -11,18 +13,30 @@ import fs from "fs";
 import { isMac } from "./os";
 const isLinux = process.platform === "linux";
 
+// clamp a requested content size so the window fits the primary display's
+// work area (leave room for the window title bar and a small margin)
+const fitToWorkArea = (width: number, height: number) => {
+  const workArea = screen.getPrimaryDisplay().workArea;
+  return {
+    width: Math.min(width, workArea.width - 16),
+    height: Math.min(height, workArea.height - 48),
+  };
+};
+
 // generic nuxt app window factory - not meant to be exported
 // pass existingWindow to reuse a pre-warmed BrowserWindow instead of creating a new one
-const createNuxtAppWindow = (
+export const createNuxtAppWindow = (
   url: string,
   onClose: () => void,
-  onReady = () => {},
+  onReady = () => { },
   minWidth: number,
   minHeight: number,
   maxWidth?: number | undefined,
   existingWindow?: BrowserWindow | undefined,
 ): BrowserWindow => {
   let win: BrowserWindow;
+
+  const size = fitToWorkArea(minWidth, minHeight);
 
   if (existingWindow && !existingWindow.isDestroyed()) {
     win = existingWindow;
@@ -31,7 +45,7 @@ const createNuxtAppWindow = (
     win.removeAllListeners("close");
     // Apply size constraints — the warm window was created with default dimensions
     win.setMinimumSize(minWidth, minHeight);
-    win.setSize(minWidth, minHeight);
+    win.setSize(size.width, size.height);
     win.setMaximumSize(typeof maxWidth === "number" ? maxWidth : 0, 0);
   } else {
     win = new BrowserWindow({
@@ -44,12 +58,13 @@ const createNuxtAppWindow = (
       icon: getMainIconPathBasedOnOS(),
       webPreferences: {
         preload: path.join(__dirname, "../preload.js"),
+        session: session.defaultSession,
       },
       useContentSize: true,
       backgroundColor: "#1c1b22",
-      ...(typeof minWidth === "number" ? { minWidth, width: minWidth } : {}),
+      ...(typeof minWidth === "number" ? { minWidth, width: size.width } : {}),
       ...(typeof minHeight === "number"
-        ? { minHeight, height: minHeight }
+        ? { minHeight, height: size.height }
         : {}),
       ...(typeof maxWidth === "number" ? { maxWidth } : {}),
     });
@@ -67,9 +82,17 @@ const createNuxtAppWindow = (
 
   win.once("close", () => onClose());
 
-  win.on("ready-to-show", () => {
-    win.show();
-  });
+  // ready-to-show is unreliable on some setups (Linux + disabled hardware
+  // acceleration) and may not re-fire on reused warm windows, so also show
+  // on did-finish-load — same trick the tray window already uses.
+  const showWhenLoaded = () => {
+    if (!win.isDestroyed() && !win.isVisible()) {
+      win.show();
+    }
+  };
+  win.on("ready-to-show", showWhenLoaded);
+  win.webContents.removeAllListeners("did-finish-load");
+  win.webContents.on("did-finish-load", showWhenLoaded);
 
   return win;
 };
@@ -85,8 +108,10 @@ export function createTrayWindow(): BrowserWindow {
     darkTheme: true,
     skipTaskbar: true,
     hasShadow: false,
+    webPreferences: {
+      session: session.defaultSession,
+    },
   });
-  trayWindow.loadFile("windows/tray.html");
   return trayWindow;
 }
 
@@ -121,6 +146,7 @@ export const createPrewarmedOverlayWindow = (
       preload: path.join(__dirname, "../preload.js"),
       backgroundThrottling: false,
       webgl: false,
+      session: session.defaultSession,
     },
   });
 
@@ -181,6 +207,7 @@ export const createWarmNuxtWindow = (warmUrl: string): BrowserWindow => {
     icon: getMainIconPathBasedOnOS(),
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
+      session: session.defaultSession,
     },
     useContentSize: true,
     backgroundColor: "#1c1b22",
@@ -190,9 +217,7 @@ export const createWarmNuxtWindow = (warmUrl: string): BrowserWindow => {
   return win;
 };
 
-export const createAuthorizationWindow = (
-  openSignUp = false,
-): BrowserWindow => {
+export const createChooseServerWindow = (): BrowserWindow => {
   const opts: BrowserWindowConstructorOptions = {
     title: "ManuScrape",
     autoHideMenuBar: true,
@@ -203,21 +228,15 @@ export const createAuthorizationWindow = (
     resizable: false,
     icon: path.join(__dirname, "../../assets/icons/desktop-icon.png"),
     width: 320,
-    height: isLinux ? 450 : 480, // TODO: needs adjustment on windows
+    height: 400,
     webPreferences: {
       preload: path.join(__dirname, "../preload.js"),
+      session: session.defaultSession,
     },
   };
 
-  const file = openSignUp ? "windows/signUp.html" : "windows/signIn.html";
   const win = new BrowserWindow(opts);
-
-  win.loadFile(file);
-
-  win.once("show", () => {
-    win.focus();
-  });
-
+  win.loadFile("windows/chooseServer.html");
   return win;
 };
 
@@ -399,9 +418,9 @@ export const createAddProjectWindow = (
   const win = createNuxtAppWindow(
     `${apiHost}/projects/new?electron=1`,
     onClose,
-    () => {},
+    () => { },
     1280,
-    760,
+    800,
   );
 
   return win;
@@ -416,7 +435,7 @@ export const createDraftsWindow = (
   const win = createNuxtAppWindow(
     `${apiHost}/projects/${projectId}/drafts?electron=1`,
     onClose,
-    () => {},
+    () => { },
     1280,
     760,
     undefined,
