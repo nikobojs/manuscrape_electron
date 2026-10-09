@@ -5,7 +5,11 @@ const isWindows = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
 
 function loadImage(fullPath: string): Electron.NativeImage {
-  return nativeImage.createFromPath(fullPath);
+  const image = nativeImage.createFromPath(fullPath);
+  if (image.isEmpty()) {
+    console.error(`Unable to load image: ${fullPath}`);
+  }
+  return image;
 }
 
 export function getMainIconPathBasedOnOS() {
@@ -24,9 +28,15 @@ export const addIcon = loadImage(
 
 // NOTE: image is way to large
 // TODO: Fix for windows & GNOME
+// macOS uses a template image (black glyph on transparency) so the system
+// can render it black or white to match the menu bar appearance;
+// the @2x variant next to it is used automatically on retina displays
 export const trayIcon = loadImage(
-  path.join(__dirname, '../../assets', isMac ? 'tray_srgb_20px.png' : 'tray_small.png')
+  path.join(__dirname, '../../assets', isMac ? 'trayTemplate.png' : 'tray_small.png')
 );
+if (isMac) {
+  trayIcon.setTemplateImage(true);
+}
 export const loginIcon = loadImage(
   path.join(__dirname, '../../assets/icons/login.png')
 );
