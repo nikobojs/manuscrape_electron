@@ -116,8 +116,8 @@ export function createTrayWindow(): BrowserWindow {
 }
 
 // Creates a hidden overlay window pre-loaded with markArea.html.
-// p5 is re-injected on every ready-to-show (initial load + after each reload).
-// Call showPrewarmedOverlay() to display it; cancelOverlay() hides+reloads it.
+// p5 is injected once on ready-to-show. The controller displays it in
+// openMarkAreaOverlay(); cancelOverlay() hides it and resets the sketch over IPC.
 export const createPrewarmedOverlayWindow = (
   initialDisplay: Electron.Display,
   p5Content: string,
@@ -158,40 +158,13 @@ export const createPrewarmedOverlayWindow = (
 
   win.loadFile("windows/markArea.html");
 
-  // fires on initial load and after every webContents.reload()
+  // fires on initial load
   win.on("ready-to-show", () => {
     win.webContents.send("inject-p5-script", p5Content);
     win.webContents.send("inject-p5-sketch", p5SketchContent);
   });
 
   return win;
-};
-
-// Repositions the pre-warmed overlay onto activeDisplay and makes it visible.
-export const showPrewarmedOverlay = (
-  win: BrowserWindow,
-  activeDisplay: Electron.Display,
-): void => {
-  const beginOpen = Date.now();
-
-  if (!isMac()) {
-    // Exit fullscreen first so setPosition takes effect, then re-enter on the target display.
-    win.setFullScreen(false);
-    win.setPosition(activeDisplay.workArea.x, activeDisplay.workArea.y);
-    win.setFullScreen(true);
-  } else {
-    win.setBounds({
-      x: 0,
-      y: 0,
-      width: activeDisplay.size.width,
-      height: activeDisplay.size.height,
-    });
-    win.setAlwaysOnTop(true, "screen-saver");
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  }
-
-  win.show();
-  console.log("open overlay took", Date.now() - beginOpen, "ms - (pre-warmed)");
 };
 
 // Creates a hidden Nuxt window pre-loaded at warmUrl (typically the app root).

@@ -945,7 +945,7 @@ export class ManuScrapeController {
   }
 
   // try to reset state by removing listeners and hiding overlay
-  // hides+reloads the pre-warmed window so it is ready for the next hotkey press
+  // hides the pre-warmed window and resets its sketch so it is ready for the next hotkey press
   public cancelOverlay() {
     if (this.overlayWindow && !this.overlayWindow.isDestroyed()) {
       globalShortcut.unregister("Esc");
@@ -957,8 +957,9 @@ export class ManuScrapeController {
       }
       // restore mouse event handling for the next use (was set to true after area selection)
       this.overlayWindow.setIgnoreMouseEvents(false);
-      // reload resets renderer state and re-triggers ready-to-show → p5 re-injection
-      this.overlayWindow.webContents.reload();
+      // reset the resident sketch over IPC — keeps the pre-warmed renderer
+      // alive so the next open is as fast as the first (no reload required)
+      this.overlayWindow.webContents.send("reset-sketch");
     }
   }
 
@@ -1157,6 +1158,9 @@ export class ManuScrapeController {
         height: activeDisplay.workArea.height,
       });
       this.overlayWindow!.setFullScreen(true);
+      // fullscreen transitions can drop the window from topmost, and the
+      // overlay cannot raise itself via focus (focusable: false) — re-assert
+      this.overlayWindow!.setAlwaysOnTop(true);
     } else {
       this.overlayWindow!.setBounds({
         x: activeDisplay.bounds.x,
@@ -1177,6 +1181,11 @@ export class ManuScrapeController {
       );
     });
     this.overlayWindow!.show();
+    if (!isMac()) {
+      // show() is non-activating for a focusable: false window — make sure
+      // the overlay is actually raised above the current foreground window
+      this.overlayWindow!.moveTop();
+    }
 
     // start warming the second observation slot while the user is marking an area —
     // by the time they confirm and the edit window opens, AV scanning will be done

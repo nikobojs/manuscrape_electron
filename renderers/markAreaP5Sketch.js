@@ -165,3 +165,14 @@ window.initOverlay = () => {
     new window.p5(sketch);
   }
 };
+
+// resets sketch state so the overlay is ready for the next screenshot
+// without requiring a renderer reload
+window.resetOverlay = () => {
+  area = [0, 0, 0, 0];
+  dragging = false;
+  resultRect = null;
+  statusText = "";
+  statusDescription = "";
+  hideArea = false;
+};

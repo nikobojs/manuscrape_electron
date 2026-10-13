@@ -16,6 +16,9 @@
         console.log("p5 sketch loaded - init overlay");
         window?.initOverlay();
       });
+      window.electronAPI?.onSketchReset(() => {
+        window?.resetOverlay();
+      });
     </script>
     <style type="text/css">
       body,

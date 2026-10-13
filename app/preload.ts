@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.removeAllListeners("mark-area-status");
     ipcRenderer.on("mark-area-status", callback);
   },
+  onSketchReset: (callback: () => void) => {
+    ipcRenderer.removeAllListeners("reset-sketch");
+    ipcRenderer.on("reset-sketch", () => callback());
+  },
   onDeprecatedClientError: (callback: DeprecatedClientErrorCallback) => {
     ipcRenderer.removeAllListeners("client-is-deprecated");
     ipcRenderer.once("client-is-deprecated", callback);
