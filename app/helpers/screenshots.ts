@@ -18,6 +18,18 @@ function getScreenshotFromSource(
   areaRect: Square,
 ): IScreenshot {
   const cropBegin = Date.now();
+
+  // macOS returns an empty (0x0) thumbnail when screen recording permission
+  // is not granted — and sometimes even when it is. Cropping an empty native
+  // image can crash natively depending on the electron version, so bail out
+  // with a proper error instead (caught by the screenshot handlers).
+  const thumbnailSize = source.thumbnail.getSize();
+  if (!thumbnailSize.width || !thumbnailSize.height) {
+    throw new Error(
+      "Screen capture returned an empty image. If screen recording permission was granted recently, restart ManuScrape and try again.",
+    );
+  }
+
   const image = source.thumbnail.crop(areaRect);
   const size = image.getSize();
   const buffer = image.toJPEG(100);

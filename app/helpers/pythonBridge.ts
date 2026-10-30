@@ -59,6 +59,16 @@ export function joinImagesVertically(
     ];
     const python = spawn(chatjoinerPath, args);
 
+    // spawn failures (missing binary, wrong architecture, exec format error)
+    // emit an 'error' event — without this listener they become an uncaught
+    // exception and crash the whole app
+    python.on("error", (err: Error) => {
+      console.error("Failed to start chatjoiner executable:", err);
+      reject(
+        new Error("Could not start the internal python utilities: " + err.message),
+      );
+    });
+
     const debugCmd = chatjoinerPath + args.join(" ");
     console.info("> " + debugCmd);
 

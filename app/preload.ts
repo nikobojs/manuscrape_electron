@@ -104,8 +104,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("inject-p5-sketch", (_, scriptContent) => {
       const script = document.createElement("script");
       script.textContent = scriptContent;
-      script.onload = () => callback();
       document.body.appendChild(script);
+      // inline scripts execute synchronously on append — no onload fires
       callback();
     });
   },

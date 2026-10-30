@@ -11,7 +11,6 @@ import { defaultSettings } from "./settings";
 import { getMainIconPathBasedOnOS } from "./icons";
 import fs from "fs";
 import { isMac } from "./os";
-const isLinux = process.platform === "linux";
 
 // clamp a requested content size so the window fits the primary display's
 // work area (leave room for the window title bar and a small margin)

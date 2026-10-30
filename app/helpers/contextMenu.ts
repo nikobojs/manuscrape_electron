@@ -99,12 +99,7 @@ export function generateMenuItems(
       }
 
       // use `hasImageField` boolean to enable/disable helper text + take screenshot + take scrollshot
-      let hasImageField = false;
-      if (projectAccess) {
-        hasImageField = !!projectAccess.project.fields
-          .map((f) => f.type)
-          .find((t) => t.includes("IMAGE"));
-      }
+      const hasImageField = controller.activeProjectHasImageField();
 
       if (!hasImageField) {
         menuItems.push(

@@ -124,6 +124,12 @@ export class ManuScrapeController {
   ) {
     this.app = app;
     this.allDisplays = screen.getAllDisplays();
+
+    // keep the display list fresh when the monitor setup changes,
+    // so the overlay does not open with stale bounds
+    screen.on("display-added", () => this.refreshDisplays());
+    screen.on("display-removed", () => this.refreshDisplays());
+    screen.on("display-metrics-changed", () => this.refreshDisplays());
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.cancelOperation = false;
@@ -318,8 +324,17 @@ export class ManuScrapeController {
 
   // helper function that returns the active display
   public getActiveDisplay(): Electron.Display {
+    // fall back to the primary display if the cached index is out of range
     const activeDisplay = this.allDisplays[this.activeDisplayIndex];
-    return activeDisplay;
+    return activeDisplay ?? screen.getPrimaryDisplay();
+  }
+
+  // re-read displays after monitor setup changes and fix a stale index
+  private refreshDisplays(): void {
+    this.allDisplays = screen.getAllDisplays();
+    if (this.activeDisplayIndex >= this.allDisplays.length) {
+      this.activeDisplayIndex = 0;
+    }
   }
 
   public getSettings(): ISettings {
@@ -362,15 +377,52 @@ export class ManuScrapeController {
     );
   }
 
+  // returns true if the active project has at least one image field
+  public activeProjectHasImageField(): boolean {
+    const projectAccess = this.getActiveProject();
+    if (!projectAccess) return false;
+    return !!projectAccess.project.fields
+      .map((f) => f.type)
+      .find((t) => t.includes("IMAGE"));
+  }
+
+  // blocks screenshots when the active project has no image fields,
+  // notifying the user why. Returns false when the request should be dropped.
+  private guardProjectHasImageField(): boolean {
+    const projectAccess = this.getActiveProject();
+    // no active project: keep existing error path (requireActiveProjectId)
+    if (!projectAccess) return true;
+
+    if (!this.activeProjectHasImageField()) {
+      new Notification({
+        title: "ManuScrape",
+        body: "You cannot take screen- or scrollshots when the current project has no image fields",
+        icon: warningIcon,
+      }).show();
+      return false;
+    }
+    return true;
+  }
+
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
+    // drop request when the active project cannot store screenshots
+    if (!this.guardProjectHasImageField()) {
+      return;
+    }
+
     // ensure there is not already an observation being made
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
 
-    warnIfScreenIsNotAccessible();
+    // screen recording permission check (mac/windows) — notifies on failure.
+    // the overlay is transparent on mac, so without this check users without
+    // permission would mark an area that can never be captured
+    if (!warnIfScreenIsNotAccessible()) {
+      return;
+    }
 
     // generate callback function that utilizes quickScreenshot
     this.useOnMarkedAreaCallback(quickScreenshot);
@@ -381,19 +433,24 @@ export class ManuScrapeController {
 
   // create new scroll screenshot
   public async createScrollScreenshot(): Promise<void> {
+    // drop request when the active project cannot store screenshots
+    if (!this.guardProjectHasImageField()) {
+      return;
+    }
+
     // ensure there is not already an observation being made
     const confirmed = await this.confirmCloseNuxtWindowIfAny();
     if (!confirmed) {
       return;
     }
 
-    warnIfScreenIsNotAccessible();
+    // screen recording permission check (mac/windows) — notifies on failure
+    if (!warnIfScreenIsNotAccessible()) {
+      return;
+    }
 
     // define callback function
     const scrollshotHandler = async (event: IpcMainEvent, area: any) => {
-      const apiHost = this.requireApiHost();
-      const activeProjectId = this.requireActiveProjectId();
-
       // define here so we can delete it after upload in the finally block
       let filePath: undefined | string;
 
@@ -404,6 +461,9 @@ export class ManuScrapeController {
       this.onMarkAreaDone();
 
       try {
+        const apiHost = this.requireApiHost();
+        const activeProjectId = this.requireActiveProjectId();
+
         // emit primary status text
         this.overlayWindow?.webContents.send("mark-area-status", {
           statusText: "Recording scrollshot...",
@@ -425,7 +485,9 @@ export class ManuScrapeController {
           hideArea: true,
         });
 
-        const filePath = await processScrollshot(
+        // NOTE: no const — assign the outer filePath so the finally block
+        // can clean the file up after the observation window closes
+        filePath = await processScrollshot(
           dirname,
           lastSavePath,
           totalScreenshots,
@@ -509,21 +571,6 @@ export class ManuScrapeController {
     hideArea = false,
   ): void {
     const handler = async (event: IpcMainEvent, area: any) => {
-      const apiHost = this.requireApiHost();
-      const activeProjectId = this.requireActiveProjectId();
-
-      // adjust for MacOS tahoe not allowing a full overlay anymore
-      // offset the coordinate down
-      if (isMac()) {
-        if (hasMinimumMacVersion(26)) {
-          const topbarHeight = 30;
-          area.y += topbarHeight;
-        }
-      }
-
-      if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
-        throw new Error("Overlay window does not exist");
-
       // define here so we can delete it after upload in the finally block
       let filePath: undefined | string;
 
@@ -533,16 +580,29 @@ export class ManuScrapeController {
       // call the cleanup and refresh context function
       this.onMarkAreaDone();
 
-      // emit the status text if its defined
-      if (statusText) {
-        this.overlayWindow?.webContents.send("mark-area-status", {
-          statusText,
-          statusDescription,
-          hideArea,
-        });
-      }
-
       try {
+        const apiHost = this.requireApiHost();
+        const activeProjectId = this.requireActiveProjectId();
+
+        // adjust for MacOS tahoe not allowing a full overlay anymore
+        // offset the coordinate down
+        if (isMac() && hasMinimumMacVersion(26)) {
+          const topbarHeight = 30;
+          area.y += topbarHeight;
+        }
+
+        if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
+          throw new Error("Overlay window does not exist");
+
+        // emit the status text if its defined
+        if (statusText) {
+          this.overlayWindow?.webContents.send("mark-area-status", {
+            statusText,
+            statusDescription,
+            hideArea,
+          });
+        }
+
         // create new observation draft, to obtain observation id, unless there is an active observation id
         const reusedActiveObservation = !!this.activeObservationId;
         let obsId = this.activeObservationId;
