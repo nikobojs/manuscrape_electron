@@ -68,8 +68,8 @@ export function validateSettings(settings: ISettings): string[] {
   return errors;
 }
 
-export function initializeSettings(filePath: string): ISettings {
-  const settingsFromFile = loadSettingsFromFile(filePath);
+export async function initializeSettings(filePath: string): Promise<ISettings> {
+  const settingsFromFile = await loadSettingsFromFile(filePath);
   if (settingsFromFile) {
     return settingsFromFile;
   } else {
@@ -77,13 +77,13 @@ export function initializeSettings(filePath: string): ISettings {
   }
 }
 
-function loadSettingsFromFile(filePath: string): ISettings | null {
+async function loadSettingsFromFile(filePath: string): Promise<ISettings | null> {
   // if file does not exist, return already
   if (!fileExists(filePath)) {
     return null;
   }
 
-  const content = readFile(filePath);
+  const content = await readFile(filePath);
   try {
     // parse file contents to JSON
     const parsed = JSON.parse(content);
@@ -108,6 +108,6 @@ function loadSettingsFromFile(filePath: string): ISettings | null {
 export function saveSettingsToFile(
   filePath: string,
   settings: ISettings,
-): void {
-  saveFile(JSON.stringify(settings), filePath);
+): Promise<void> {
+  return saveFile(JSON.stringify(settings), filePath);
 }

@@ -40,7 +40,7 @@ if (!squirrelEvent) {
 
 const appName = `ManuScrape v${app.getVersion()}`;
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // add dialogs when install/update/uninstall
   // TODO: test on windows
   // https://www.electronforge.io/config/makers/squirrel.windows
@@ -93,7 +93,7 @@ app.whenReady().then(() => {
 
   // ensure safeStorage works on this device
   // NOTE: must be run after first browser window is created
-  const encryptionSupport = warnIfEncryptionUnavailable();
+  const encryptionSupport = await warnIfEncryptionUnavailable();
 
   // initialize controller object
   controller = new ManuScrapeController(

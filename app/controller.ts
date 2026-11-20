@@ -61,6 +61,7 @@ import {
   deleteFile,
 } from "./helpers/safeStorage";
 import {
+  defaultSettings,
   initializeSettings,
   saveSettingsToFile,
   validateSettings,
@@ -147,7 +148,9 @@ export class ManuScrapeController {
     this.projectPath = path.join(app.getPath("userData"), "project.txt.enc");
     this.settingsPath = path.join(app.getPath("userData"), "settings.txt.enc");
     this.useEncryption = useEncryption;
-    this.settings = initializeSettings(this.settingsPath);
+    // persisted settings are loaded asynchronously in init() — safeStorage is
+    // async-only since electron 45, and the constructor cannot await
+    this.settings = defaultSettings;
     this.version = version;
     this.activeObservationId = undefined;
     this.activeProjectId = undefined;
@@ -387,7 +390,11 @@ export class ManuScrapeController {
   public chooseProject(id: number) {
     this.activeProjectId = id;
     if (this.useEncryption) {
-      saveFile(id.toString(), this.projectPath);
+      // fire-and-forget: chooseProject is called synchronously from the
+      // tray menu, and the save is a best-effort persistence
+      saveFile(id.toString(), this.projectPath).catch((err) =>
+        console.warn("Unable to persist active project:", err),
+      );
     }
     this.activeObservationId = undefined;
     this.refreshContextMenu();
@@ -964,6 +971,9 @@ export class ManuScrapeController {
   // function that tries to authorize using the saved host and the auth cookie
   // that chromium persists in its cookie jar
   private async init() {
+    // load persisted settings (async since electron 45 — see constructor)
+    this.settings = await initializeSettings(this.settingsPath);
+
     const hostExists = fileExists(this.hostPath);
     const projectExists = fileExists(this.projectPath);
 
@@ -980,13 +990,13 @@ export class ManuScrapeController {
 
     try {
       if (hostExists) {
-        this.apiHost = readFile(this.hostPath);
+        this.apiHost = await readFile(this.hostPath);
         host = this.apiHost;
       }
 
       // choose last project if exists, else first project
       if (projectExists) {
-        projectId = parseInt(readFile(this.projectPath));
+        projectId = parseInt(await readFile(this.projectPath));
         if (isNaN(projectId)) {
           projectId = undefined;
           // TODO: report error
@@ -1111,7 +1121,7 @@ export class ManuScrapeController {
 
         // save host for future sessions if encryption is available
         if (this.useEncryption) {
-          saveFile(host, this.hostPath);
+          await saveFile(host, this.hostPath);
         }
       }
 
@@ -1336,7 +1346,7 @@ export class ManuScrapeController {
 
       // Save host for future sessions
       if (this.useEncryption) {
-        saveFile(host, this.hostPath);
+        await saveFile(host, this.hostPath);
       }
 
       // Clear existing auth listeners
@@ -1612,7 +1622,7 @@ export class ManuScrapeController {
     this.settings = patchedSettings;
 
     // TODO: save to disk???
-    saveSettingsToFile(this.settingsPath, this.settings);
+    await saveSettingsToFile(this.settingsPath, this.settings);
 
     // show success notification
     new Notification({

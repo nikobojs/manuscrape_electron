@@ -5,14 +5,22 @@ export function fileExists(p: string): boolean {
   return fs.existsSync(p);
 }
 
-export function readFile(p: string): string {
+// NOTE: safeStorage's sync API was deprecated in electron 45 and will be
+// removed in a future release — always use the async variants here
+export async function readFile(p: string): Promise<string> {
   const encrypted = fs.readFileSync(p);
-  const host = safeStorage.decryptString(encrypted);
-  return host;
+  const { result, shouldReEncrypt } = await safeStorage.decryptStringAsync(
+    encrypted,
+  );
+  if (shouldReEncrypt) {
+    // the encryption key was rotated — persist the content with the new key
+    await saveFile(result, p);
+  }
+  return result;
 }
 
-export function saveFile(content: string, p: string): void {
-  const encrypted = safeStorage.encryptString(content);
+export async function saveFile(content: string, p: string): Promise<void> {
+  const encrypted = await safeStorage.encryptStringAsync(content);
   fs.writeFileSync(p, encrypted);
 }
 

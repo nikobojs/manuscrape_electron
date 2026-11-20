@@ -137,6 +137,9 @@ export const createPrewarmedOverlayWindow = (
     focusable: false,
     hiddenInMissionControl: true,
     thickFrame: false,
+    // electron >= 43 rounds frameless window corners by default (all
+    // platforms) — the overlay must cover the display edge-to-edge
+    roundedCorners: false,
     x: initialDisplay.workArea.x,
     y: initialDisplay.workArea.y,
     width: initialDisplay.workArea.width,

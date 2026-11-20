@@ -11,8 +11,8 @@ export function sleepAsync(ms: number | undefined) {
   return new Promise((ok) => setTimeout(ok, ms));
 }
 
-export function warnIfEncryptionUnavailable(): boolean {
-  const encryptionAvailable = safeStorage.isEncryptionAvailable();
+export async function warnIfEncryptionUnavailable(): Promise<boolean> {
+  const encryptionAvailable = await safeStorage.isAsyncEncryptionAvailable();
   if (!encryptionAvailable) {
     const err = new Error(
       'Your machine does not support safe login. Your login sessions will not be saved'

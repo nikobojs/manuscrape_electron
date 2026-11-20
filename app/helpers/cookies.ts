@@ -94,7 +94,7 @@ export async function removeOtherHostAuthCookies(host: string): Promise<void> {
 // chromium only keeps in memory. overwrites any previously remembered login,
 // so only the last login from the last host is ever remembered
 export async function rememberAuthCookie(host: string): Promise<void> {
-  if (!canStoreSecurely()) return;
+  if (!(await canStoreSecurely())) return;
 
   const cookie = await readAuthCookieForHost(host);
   if (!cookie) {
@@ -115,7 +115,7 @@ export async function rememberAuthCookie(host: string): Promise<void> {
   };
 
   try {
-    saveFile(JSON.stringify(record), authSessionPath());
+    await saveFile(JSON.stringify(record), authSessionPath());
     console.info("remembered auth cookie for", new URL(host).hostname);
   } catch (err) {
     // the login works for this session, it just will not be remembered
@@ -129,7 +129,7 @@ export async function rememberAuthCookie(host: string): Promise<void> {
 export async function restoreAuthCookie(host: string): Promise<boolean> {
   let record: AuthSessionRecord | undefined;
   try {
-    record = JSON.parse(readFile(authSessionPath())) as AuthSessionRecord;
+    record = JSON.parse(await readFile(authSessionPath())) as AuthSessionRecord;
   } catch (err) {
     // no remembered login, or it could not be decrypted
     return false;
@@ -183,8 +183,8 @@ export function onAuthCookieChanged(
 
 // check that the remembered login can be stored securely on this machine
 // NOTE: the record holds a credential, so it must be encrypted on disk
-function canStoreSecurely(): boolean {
-  if (!safeStorage.isEncryptionAvailable()) {
+async function canStoreSecurely(): Promise<boolean> {
+  if (!(await safeStorage.isAsyncEncryptionAvailable())) {
     console.warn(
       "Auth cookie will not be remembered: safeStorage unavailable",
     );
