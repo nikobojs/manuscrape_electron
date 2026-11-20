@@ -1,17 +1,7 @@
 import { app, MenuItem, shell, screen, Menu } from "electron";
 import path from "path";
 import type { ManuScrapeController } from "../controller";
-import {
-  loginIcon,
-  addIcon,
-  monitorIcon,
-  logoutIcon,
-  bugReportIcon,
-  quitIcon,
-  folderIcon,
-  openInNewIcon,
-  settingsIcon,
-} from "./icons";
+import { getMenuIcons, type MenuIcons } from "./icons";
 
 function getAndroidSetupGuidePath(): string {
   return app.isPackaged
@@ -26,6 +16,19 @@ export function generateMenuItems(
   const menuItems = [] as MenuItem[];
   const activeDisplay = controller.getActiveDisplay();
   const projectAccess = controller.getActiveProject();
+
+  // pick the icon variant matching the current OS theme (dark by default)
+  const {
+    login: loginIcon,
+    add: addIcon,
+    monitor: monitorIcon,
+    logout: logoutIcon,
+    bugReport: bugReportIcon,
+    quit: quitIcon,
+    folder: folderIcon,
+    openInNew: openInNewIcon,
+    settings: settingsIcon,
+  }: MenuIcons = getMenuIcons();
 
   if (!user) {
     menuItems.push(

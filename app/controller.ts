@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   globalShortcut,
+  nativeTheme,
   BrowserWindow,
   type IpcMainEvent,
 } from "electron";
@@ -130,6 +131,15 @@ export class ManuScrapeController {
     screen.on("display-added", () => this.refreshDisplays());
     screen.on("display-removed", () => this.refreshDisplays());
     screen.on("display-metrics-changed", () => this.refreshDisplays());
+
+    // regenerate the tray menu when the OS switches between light and
+    // dark mode, so the menu icons always match the menu background
+    nativeTheme.on("updated", () => {
+      if (this.tray) {
+        this.refreshContextMenu();
+      }
+    });
+
     this.activeDisplayIndex = 0;
     this.isMarkingArea = false;
     this.cancelOperation = false;
