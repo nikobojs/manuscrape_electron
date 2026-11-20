@@ -4,6 +4,7 @@
     "target": "es6",
     "module": "node20",
     "strict": true,
+    "rootDir": "./app",
     "outDir": "./dist"
   }
 }

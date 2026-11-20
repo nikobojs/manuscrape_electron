@@ -17,22 +17,23 @@
     "delete-venv": "rm -rf python/env && (cd python && python3 -m venv env)",
     "pyfreeze": "cd python && . env/bin/activate && pyinstaller -F --distpath ./dist -n chatjoiner src/main.py && deactivate",
     "pyfreeze-win": "python\\env\\Scripts\\activate && pyinstaller -F --distpath ./python/dist -n chatjoiner python\\src\\main.py && deactivate",
-    "build-tailwind": "npx tailwindcss -i tailwind.config.css -o assets/tailwind.min.css --minify"
+    "build-tailwind": "npx @tailwindcss/cli -i tailwind.config.css -o assets/tailwind.min.css --minify"
   },
   "author": "Code Collective ApS",
   "license": "MIT",
   "devDependencies": {
-    "@electron-forge/cli": "7.11.2",
-    "@electron-forge/maker-dmg": "7.11.2",
-    "@electron-forge/maker-rpm": "7.11.2",
-    "@electron-forge/maker-squirrel": "7.11.2",
-    "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/maker-dmg": "^8.0.1",
+    "@electron-forge/maker-rpm": "^8.0.1",
+    "@electron-forge/maker-squirrel": "^8.0.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^8.0.1",
+    "@tailwindcss/cli": "^4.3.5",
     "@types/p5": "1.7.7",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.10",
     "electron": "^45.4.1",
     "env-cmd": "^11.0.0",
-    "tailwindcss": "3.4.15",
-    "typescript": "5.9.3"
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
