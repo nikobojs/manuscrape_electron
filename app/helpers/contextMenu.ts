@@ -16,6 +16,9 @@ export function generateMenuItems(
   const menuItems = [] as MenuItem[];
   const activeDisplay = controller.getActiveDisplay();
   const projectAccess = controller.getActiveProject();
+  const activeProjectAccess = user?.projectAccess.find(
+    (p) => p.project.id === controller.activeProjectId,
+  );
 
   // pick the icon variant matching the current OS theme (dark by default)
   const {
@@ -101,7 +104,8 @@ export function generateMenuItems(
         );
       }
 
-      // use `hasImageField` boolean to enable/disable helper text + take screenshot + take scrollshot
+      // show helper text when the project cannot store screenshots.
+      // the items stay enabled: clicking them opens an explanatory dialog
       const hasImageField = controller.activeProjectHasImageField();
 
       if (!hasImageField) {
@@ -117,7 +121,6 @@ export function generateMenuItems(
         new MenuItem({
           label: "Take screenshot",
           type: "normal",
-          enabled: hasImageField,
           click: () => controller.createQuickScreenshot(),
           accelerator: "Alt+N",
           icon: addIcon,
@@ -128,7 +131,6 @@ export function generateMenuItems(
         new MenuItem({
           label: "Take scrollshot",
           type: "normal",
-          enabled: hasImageField,
           click: () => controller.createScrollScreenshot(),
           accelerator: "Alt+S",
           icon: addIcon,
@@ -146,12 +148,27 @@ export function generateMenuItems(
 
       menuItems.push(
         new MenuItem({
-          label: "Open drafts",
+          label: "Show observations",
           type: "normal",
           click: () => controller.openObservationDraftsWindow(),
           icon: openInNewIcon,
         }),
       );
+
+      if (
+        activeProjectAccess?.project?.id &&
+        activeProjectAccess?.role === "OWNER"
+      ) {
+        menuItems.push(
+          new MenuItem({
+            label: "Show parameters",
+            type: "normal",
+            click: () =>
+              controller.openParametersWindow(activeProjectAccess.project.id),
+            icon: openInNewIcon,
+          }),
+        );
+      }
     }
   }
 
@@ -222,10 +239,6 @@ export function generateMenuItems(
 
       const chosenMenuItem = projectMenu.submenu?.items.find(
         (item) => item.id === controller.activeProjectId?.toString(),
-      );
-
-      const activeProjectAccess = user.projectAccess.find(
-        (p) => p.project.id === controller.activeProjectId,
       );
 
       if (activeProjectAccess) {
@@ -309,7 +322,10 @@ export function generateMenuItems(
     );
     // only add tooltip about auto refresh feature if not linux
     if (process.platform !== "linux") {
-      const msg = process.platform === 'win32' ? '- reopen tray menu' : 'Close and reopen this menu to refresh.';
+      const msg =
+        process.platform === "win32"
+          ? "- reopen tray menu"
+          : "Close and reopen this menu to refresh.";
       phoneSubmenuItems.push(
         new MenuItem({
           label: "New phone connected?",

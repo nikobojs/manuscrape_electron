@@ -122,6 +122,28 @@ if (isElectron) {
 
 ---
 
+### 6. Project Parameters Window
+
+**When:** The user tries to take a screenshot/scrollshot while the active project has no image field(s), and chooses "Open project" in the dialog
+
+**Electron Behavior:**
+- Opens `/projects/{projectId}/parameters?electron=1` in a Nuxt window
+- When the window closes, Electron refetches the user and rebuilds the tray menu
+
+**Nuxt Requirement:**
+- After any successful save that changes the project's parameters/fields, call:
+
+```javascript
+window.electronAPI?.projectUpdated(projectId);
+```
+
+- This makes Electron refetch the project data immediately, so the tray menu
+  and screenshot guards update live — even while the parameters window is
+  still open (no need to wait for the window to close)
+- Fire it after every successful parameter save, not just once
+
+---
+
 ## Session Invalidation
 
 Electron watches Chromium's cookie jar for changes to the `manuscrape-session` cookie. When the cookie disappears (because the user logged out or the session expired inside any Nuxt window), Electron automatically clears its local session state and updates the tray menu. No IPC events are needed for sign-out.
@@ -150,6 +172,7 @@ The following methods are exposed to the Nuxt webapp via `window.electronAPI`:
 
 ### Observation Management
 - `projectCreated(project)` - Signal project creation
+- `projectUpdated(projectId)` - Signal that a project's parameters changed (see [Project Parameters Window](#project-parameters-window))
 - `observationCreated(project)` - Signal observation creation
 - `areaMarked(...args)` - Signal area marking
 - `takeAnother(observationId)` - Prepare next screenshot

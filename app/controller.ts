@@ -3,6 +3,7 @@ import {
   Notification,
   screen,
   Tray,
+  dialog,
   ipcMain,
   Menu,
   globalShortcut,
@@ -26,7 +27,7 @@ import {
   createNuxtAppWindow,
   createChooseServerWindow,
 } from "./helpers/browserWindows";
-import { trayIcon, successIcon, errorIcon, warningIcon } from "./helpers/icons";
+import { trayIcon, successIcon, errorIcon } from "./helpers/icons";
 import {
   fetchUser,
   logout,
@@ -96,8 +97,7 @@ export class ManuScrapeController {
   private settingsWarmWindow: Electron.BrowserWindow | undefined;
   private draftsWarmWindow: Electron.BrowserWindow | undefined;
   private onAreaMarkedListener:
-    | ((event: IpcMainEvent, ...args: any[]) => Promise<void>)
-    | undefined;
+    ((event: IpcMainEvent, ...args: any[]) => Promise<void>) | undefined;
   private tray: Tray | undefined;
   private apiHost: string | undefined;
   private hostPath: string;
@@ -177,6 +177,21 @@ export class ManuScrapeController {
 
     ipcMain.on("observation-image-uploaded", () => {
       this.cancelActiveObservation();
+    });
+
+    // the web app reports that a project's parameters changed (e.g. in the
+    // parameters window). Refetch the user so project fields, tray menu and
+    // screenshot guards reflect the change immediately — even while the
+    // parameters window is still open
+    ipcMain.on("project-updated", (_event, projectId: unknown) => {
+      if (typeof projectId !== "number") {
+        console.warn(
+          "Ignoring project-updated event with invalid payload:",
+          projectId,
+        );
+        return;
+      }
+      void this.syncAuthStateAndMenu();
     });
 
     // disable proxy (can disable weird long loading time in some cases)
@@ -379,8 +394,7 @@ export class ManuScrapeController {
   }
 
   public getActiveProject():
-    | { role: string; project: IGetProjectResponse }
-    | undefined {
+    { role: string; project: IGetProjectResponse } | undefined {
     if (!this.user || !this.activeProjectId) return undefined;
     return this.user.projectAccess.find(
       (p) => p.project.id === this.activeProjectId,
@@ -397,27 +411,62 @@ export class ManuScrapeController {
   }
 
   // blocks screenshots when the active project has no image fields,
-  // notifying the user why. Returns false when the request should be dropped.
-  private guardProjectHasImageField(): boolean {
+  // explaining why in a modal dialog. Returns false when the request
+  // should be dropped.
+  private async guardProjectHasImageField(): Promise<boolean> {
     const projectAccess = this.getActiveProject();
     // no active project: keep existing error path (requireActiveProjectId)
     if (!projectAccess) return true;
 
     if (!this.activeProjectHasImageField()) {
-      new Notification({
+      const response = dialog.showMessageBoxSync({
         title: "ManuScrape",
-        body: "You cannot take screen- or scrollshots when the current project has no image fields",
-        icon: warningIcon,
-      }).show();
+        type: "warning",
+        message: `The project "${projectAccess.project.name}" has no image field(s), so there is nowhere to store screenshots.`,
+        detail:
+          "Add an image field to the project to enable screen- and scrollshots.",
+        buttons: ["Open project", "Cancel"],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      });
+
+      // open the project in the web app so the user can add an image field
+      if (response === 0) {
+        await this.openParametersWindow(projectAccess.project.id);
+      }
       return false;
     }
     return true;
   }
 
+  public async openParametersWindow(projectId: number): Promise<void> {
+    const apiHost = this.requireApiHost();
+
+    // close existing nuxt window if any
+    const confirmed = await this.confirmCloseNuxtWindowIfAny();
+    if (!confirmed) {
+      return;
+    }
+
+    const win = createNuxtAppWindow(
+      `${apiHost}/projects/${projectId}/parameters?electron=1`,
+      () => {
+        // refresh user + tray menu when the window closes, so newly
+        // added image fields re-enable screenshots without a restart
+        this.syncAuthStateAndMenu();
+      },
+      () => {},
+      1200,
+      790,
+    );
+    this.nuxtWindow = win;
+  }
+
   // create new quick screenshot
   public async createQuickScreenshot(): Promise<void> {
     // drop request when the active project cannot store screenshots
-    if (!this.guardProjectHasImageField()) {
+    if (!(await this.guardProjectHasImageField())) {
       return;
     }
 
@@ -444,7 +493,7 @@ export class ManuScrapeController {
   // create new scroll screenshot
   public async createScrollScreenshot(): Promise<void> {
     // drop request when the active project cannot store screenshots
-    if (!this.guardProjectHasImageField()) {
+    if (!(await this.guardProjectHasImageField())) {
       return;
     }
 
@@ -831,11 +880,7 @@ export class ManuScrapeController {
         !observationKeptForNext &&
         !observationImageUploaded
       ) {
-        this.deleteObservationIfEmpty(
-          apiHost,
-          activeProjectId,
-          observationId,
-        );
+        this.deleteObservationIfEmpty(apiHost, activeProjectId, observationId);
       }
 
       this.syncAuthStateAndMenu();
@@ -878,10 +923,7 @@ export class ManuScrapeController {
     try {
       obs = await getObservation(apiHost, projectId, observationId);
     } catch (e) {
-      console.error(
-        "Unable to fetch draft observation before deletion:",
-        e,
-      );
+      console.error("Unable to fetch draft observation before deletion:", e);
       return;
     }
 
@@ -1303,13 +1345,15 @@ export class ManuScrapeController {
       } else {
         this.openNuxtLoginWindow(host, event);
       }
-
     } catch (err: any) {
       return event.reply("choose-server-error", err?.message || "Invalid host");
     }
   }
 
-  private openNuxtLoginWindow(host: string, event: Electron.IpcMainEvent): void {
+  private openNuxtLoginWindow(
+    host: string,
+    event: Electron.IpcMainEvent,
+  ): void {
     // Clear any stale auth cookie from previous sessions
     void removeAuthCookie(host);
 
@@ -1325,7 +1369,9 @@ export class ManuScrapeController {
       },
       () => {
         // onReady callback
-        console.log('Nuxt login window ready, waiting for frontend IPC events...');
+        console.log(
+          "Nuxt login window ready, waiting for frontend IPC events...",
+        );
       },
       400,
       600,
@@ -1335,7 +1381,10 @@ export class ManuScrapeController {
     this.attachNuxtAuthWindowLifecycle(nuxtWin, chooseServerWin, event, host);
   }
 
-  private openNuxtSignupWindow(host: string, event: Electron.IpcMainEvent): void {
+  private openNuxtSignupWindow(
+    host: string,
+    event: Electron.IpcMainEvent,
+  ): void {
     // Clear any stale auth cookie from previous sessions
     void removeAuthCookie(host);
 
@@ -1351,7 +1400,9 @@ export class ManuScrapeController {
       },
       () => {
         // onReady callback
-        console.log('Nuxt signup window ready, waiting for frontend IPC events...');
+        console.log(
+          "Nuxt signup window ready, waiting for frontend IPC events...",
+        );
       },
       400,
       600,
@@ -1467,8 +1518,13 @@ export class ManuScrapeController {
   }
 
   // Show server chooser instead of sign-in/up
-  public showServerChooser(clientIsTooOld = false, intent: "login" | "signup" = "login"): void {
-    console.log(`[showServerChooser] START - intent=${intent}, authWindow=${this.authWindow?.isDestroyed()}, nuxtWindow=${this.nuxtWindow?.isDestroyed()}`);
+  public showServerChooser(
+    clientIsTooOld = false,
+    intent: "login" | "signup" = "login",
+  ): void {
+    console.log(
+      `[showServerChooser] START - intent=${intent}, authWindow=${this.authWindow?.isDestroyed()}, nuxtWindow=${this.nuxtWindow?.isDestroyed()}`,
+    );
 
     if (this.authWindow && !this.authWindow.isDestroyed()) {
       // honor the new intent even though a window is already open
@@ -1525,7 +1581,9 @@ export class ManuScrapeController {
 
     // Create new choose server window
     this.authWindow = createChooseServerWindow();
-    console.log(`[showServerChooser] Created chooseServer window: ${!this.authWindow.isDestroyed()}`);
+    console.log(
+      `[showServerChooser] Created chooseServer window: ${!this.authWindow.isDestroyed()}`,
+    );
   }
 
   // update local settings based on patch event via ipc
@@ -1563,8 +1621,6 @@ export class ManuScrapeController {
     // reply to frontend that the patch went well
     event.reply("update-settings-ok", patchedSettings);
   }
-
-
 
   private clearAuthIpcListeners() {
     // clear existing relevant ipcMain listeners
@@ -1606,8 +1662,6 @@ export class ManuScrapeController {
     }
     // TODO: also close existing open windows? maybe a reset windows method?
   }
-
-
 
   public openSettingsWindow() {
     const apiHost = this.requireApiHost();
@@ -1708,27 +1762,24 @@ export class ManuScrapeController {
 
     // support "take another" from the drafts window, same as the
     // screenshot observation window flow
-    ipcMain.once(
-      "prepare-next-screenshot",
-      (event, obsId: number) => {
-        if (typeof obsId !== "number") {
-          new Notification({
-            title: "ManuScrape",
-            body: "Unable to use this feature",
-            icon: errorIcon,
-          }).show();
-          return;
-        }
+    ipcMain.once("prepare-next-screenshot", (event, obsId: number) => {
+      if (typeof obsId !== "number") {
+        new Notification({
+          title: "ManuScrape",
+          body: "Unable to use this feature",
+          icon: errorIcon,
+        }).show();
+        return;
+      }
 
-        if (!event.sender.isDestroyed()) {
-          event.sender.close();
-        }
+      if (!event.sender.isDestroyed()) {
+        event.sender.close();
+      }
 
-        // save observation id to the next screenshot
-        this.activeObservationId = obsId;
-        this.refreshContextMenu();
-      },
-    );
+      // save observation id to the next screenshot
+      this.activeObservationId = obsId;
+      this.refreshContextMenu();
+    });
 
     const onWindowClose = () => {
       ipcMain.removeAllListeners("observation-created");
@@ -2028,10 +2079,10 @@ export class ManuScrapeController {
       const executable =
         process.platform === "win32" && runtime.noConsoleClient
           ? path.join(
-            process.env.SystemRoot || "C:\\Windows",
-            "System32",
-            "wscript.exe",
-          )
+              process.env.SystemRoot || "C:\\Windows",
+              "System32",
+              "wscript.exe",
+            )
           : runtime.client;
       const args =
         process.platform === "win32" && runtime.noConsoleClient

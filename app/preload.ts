@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   projectCreated: (project: any) => {
     ipcRenderer.send("project-created", project);
   },
+  projectUpdated: (projectId: number) => {
+    ipcRenderer.send("project-updated", projectId);
+  },
   observationCreated: (project: any) => {
     ipcRenderer.send("observation-created", project);
   },
