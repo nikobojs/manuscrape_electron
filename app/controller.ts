@@ -1262,16 +1262,19 @@ export class ManuScrapeController {
     const activeDisplay = this.getActiveDisplay();
     const beginOpen = Date.now();
     if (!isMac()) {
-      this.overlayWindow!.setFullScreen(false);
+      // NOTE: never use setFullScreen() here. Fullscreen transitions toggle
+      // window styles and force a DWM recomposition, which is slow and
+      // flickery on Windows — especially for transparent windows. A frameless
+      // topmost window sized to the full display achieves the same coverage
+      // (taskbar included) without any style transition.
       this.overlayWindow!.setBounds({
-        x: activeDisplay.workArea.x,
-        y: activeDisplay.workArea.y,
-        width: activeDisplay.workArea.width,
-        height: activeDisplay.workArea.height,
+        x: activeDisplay.bounds.x,
+        y: activeDisplay.bounds.y,
+        width: activeDisplay.bounds.width,
+        height: activeDisplay.bounds.height,
       });
-      this.overlayWindow!.setFullScreen(true);
-      // fullscreen transitions can drop the window from topmost, and the
-      // overlay cannot raise itself via focus (focusable: false) — re-assert
+      // the overlay cannot raise itself via focus (focusable: false) —
+      // make sure it stays above the current foreground window
       this.overlayWindow!.setAlwaysOnTop(true);
     } else {
       this.overlayWindow!.setBounds({
