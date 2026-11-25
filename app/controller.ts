@@ -67,7 +67,7 @@ import {
   validateSettings,
 } from "./helpers/settings";
 import fs from "fs";
-import { hasMinimumMacVersion, isMac } from "./helpers/os";
+import { isMac } from "./helpers/os";
 import { execFile, spawn } from "child_process";
 import {
   getScrcpyRuntimePaths,
@@ -530,6 +530,10 @@ export class ManuScrapeController {
         const apiHost = this.requireApiHost();
         const activeProjectId = this.requireActiveProjectId();
 
+        // shift the area to display-relative coordinates if macOS clamped
+        // the overlay below the system bar (see correctAreaForOverlayOrigin)
+        this.correctAreaForOverlayOrigin(area);
+
         // emit primary status text
         this.overlayWindow?.webContents.send("mark-area-status", {
           statusText: "Recording scrollshot...",
@@ -625,6 +629,29 @@ export class ManuScrapeController {
     this.refreshShortcuts();
   }
 
+  // The overlay reports its marked area in window-relative coordinates, but
+  // the screenshot is cropped from a full-screen capture. Those match whenever
+  // the overlay is placed at the display origin (which openMarkAreaOverlay
+  // requests on macOS). If macOS (e.g. Tahoe / 26+) clamps the overlay below
+  // the system bar instead, the window's real y origin lies below the display
+  // origin and the whole area must be shifted down by that distance. When the
+  // overlay does cover the full display, the offset is zero and the area is
+  // already display-relative — no shift is applied.
+  private correctAreaForOverlayOrigin(area: Square): void {
+    if (!isMac()) {
+      return;
+    }
+    const overlay = this.overlayWindow;
+    if (!overlay || overlay.isDestroyed()) {
+      return;
+    }
+    const topEdgeOffset =
+      overlay.getBounds().y - this.getActiveDisplay().bounds.y;
+    if (topEdgeOffset > 0) {
+      area.y += topEdgeOffset;
+    }
+  }
+
   private useOnMarkedAreaCallback(
     callback: (
       area: any,
@@ -650,12 +677,9 @@ export class ManuScrapeController {
         const apiHost = this.requireApiHost();
         const activeProjectId = this.requireActiveProjectId();
 
-        // adjust for MacOS tahoe not allowing a full overlay anymore
-        // offset the coordinate down
-        if (isMac() && hasMinimumMacVersion(26)) {
-          const topbarHeight = 30;
-          area.y += topbarHeight;
-        }
+        // shift the area to display-relative coordinates if macOS clamped
+        // the overlay below the system bar (see correctAreaForOverlayOrigin)
+        this.correctAreaForOverlayOrigin(area);
 
         if (!this.overlayWindow || this.overlayWindow?.isDestroyed?.())
           throw new Error("Overlay window does not exist");
