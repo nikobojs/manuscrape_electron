@@ -432,7 +432,7 @@ export class ManuScrapeController {
         message: `The project "${projectAccess.project.name}" has no image field(s), so there is nowhere to store screenshots.`,
         detail:
           "Add an image field to the project to enable screen- and scrollshots.",
-        buttons: ["Open project", "Cancel"],
+        buttons: ["Show parameters", "Cancel"],
         defaultId: 0,
         cancelId: 1,
         noLink: true,
